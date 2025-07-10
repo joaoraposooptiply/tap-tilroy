@@ -1,0 +1,2363 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "version": "2.37.0",
+    "title": "ProductAPI",
+    "description": "Public API for product related data"
+  },
+  "paths": {
+    "/products": {
+      "get": {
+        "summary": "Search products",
+        "description": "Search products.",
+        "tags": [
+          "products"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/pagingCount"
+          },
+          {
+            "$ref": "#/components/parameters/pagingPage"
+          },
+          {
+            "$ref": "#/components/parameters/queryFields"
+          },
+          {
+            "$ref": "#/components/parameters/querySkuSourceId"
+          },
+          {
+            "$ref": "#/components/parameters/queryCode"
+          },
+          {
+            "$ref": "#/components/parameters/queryColourCode"
+          },
+          {
+            "$ref": "#/components/parameters/querySizeCode"
+          },
+          {
+            "$ref": "#/components/parameters/queryBarcodes"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SearchResult"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "x-internal": true,
+        "summary": "create product synchronously",
+        "description": "create product. (only used internally, for now)",
+        "tags": [
+          "internal"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerSenderApplication"
+          },
+          {
+            "$ref": "#/components/parameters/headerCalculatePrices"
+          },
+          {
+            "$ref": "#/components/parameters/headerBrandMustExist"
+          },
+          {
+            "$ref": "#/components/parameters/headerSupplierMustExist"
+          },
+          {
+            "$ref": "#/components/parameters/headerGroupLevelMustExist"
+          },
+          {
+            "$ref": "#/components/parameters/headerColourMustExist"
+          },
+          {
+            "$ref": "#/components/parameters/headerSizeMustExist"
+          },
+          {
+            "$ref": "#/components/parameters/headerImportId"
+          },
+          {
+            "$ref": "#/components/parameters/headerImportType"
+          },
+          {
+            "$ref": "#/components/parameters/headerProductOrigin"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/ProductCreate"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ProductImport"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/products/import": {
+      "post": {
+        "x-internal": true,
+        "summary": "deprecated - Start an import of a product",
+        "description": "deprecated - Use this endpoint for initiating an import of a product - Used by the product upload service.",
+        "tags": [
+          "internal"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerSenderApplication"
+          },
+          {
+            "$ref": "#/components/parameters/headerCalculatePrices"
+          },
+          {
+            "$ref": "#/components/parameters/headerBrandMustExist"
+          },
+          {
+            "$ref": "#/components/parameters/headerSupplierMustExist"
+          },
+          {
+            "$ref": "#/components/parameters/headerGroupLevelMustExist"
+          },
+          {
+            "$ref": "#/components/parameters/headerColourMustExist"
+          },
+          {
+            "$ref": "#/components/parameters/headerSizeMustExist"
+          },
+          {
+            "$ref": "#/components/parameters/headerImportId"
+          },
+          {
+            "$ref": "#/components/parameters/headerImportType"
+          },
+          {
+            "$ref": "#/components/parameters/headerProductOrigin"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/ProductImport"
+        },
+        "responses": {
+          "202": {
+            "description": "ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/import/products": {
+      "post": {
+        "summary": "Start an import of a product",
+        "description": "Use this endpoint for initiating an import of a product.\n\nBe wary that this is an async import. The body is validated and sent to a queue.\n\nWhen the same body is sent a second time, it will not be processed, but a 201 will be returned.  If you notice that a product is not imported in Tilroy, there is no use of sending the same request again, as this will be ignored.",
+        "tags": [
+          "import"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerSenderApplication"
+          },
+          {
+            "$ref": "#/components/parameters/headerCalculatePrices"
+          },
+          {
+            "$ref": "#/components/parameters/headerBrandMustExist"
+          },
+          {
+            "$ref": "#/components/parameters/headerSupplierMustExist"
+          },
+          {
+            "$ref": "#/components/parameters/headerGroupLevelMustExist"
+          },
+          {
+            "$ref": "#/components/parameters/headerColourMustExist"
+          },
+          {
+            "$ref": "#/components/parameters/headerSizeMustExist"
+          },
+          {
+            "$ref": "#/components/parameters/headerImportId"
+          },
+          {
+            "$ref": "#/components/parameters/headerImportType"
+          },
+          {
+            "$ref": "#/components/parameters/headerProductOrigin"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/ImportProduct"
+        },
+        "responses": {
+          "202": {
+            "description": "ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/import/products/partial": {
+      "post": {
+        "summary": "Use to update the lifeStatus and costPrice of all skus of a product",
+        "description": "Use to update the lifeStatus and costPrice of all skus of a product. All Ids are used merely as idenditiers, when both are passed only tilroyId is used. Be wary of calling this endpoint in rapid sucession, as this is an async import (gets sent to a queue), previous updates might be overwritten.",
+        "tags": [
+          "import"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/PartialImportProduct"
+        },
+        "responses": {
+          "202": {
+            "description": "accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/import/products/shops": {
+      "post": {
+        "summary": "Start an import of the data for a shop product combination",
+        "description": "Use this endpoint for initiating an import of a shop product.",
+        "tags": [
+          "import"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/ImportProductShop"
+        },
+        "responses": {
+          "202": {
+            "description": "ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/products/{sourceId}": {
+      "put": {
+        "summary": "Update an existing product",
+        "description": "Use this endpoint for updating an existing product. The (partial) product will be merged with the existing product.",
+        "tags": [
+          "internal"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/sourceId"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/ProductUpdate"
+        },
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "get": {
+        "summary": "get an existing product",
+        "description": "Use this endpoint to get and existing product by id.",
+        "tags": [
+          "products"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/sourceId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Product"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/v2/products/{tilroyId}": {
+      "get": {
+        "summary": "get an existing product",
+        "description": "Use this endpoint to get and existing product by Tilroy ID.",
+        "tags": [
+          "products"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/tilroyId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Product"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.tilroy.com/product-bulk/production"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "x-api-key": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key"
+      },
+      "Tilroy-Api-Key": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Tilroy-Api-Key"
+      }
+    },
+    "parameters": {
+      "headerTilroyApiKey": {
+        "name": "Tilroy-Api-Key",
+        "in": "header",
+        "required": true,
+        "description": "API key to identify and validate the tenant",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "headerXApiKey": {
+        "name": "x-api-key",
+        "in": "header",
+        "required": true,
+        "description": "API key of AWS",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "headerSenderApplication": {
+        "name": "Sender-Application",
+        "in": "header",
+        "required": false,
+        "x-internal": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "headerCalculatePrices": {
+        "name": "Calculate-Prices",
+        "in": "header",
+        "required": false,
+        "x-internal": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "headerBrandMustExist": {
+        "name": "Brand-Must-Exist",
+        "in": "header",
+        "required": false,
+        "x-internal": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "headerSupplierMustExist": {
+        "name": "Supplier-Must-Exist",
+        "in": "header",
+        "required": false,
+        "x-internal": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "headerGroupLevelMustExist": {
+        "name": "GroupLevel-Must-Exist",
+        "in": "header",
+        "required": false,
+        "x-internal": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "headerColourMustExist": {
+        "name": "Colour-Must-Exist",
+        "in": "header",
+        "required": false,
+        "x-internal": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "headerSizeMustExist": {
+        "name": "Size-Must-Exist",
+        "in": "header",
+        "required": false,
+        "x-internal": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "headerImportId": {
+        "name": "Import-Id",
+        "in": "header",
+        "required": false,
+        "x-internal": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "headerImportType": {
+        "name": "Import-Type",
+        "in": "header",
+        "required": false,
+        "x-internal": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "headerProductOrigin": {
+        "name": "Product-Origin",
+        "in": "header",
+        "required": false,
+        "x-internal": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "sourceId": {
+        "name": "sourceId",
+        "in": "path",
+        "required": true,
+        "description": "the source ID of the product",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "tilroyId": {
+        "name": "tilroyId",
+        "in": "path",
+        "required": true,
+        "description": "the tilroy ID of the product",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "pagingCount": {
+        "in": "query",
+        "name": "count",
+        "schema": {
+          "type": "integer",
+          "default": 10,
+          "maximum": 1000
+        },
+        "description": "Number of returned results per page, max is 1000.",
+        "required": false
+      },
+      "pagingPage": {
+        "in": "query",
+        "name": "page",
+        "schema": {
+          "type": "integer",
+          "default": 1
+        },
+        "description": "Number of the wanted page of results.",
+        "required": false
+      },
+      "queryFields": {
+        "in": "query",
+        "name": "fields",
+        "schema": {
+          "type": "string"
+        },
+        "description": "Comma-separated list of all fields you want returned in the result. All other fields will be omitted.",
+        "required": false
+      },
+      "querySkuSourceId": {
+        "in": "query",
+        "name": "skuSourceId",
+        "schema": {
+          "type": "string"
+        },
+        "description": "sku sourceId to search for.",
+        "required": false
+      },
+      "queryCode": {
+        "in": "query",
+        "name": "code",
+        "schema": {
+          "type": "string"
+        },
+        "description": "search on product code (if both \"code\" and \"skuSourceId\" are passed, only \"skuSourceId\" is used).",
+        "required": false
+      },
+      "queryColourCode": {
+        "in": "query",
+        "name": "colourCode",
+        "schema": {
+          "type": "string"
+        },
+        "description": "search on colourCode (only works in tandem with \"code\" and \"sizeCode\" query parameters)",
+        "required": false
+      },
+      "querySizeCode": {
+        "in": "query",
+        "name": "sizeCode",
+        "schema": {
+          "type": "string"
+        },
+        "description": "search on sizeCode (only works in tandem with \"code\" and \"colourCode\" query parameters)",
+        "required": false
+      },
+      "queryBarcodes": {
+        "in": "query",
+        "name": "barcodes",
+        "schema": {
+          "type": "string"
+        },
+        "description": "comma separated list of barcodes to search for (only returns skus with these barcodes)",
+        "required": false
+      }
+    },
+    "requestBodies": {
+      "ProductImport": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProductImport"
+            }
+          }
+        },
+        "required": true
+      },
+      "ProductCreate": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProductImport"
+            }
+          }
+        },
+        "required": true
+      },
+      "ProductUpdate": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ImportProduct"
+            }
+          }
+        },
+        "required": true
+      },
+      "ImportProduct": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ImportProduct"
+            }
+          }
+        },
+        "required": true
+      },
+      "PartialImportProduct": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PartialImportProduct"
+            }
+          }
+        },
+        "required": true
+      },
+      "ImportProductShop": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ImportProductShop"
+            }
+          }
+        },
+        "required": true
+      }
+    },
+    "responses": {
+      "SearchResult": {
+        "description": "ok",
+        "headers": {
+          "Link": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "csv of first/prev/page/next/last links."
+          },
+          "Link-JSON": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "JSON version of the Link header."
+          },
+          "X-Paging-CurrentPage": {
+            "schema": {
+              "type": "number"
+            },
+            "description": "number of the current page."
+          },
+          "X-Paging-ItemCount": {
+            "schema": {
+              "type": "number"
+            },
+            "description": "total number of items over all pages."
+          },
+          "X-Paging-ItemsPerPage": {
+            "schema": {
+              "type": "number"
+            },
+            "description": "number of max items returned per page."
+          },
+          "X-Paging-PageCount": {
+            "schema": {
+              "type": "number"
+            },
+            "description": "total number of pages."
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Product"
+              }
+            }
+          }
+        }
+      },
+      "ProductImport": {
+        "description": "product import/create/update response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProductImport"
+            }
+          }
+        }
+      },
+      "Product": {
+        "description": "product response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Product"
+            }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "Bad Request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Not Found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Internal Server Error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Product": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "example": "447464"
+          },
+          "sourceId": {
+            "type": "string",
+            "example": "0000U2664G"
+          },
+          "code": {
+            "type": "string",
+            "example": "0000U2664G"
+          },
+          "descriptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DescriptionFull"
+            }
+          },
+          "brand": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "CALVIN KLEIN"
+              },
+              "descriptions": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Description"
+                }
+              }
+            }
+          },
+          "colours": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Colour"
+            }
+          },
+          "groupLevels": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "SHIRT"
+                },
+                "level": {
+                  "type": "number",
+                  "example": 1
+                },
+                "descriptions": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Description"
+                  }
+                }
+              }
+            }
+          },
+          "suppliers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SupplierBase"
+            }
+          },
+          "isUsed": {
+            "type": "boolean",
+            "nullable": true
+          }
+        }
+      },
+      "Colour": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "example": "62874"
+          },
+          "sourceId": {
+            "type": "string",
+            "example": "0000U2664G BLA",
+            "maxLength": 50
+          },
+          "code": {
+            "type": "string",
+            "example": "BLUE",
+            "maxLength": 50
+          },
+          "skus": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SimplifiedSku"
+            }
+          },
+          "pictures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Picture"
+            }
+          }
+        }
+      },
+      "SimplifiedSku": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "example": "1858943"
+          },
+          "sourceId": {
+            "type": "string",
+            "example": "0000U2664G BLA S"
+          },
+          "size": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "S"
+              }
+            }
+          },
+          "lifeStatus": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "A"
+              }
+            }
+          },
+          "costPrice": {
+            "type": "number",
+            "example": 7.49
+          },
+          "barcodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Barcode"
+            }
+          },
+          "rrp": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RRP"
+            }
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "description": "The error object returned by the service",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code of the error, assigned by Node or the developer."
+          },
+          "message": {
+            "type": "string",
+            "description": "More information about the cause of the error."
+          }
+        }
+      },
+      "ProductImport": {
+        "type": "object",
+        "description": "oldest object used for importing products (with the capitalized properties)",
+        "properties": {
+          "Product": {
+            "type": "object",
+            "properties": {
+              "Code": {
+                "type": "string",
+                "example": "TSOS_12",
+                "description": "must be unique"
+              },
+              "IdSource": {
+                "type": "string",
+                "example": "3687qsd4d7e"
+              }
+            }
+          }
+        }
+      },
+      "PartialImportProduct": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "colours": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tilroyId": {
+                  "type": "string"
+                },
+                "sourceId": {
+                  "type": "string"
+                },
+                "skus": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "tilroyId": {
+                        "type": "string"
+                      },
+                      "sourceId": {
+                        "type": "string"
+                      },
+                      "costPrice": {
+                        "type": "number"
+                      },
+                      "lifeStatus": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "ImportProduct": {
+        "type": "object",
+        "properties": {
+          "sourceId": {
+            "type": "string",
+            "maxLength": 50,
+            "description": "unique reference for the product"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 20,
+            "description": "code for the product"
+          },
+          "codeAlt": {
+            "type": "string",
+            "maxLength": 1000,
+            "description": "alternative code for the product"
+          },
+          "serialNumberSale": {
+            "type": "boolean",
+            "description": "indication if a product requires a serial number on sale"
+          },
+          "supplierReference": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "supplier reference number"
+          },
+          "supplierDescription": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "supplier reference description"
+          },
+          "visibleOnline": {
+            "type": "boolean",
+            "description": "product can be sold in the webshop"
+          },
+          "intrastatCode": {
+            "type": "string",
+            "maxLength": 20,
+            "description": "IntrastatCode for this product"
+          },
+          "consumerProfitMarginCode": {
+            "type": "string",
+            "description": "consumer profit margin code"
+          },
+          "wholeSaleProfitMarginCode": {
+            "type": "string",
+            "description": "wholeSale profit margin code"
+          },
+          "purchaseConditionDiscount": {
+            "type": "number",
+            "description": "purchase condition discount"
+          },
+          "purchaseConditionCode": {
+            "type": "string",
+            "description": "purchase condition code"
+          },
+          "certificateOnSale": {
+            "type": "boolean",
+            "description": "certificate on sale required"
+          },
+          "canFinance": {
+            "type": "boolean",
+            "description": "possible to finance product"
+          },
+          "priceInfo": {
+            "type": "string",
+            "description": "price info"
+          },
+          "assetCode": {
+            "type": "string",
+            "description": "asset code"
+          },
+          "maxDiscount": {
+            "type": "numberhttps://tilroy-dev.atlassian.net/browse/INTAKE-30708?focusedCommentId=97822",
+            "format": "float",
+            "description": "maximum discount that can be applied to a product. 0= no discount allowed 1-99=between 1% and 99% discount allowed 100=no restriction on discount"
+          },
+          "sellUnique": {
+            "type": "boolean",
+            "description": "every item will be a seperate line in the basket, so always lines with quantity 1"
+          },
+          "descriptions": {
+            "$ref": "#/components/schemas/Descriptions"
+          },
+          "multipleOrderQuantities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderQuantity"
+            }
+          },
+          "minimumOrderQuantities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderQuantity"
+            }
+          },
+          "maximumOrderQuantities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderQuantity"
+            }
+          },
+          "uom": {
+            "$ref": "#/components/schemas/UOM"
+          },
+          "brand": {
+            "description": "Brand of the product",
+            "$ref": "#/components/schemas/Brand"
+          },
+          "sizeRange": {
+            "description": "size range is manditory, can be default if no size range applicable",
+            "$ref": "#/components/schemas/CodeDescriptions"
+          },
+          "supplier": {
+            "description": "supplier is manditory, can be defaulted",
+            "$ref": "#/components/schemas/Supplier"
+          },
+          "countryVats": {
+            "description": "VAT applicable by Country. Should be defined for at least one country and for all countries of the shops",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CountryVat"
+            }
+          },
+          "gender": {
+            "description": "Gender for the product, is mandatory can be default value if gender is not applicable",
+            "$ref": "#/components/schemas/CodeDescriptions"
+          },
+          "taxes": {
+            "description": "Additional taxes (Belgium: RECUPEL/BEBAT)",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Tax"
+            }
+          },
+          "groupLevels": {
+            "description": "Product groups this product belongs to.\tAt least one product group should be defined",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupLevel"
+            }
+          },
+          "colours": {
+            "description": "Colours defined for this product",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ColourImport"
+            }
+          },
+          "isUsed": {
+            "type": "boolean",
+            "example": false
+          },
+          "inStockDetail": {
+            "type": "boolean",
+            "example": false
+          },
+          "serialNumberRequired": {
+            "type": "boolean",
+            "example": false
+          },
+          "used": {
+            "description": "used information",
+            "$ref": "#/components/schemas/Used"
+          },
+          "countryData": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CountryData"
+            }
+          },
+          "configurator": {
+            "$ref": "#/components/schemas/Configurator"
+          },
+          "stopBuyBack": {
+            "type": "boolean",
+            "example": false
+          },
+          "buyUnique": {
+            "type": "boolean",
+            "example": false
+          },
+          "priceLabelQuantity": {
+            "type": "number",
+            "example": 5
+          },
+          "serviceProduct": {
+            "type": "boolean"
+          },
+          "inFeed": {
+            "type": "boolean",
+            "default": false
+          },
+          "readOnly": {
+            "type": "boolean",
+            "default": false
+          },
+          "deliverynoteAllowed": {
+            "type": "boolean"
+          },
+          "freeDelivery": {
+            "type": "boolean",
+            "example": true
+          },
+          "noRefill": {
+            "type": "boolean",
+            "example": true
+          },
+          "automaticStatusDispatch": {
+            "type": "boolean",
+            "example": true
+          },
+          "nextSaleDiscounts": {
+            "$ref": "#/components/schemas/NextSaleDiscounts"
+          },
+          "webShop": {
+            "$ref": "#/components/schemas/WebShop"
+          },
+          "rentalTypeCode": {
+            "type": "string"
+          },
+          "returnAllowed": {
+            "type": "number",
+            "enum": [
+              0,
+              1,
+              2
+            ],
+            "description": "0=allowed, 1=ask user, 2=not allowed"
+          }
+        },
+        "required": [
+          "sourceId",
+          "code",
+          "brand",
+          "countryVats",
+          "colours",
+          "groupLevels"
+        ]
+      },
+      "NextSaleDiscounts": {
+        "type": "object",
+        "properties": {
+          "useInCalculations": {
+            "description": "use this product in next sale discount calculations",
+            "type": "boolean",
+            "example": false,
+            "default": true
+          },
+          "useInPricesAndPromotions": {
+            "description": "use this product in next sale discount prices and promotions calculations",
+            "type": "boolean",
+            "example": false,
+            "default": true
+          }
+        }
+      },
+      "ImportProductShop": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "description": "Unique Tilroy id for the product"
+          },
+          "sourceId": {
+            "type": "string",
+            "maxLength": 50,
+            "description": "Unique reference for the product"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 20,
+            "description": "Unique code for the product"
+          },
+          "shop": {
+            "$ref": "#/components/schemas/ShopImport"
+          },
+          "suppliers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductSupplierShopImport"
+            }
+          },
+          "colours": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ColourShopImport"
+            }
+          },
+          "locations": {
+            "description": "deprecated: moved to skus (locations where the product is available)",
+            "deprecated": true,
+            "type": "object",
+            "properties": {
+              "location1": {
+                "type": "string"
+              },
+              "location2": {
+                "type": "string"
+              },
+              "pickupLocation": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "ShopImport": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "description": "unique Tilroy id for the shop"
+          },
+          "sourceId": {
+            "type": "string",
+            "maxLength": 50,
+            "description": "unique reference for the shop"
+          },
+          "number": {
+            "type": "integer",
+            "description": "unique number for the shop"
+          }
+        }
+      },
+      "OrderQuantity": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "$ref": "#/components/schemas/Channel"
+          },
+          "quantity": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "channel",
+          "quantity"
+        ]
+      },
+      "Descriptions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "languageCode": {
+              "type": "string",
+              "description": "ISO 639-1 code of language",
+              "maxLength": 2
+            },
+            "standard": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "web": {
+              "type": "string",
+              "maxLength": 2000
+            },
+            "technical": {
+              "type": "string",
+              "maxLength": 2000
+            },
+            "ticket": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "webShort": {
+              "type": "string",
+              "maxLength": 2000
+            },
+            "webName": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "product name in the webshop in the specified language"
+            },
+            "seoTitle": {
+              "type": "string",
+              "maxLength": 4000
+            },
+            "seoDescription": {
+              "type": "string",
+              "maxLength": 4000
+            },
+            "freeTexts": {
+              "description": "5 extra text descriptions",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 2000
+              }
+            },
+            "priceLabelDescription": {
+              "description": "description on pricelabel",
+              "type": "string",
+              "maxLength": 2000
+            },
+            "videoPath": {
+              "description": "Path to video",
+              "example": "https://host.com/path/to/video",
+              "type": "string",
+              "maxLength": 2000
+            }
+          }
+        }
+      },
+      "Channel": {
+        "type": "string",
+        "enum": [
+          "TILL",
+          "ECOM",
+          "B2B"
+        ]
+      },
+      "UOM": {
+        "type": "object",
+        "description": "Unit information of the product, only one unit possible for a product",
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 20,
+            "description": "Code for VAT"
+          },
+          "showOnline": {
+            "type": "boolean",
+            "description": "must the unit be shown online"
+          },
+          "descriptions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "languageCode": {
+                  "type": "string",
+                  "description": "ISO 639-1 code of language",
+                  "maxLength": 2
+                },
+                "singular": {
+                  "type": "string",
+                  "maxLength": 200,
+                  "description": "description of the unit singular in the specified language"
+                },
+                "plural": {
+                  "type": "string",
+                  "maxLength": 200,
+                  "description": "description of the unit plural in the specified language"
+                },
+                "technical": {
+                  "type": "string",
+                  "maxLength": 200,
+                  "description": "technical description about the unit"
+                },
+                "ticket": {
+                  "type": "string",
+                  "maxLength": 200,
+                  "description": "ticket description about the unit"
+                },
+                "webSingular": {
+                  "type": "string",
+                  "maxLength": 4000,
+                  "description": "description of the unit singular in the webshop in the specified language"
+                },
+                "webPlural": {
+                  "type": "string",
+                  "maxLength": 4000,
+                  "description": "description of the unit plural in the webshop in the specified language"
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "code",
+          "showOnline"
+        ]
+      },
+      "SupplierBase": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 20,
+            "description": "unique code for the supplier"
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "Supplier": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SupplierBase"
+          }
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200
+          }
+        }
+      },
+      "ProductSupplierShopImport": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "description": "Unique Tilroy id for the supplier"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 20,
+            "description": "Unique code for the supplier"
+          },
+          "preferred": {
+            "type": "boolean",
+            "description": "Only 1 supplier can be the preferred supplier."
+          },
+          "referenceNumber": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Supplier reference number"
+          },
+          "referenceDescription": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Supplier reference description"
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "SkuSupplierShopImport": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "description": "Unique Tilroy id for the supplier"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 20,
+            "description": "Unique code for the supplier"
+          },
+          "referenceNumber": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Supplier reference number"
+          },
+          "costPrice": {
+            "type": "number",
+            "format": "float",
+            "description": "Currently active cost VAT inc price"
+          },
+          "moq": {
+            "type": "integer"
+          },
+          "ioq": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "Configurator": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "code"
+        ]
+      },
+      "CountryData": {
+        "type": "object",
+        "properties": {
+          "countryCode": {
+            "type": "string",
+            "maxLength": 2,
+            "description": "ISO 3166-1 alpha-2 country code"
+          },
+          "releaseDate": {
+            "type": "string",
+            "format": "iso-date"
+          },
+          "warrantyDays": {
+            "type": "number",
+            "description": "number of days waranty"
+          }
+        },
+        "required": [
+          "countryCode"
+        ]
+      },
+      "WebShop": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "shop": {
+              "type": "object",
+              "properties": {
+                "sourceId": {
+                  "type": "string"
+                },
+                "number": {
+                  "type": "number"
+                }
+              }
+            },
+            "online": {
+              "type": "string",
+              "example": "always_order_always, always_order_stock,offline, stock"
+            },
+            "disableHD": {
+              "type": "boolean"
+            },
+            "disableCC": {
+              "type": "boolean"
+            },
+            "disableHDPreOrder": {
+              "type": "boolean"
+            },
+            "disableCCPreOrder": {
+              "type": "boolean"
+            },
+            "disableHDFrom": {
+              "type": "string",
+              "format": "iso-date"
+            },
+            "disableHDTo": {
+              "type": "string",
+              "format": "iso-date"
+            },
+            "disableCCFrom": {
+              "type": "string",
+              "format": "iso-date"
+            },
+            "disableCCTo": {
+              "type": "string",
+              "format": "iso-date"
+            },
+            "disableHDPreOrderFrom": {
+              "type": "string",
+              "format": "iso-date"
+            },
+            "disableHDPreOrderTo": {
+              "type": "string",
+              "format": "iso-date"
+            },
+            "disableCCPreOrderFrom": {
+              "type": "string",
+              "format": "iso-date"
+            },
+            "disableCCPreOrderTo": {
+              "type": "string",
+              "format": "iso-date"
+            },
+            "HDAvailable": {
+              "type": "string"
+            },
+            "HDUnavailableNoOrder": {
+              "type": "string"
+            },
+            "HDUnavailablePreorder": {
+              "type": "string"
+            },
+            "CCAvailable": {
+              "type": "string"
+            },
+            "CCUnavailable": {
+              "type": "string"
+            },
+            "HDAvailableHandling": {
+              "type": "string"
+            },
+            "deliveryPromiseDisableHD": {
+              "type": "string"
+            },
+            "deliveryPromiseDisableCC": {
+              "type": "string"
+            },
+            "deliveryPromiseDisableHDPreOrder": {
+              "type": "string"
+            },
+            "deliveryPromiseDisableCCPreOrder": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "CountryVat": {
+        "type": "object",
+        "properties": {
+          "countryCode": {
+            "type": "string",
+            "maxLength": 2,
+            "description": "ISO 3166-1 alpha-2 country code"
+          },
+          "vatCode": {
+            "type": "string",
+            "maxLength": 20,
+            "description": "Code for VAT"
+          },
+          "vatPerc": {
+            "type": "number",
+            "format": "float",
+            "description": "VAT percentage 20 = 20% 0,2 = 0,2%"
+          }
+        },
+        "required": [
+          "countryCode",
+          "vatCode",
+          "vatPerc"
+        ]
+      },
+      "Tax": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "amount": {
+            "type": "number",
+            "format": "float"
+          },
+          "descriptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Description"
+            }
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "GroupLevel": {
+        "type": "object",
+        "description": "The group a product belongs to",
+        "properties": {
+          "level": {
+            "type": "number",
+            "description": "Level of the product group >= 1, must start with 1 and not have gaps"
+          },
+          "code": {
+            "type": "string",
+            "description": "Code of the product group, must be unique",
+            "maxLength": 20
+          },
+          "sortOrder": {
+            "type": "number"
+          },
+          "descriptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Description"
+            }
+          }
+        },
+        "required": [
+          "level",
+          "code"
+        ]
+      },
+      "ColourImport": {
+        "type": "object",
+        "properties": {
+          "sourceId": {
+            "type": "string",
+            "maxLength": 50,
+            "description": "Unique reference for the colour"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 20,
+            "description": "Colour code"
+          },
+          "supplierReference": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Supplier Reference of the specified product in this colour"
+          },
+          "descriptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DescriptionPlusWeb"
+            }
+          },
+          "baseColour": {
+            "$ref": "#/components/schemas/CodeDescriptions"
+          },
+          "skus": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Sku"
+            }
+          },
+          "productColorDescriptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Description"
+            }
+          },
+          "season": {
+            "$ref": "#/components/schemas/CodeDescriptions"
+          },
+          "pictures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Picture"
+            }
+          },
+          "deletePicturesNotInJson": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "sourceId",
+          "code",
+          "skus"
+        ]
+      },
+      "ColourShopImport": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "description": "Unique Tilroy id for the colour"
+          },
+          "sourceId": {
+            "type": "string",
+            "maxLength": 50,
+            "description": "Unique reference for the colour"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 20,
+            "description": "Colour code"
+          },
+          "skus": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkuShopImport"
+            }
+          }
+        },
+        "required": [
+          "sourceId",
+          "code",
+          "skus"
+        ]
+      },
+      "Sku": {
+        "type": "object",
+        "properties": {
+          "sourceId": {
+            "type": "string",
+            "description": "Unique reference of the SKU",
+            "maxLength": 50
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Code for the SKU"
+          },
+          "consumerPrice": {
+            "type": "number",
+            "format": "float",
+            "description": "initial retail VAT inc standard price. This field is usefull when creating/updating products, but might be incorrect when retrieving products. Use the price api to retrieve the correct price!"
+          },
+          "costPrice": {
+            "type": "number",
+            "format": "float",
+            "description": "Currently active cost VAT inc price"
+          },
+          "length": {
+            "type": "number"
+          },
+          "width": {
+            "type": "number"
+          },
+          "heigth": {
+            "type": "number"
+          },
+          "maxDiscount": {
+            "type": "number",
+            "format": "float"
+          },
+          "lifeStatus": {
+            "type": "string"
+          },
+          "content": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "createInternalBarcode": {
+            "type": "boolean",
+            "description": "when set Tilroy will create internal barcode that is used on price labels"
+          },
+          "barcodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Barcode"
+            }
+          },
+          "size": {
+            "$ref": "#/components/schemas/Size"
+          },
+          "netWeight": {
+            "$ref": "#/components/schemas/Weight"
+          },
+          "MOQ": {
+            "type": "number",
+            "description": "Minimum order quantity"
+          },
+          "IOQ": {
+            "type": "number",
+            "description": "Ideal order quantity"
+          },
+          "wholeSalePrice": {
+            "type": "number",
+            "description": "initial wholesale price. This field is usefull when creating/updating products, but might be incorrect when retrieving products. Use the price api to retrieve the correct price!"
+          },
+          "supplierReference": {
+            "type": "string",
+            "description": "supplierReference"
+          },
+          "rrp": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RRP"
+            }
+          }
+        },
+        "required": [
+          "sourceId",
+          "barcodes"
+        ]
+      },
+      "SkuShopImport": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "description": "Unique Tilroy id for the SKU"
+          },
+          "sourceId": {
+            "type": "string",
+            "description": "Unique reference of the SKU",
+            "maxLength": 50
+          },
+          "size": {
+            "$ref": "#/components/schemas/SizeShopImport"
+          },
+          "suppliers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkuSupplierShopImport"
+            }
+          },
+          "locations": {
+            "type": "object",
+            "properties": {
+              "location1": {
+                "type": "string"
+              },
+              "location2": {
+                "type": "string"
+              },
+              "pickupLocation": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "Barcode": {
+        "type": "object",
+        "description": "Size of the SKU",
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "barcode"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "In case quantity is set, it represents the number of sku's that should added to the transaction"
+          },
+          "isInternal": {
+            "type": "boolean",
+            "description": "Indication if this a supplier barcode or an internal barcode. Tilroy will use the internal barcode on labels."
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "RRP": {
+        "type": "object",
+        "properties": {
+          "countryCode": {
+            "type": "string",
+            "example": "BE"
+          },
+          "rrp": {
+            "type": "number",
+            "description": "The Recommended Retail Price value"
+          }
+        },
+        "required": [
+          "countryCode",
+          "rrp"
+        ]
+      },
+      "Size": {
+        "type": "object",
+        "description": "Size of the SKU",
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "order": {
+            "type": "number",
+            "description": "Order of the size in the size rage. E.g. S-M-L-XL (0=highest priority)"
+          }
+        },
+        "required": [
+          "code",
+          "order"
+        ]
+      },
+      "SizeShopImport": {
+        "type": "object",
+        "description": "Size of the SKU",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "description": "Unique Tilroy id for the size"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 20,
+            "description": "Unique code of the size"
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "Weight": {
+        "type": "object",
+        "properties": {
+          "netto": {
+            "type": "number",
+            "format": "float",
+            "description": "Net Weight of the sku"
+          }
+        },
+        "required": [
+          "netto"
+        ]
+      },
+      "CodeDescriptions": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "descriptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Description"
+            }
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "Brand": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "descriptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DescriptionPlusWeb"
+            }
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "Description": {
+        "type": "object",
+        "properties": {
+          "languageCode": {
+            "type": "string",
+            "description": "ISO 639-1 code of language",
+            "maxLength": 2
+          },
+          "standard": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "languageCode",
+          "standard"
+        ]
+      },
+      "DescriptionPlusWeb": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Description"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "web": {
+                "type": "string",
+                "maxLength": 2000
+              }
+            }
+          }
+        ]
+      },
+      "DescriptionFull": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DescriptionPlusWeb"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "technical": {
+                "type": "string",
+                "example": "Technical info"
+              },
+              "ticket": {
+                "type": "string",
+                "example": "Ticket info"
+              },
+              "webShort": {
+                "type": "string",
+                "example": "Short web description"
+              },
+              "webName": {
+                "type": "string",
+                "example": "Web name"
+              },
+              "seoTitle": {
+                "type": "string",
+                "example": "SEO title"
+              },
+              "seoDescription": {
+                "type": "string",
+                "example": "SEO description"
+              },
+              "freeTexts": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "example": "Free text field"
+                }
+              },
+              "canonicalUrl": {
+                "type": "string",
+                "example": "Canonical URL"
+              },
+              "priceLabelDescription": {
+                "type": "string",
+                "example": "Price label description"
+              },
+              "videoPath": {
+                "type": "string",
+                "example": "https://host.com/path/to/video"
+              }
+            }
+          }
+        ]
+      },
+      "PictureBasic": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "isDefault": {
+            "type": "boolean",
+            "description": "used as default picture on reports and in till. Only one picture by colour can be used as default"
+          },
+          "sortOrder": {
+            "type": "number",
+            "description": "Sequence of the pictures for this product colour"
+          },
+          "swatch": {
+            "type": "boolean",
+            "description": "picture to use as swatch on the webshop, only one picture by colour can be the swatch"
+          },
+          "showOnline": {
+            "type": "boolean",
+            "description": "Picture will be used only, eg example technical pictures should not be shown online"
+          }
+        },
+        "required": [
+          "name",
+          "isDefault",
+          "sortOrder",
+          "swatch",
+          "showOnline"
+        ]
+      },
+      "Picture": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PictureBasic"
+          }
+        ],
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "Used": {
+        "type": "object",
+        "properties": {
+          "isUsed": {
+            "type": "boolean",
+            "example": true
+          },
+          "referenceNew": {
+            "type": "object",
+            "properties": {
+              "sourceId": {
+                "type": "string",
+                "example": "12345"
+              }
+            },
+            "required": [
+              "sourceId"
+            ]
+          },
+          "referenceOld": {
+            "type": "object",
+            "properties": {
+              "sourceId": {
+                "type": "string",
+                "example": "12345"
+              }
+            },
+            "required": [
+              "sourceId"
+            ]
+          }
+        },
+        "required": [
+          "isUsed"
+        ]
+      }
+    }
+  }
+}
