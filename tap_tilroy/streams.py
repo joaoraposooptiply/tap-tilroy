@@ -200,6 +200,26 @@ class ProductsStream(DateFilteredStream):
         th.Property("isUsed", th.BooleanType),
     ).to_dict()
 
+class SuppliersStream(TilroyStream):
+    """Stream for Tilroy suppliers."""
+    name = "suppliers"
+    path = "/product-bulk/production/suppliers"
+    primary_keys = ["tilroyId"]
+    replication_key = None
+
+    def post_process(self, row: dict, context: t.Optional[dict] = None) -> dict:
+        """Post process the record."""
+        row = super().post_process(row, context)
+        if not row:
+            return None
+        return row
+
+    schema = th.PropertiesList(
+        th.Property("tilroyId", th.StringType),
+        th.Property("code", th.StringType),
+        th.Property("name", th.StringType),
+    ).to_dict()
+
 class PurchaseOrdersStream(DateFilteredStream):
     """Purchase Orders stream."""
 
