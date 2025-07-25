@@ -215,7 +215,7 @@ class SuppliersStream(TilroyStream):
         return row
 
     schema = th.PropertiesList(
-        th.Property("tilroyId", th.StringType),
+        th.Property("tilroyId", th.IntegerType),
         th.Property("code", th.StringType),
         th.Property("name", th.StringType),
     ).to_dict()

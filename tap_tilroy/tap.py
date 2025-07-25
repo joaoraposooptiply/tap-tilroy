@@ -67,6 +67,7 @@ class TapTilroy(Tap):
             StockChangesStream(self),
             SalesStream(self),
             SuppliersStream(self)
+
         ]
 
 
