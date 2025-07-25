@@ -10,6 +10,7 @@ from tap_tilroy.streams import (
     PurchaseOrdersStream,
     StockChangesStream,
     SalesStream,
+    SuppliersStream
 )
 
 # TODO: Import your custom stream types here:
@@ -21,6 +22,7 @@ STREAM_TYPES = [
     PurchaseOrdersStream,
     StockChangesStream,
     SalesStream,
+    SuppliersStream
 ]
 
 class TapTilroy(Tap):
@@ -64,6 +66,7 @@ class TapTilroy(Tap):
             PurchaseOrdersStream(self),
             StockChangesStream(self),
             SalesStream(self),
+            SuppliersStream(self)
         ]
 
 
