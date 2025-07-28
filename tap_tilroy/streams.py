@@ -206,6 +206,7 @@ class SuppliersStream(TilroyStream):
     path = "/product-bulk/production/suppliers"
     primary_keys = ["tilroyId"]
     replication_key = None
+    # replication_method = "FULL_TABLE"
 
     def post_process(self, row: dict, context: t.Optional[dict] = None) -> dict:
         """Post process the record."""
@@ -224,7 +225,7 @@ class PurchaseOrdersStream(DateFilteredStream):
     """Purchase Orders stream."""
 
     name = "purchase_orders"
-    path = "/purchase-order-bulk/production/purchase-orders"
+    path = "/purchaseapi/production/purchaseorders"
     primary_keys = ["tilroyId"]
     replication_key = "orderDate"
     replication_method = "INCREMENTAL"
@@ -423,6 +424,7 @@ class SalesStream(DateFilteredStream):
     path = "/saleapi/production/export/sales"
     primary_keys: t.ClassVar[list[str]] = ["idTilroySale"]
     replication_key = "saleDate"
+    replication_method = "INCREMENTAL"
     records_jsonpath = "$[*]"
     next_page_token_jsonpath = None
     default_count = 500  # Default count per page
