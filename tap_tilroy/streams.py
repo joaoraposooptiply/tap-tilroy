@@ -206,7 +206,8 @@ class SuppliersStream(TilroyStream):
     path = "/product-bulk/production/suppliers"
     primary_keys = ["tilroyId"]
     replication_key = None
-    # replication_method = "FULL_TABLE"
+    replication_method = "FULL_TABLE"
+    records_jsonpath = "$[*]"
 
     def post_process(self, row: dict, context: t.Optional[dict] = None) -> dict:
         """Post process the record."""
@@ -230,6 +231,56 @@ class PurchaseOrdersStream(DateFilteredStream):
     replication_key = "orderDate"
     replication_method = "INCREMENTAL"
     default_count = 500
+
+    def get_url_params(
+        self,
+        context: t.Optional[dict],
+        next_page_token: t.Optional[t.Any] = None,
+    ) -> dict[str, t.Any]:
+        """Get URL query parameters for purchase orders (uses orderDateFrom/orderDateTo).
+
+        Args:
+            context: Stream partition or context dictionary.
+            next_page_token: Token for the next page of results.
+
+        Returns:
+            Dictionary of URL query parameters.
+        """
+        from datetime import datetime, timedelta
+        
+        params = {}
+        
+        # Get the start date from the bookmark or use config
+        start_date = self.get_starting_timestamp(context)
+        if not start_date:
+            # Get start date from config
+            config_start_date = self.config["start_date"]
+            # Extract just the date part from ISO format
+            date_part = config_start_date.split('T')[0]
+            start_date = datetime.strptime(date_part, "%Y-%m-%d")
+        else:
+            # If we have a bookmark, go back 1 day to ensure we don't miss any records
+            # Convert to date only to avoid time component issues
+            start_date = start_date.date()
+            start_date = datetime.combine(start_date - timedelta(days=1), datetime.min.time())
+        
+        # Format the start date as YYYY-MM-DD
+        params["orderDateFrom"] = start_date.strftime("%Y-%m-%d")
+        
+        # Set end date to today to limit the range
+        end_date = datetime.now().strftime("%Y-%m-%d")
+        params["orderDateTo"] = end_date
+        
+        # Set page parameter for pagination
+        if next_page_token:
+            params["page"] = next_page_token
+        else:
+            params["page"] = 1
+            
+        # Set count parameter
+        params["count"] = self.default_count
+        
+        return params
 
     def post_process(self, row: dict, context: Optional[dict] = None) -> Optional[dict]:
         """Post-process record."""
