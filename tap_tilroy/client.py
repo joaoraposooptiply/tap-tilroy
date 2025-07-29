@@ -124,9 +124,14 @@ class TilroyStream(RESTStream):
             params = self.get_url_params(context, page)
             url = f"{self.url_base}{self.path}"
             headers = self.get_headers(context)
-            # Debug log to print the final URL and parameters
-            self.logger.info(f"Request URL: {url}")
-            self.logger.info(f"Request params: {params}")
+            
+            # Build query string and complete URL for logging
+            query_string = "&".join([f"{k}={v}" for k, v in params.items()])
+            complete_url = f"{url}?{query_string}"
+            
+            # Debug log to print the complete request URL
+            self.logger.info(f"🌐 Complete Request URL: {complete_url}")
+            self.logger.info(f"📋 Request params: {params}")
             try:
                 # Use http.client for the request
                 conn = http.client.HTTPSConnection("api.tilroy.com")
