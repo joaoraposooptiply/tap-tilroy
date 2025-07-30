@@ -156,7 +156,6 @@ class TilroyStream(RESTStream):
                     break
                 
                 if seen_keys is not None:
-                    keys_on_page = set()
                     yielded_any = False  # track if we yielded at least one unique record
 
                     for record in records:
@@ -169,7 +168,6 @@ class TilroyStream(RESTStream):
                             continue  # skip duplicate
 
                         seen_keys.add(record_key)
-                        keys_on_page.add(record_key)
                         yield record
                         yielded_any = True
 
