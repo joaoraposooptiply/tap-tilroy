@@ -34,6 +34,12 @@ class TilroyStream(RESTStream):
     """Tilroy stream class."""
 
     default_count = 100  # Default count per page
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.deduplication_key: t.Optional[str] = None 
+        self.enable_deduplication_check: bool = False
+        self.MAX_PAGES = 1000
 
     @property
     def url_base(self) -> str:
@@ -119,7 +125,8 @@ class TilroyStream(RESTStream):
             Records from the stream.
         """
         page = 1
-        while True:
+        seen_keys = set() if self.enable_deduplication_check and self.deduplication_key else None
+        while page<=self.MAX_PAGES:
             # Use get_url_params to build the params dict
             params = self.get_url_params(context, page)
             url = f"{self.url_base}{self.path}"
@@ -144,10 +151,37 @@ class TilroyStream(RESTStream):
                 # Extract records using jsonpath
                 records = list(extract_jsonpath(self.records_jsonpath, data_json))
                 self.logger.info(f"🔍 Found {len(records)} records")
+                
                 if not records:  # If no records returned, we've reached the end
                     break
-                for record in records:
-                    yield record
+                
+                if seen_keys is not None:
+                    keys_on_page = set()
+                    yielded_any = False  # track if we yielded at least one unique record
+
+                    for record in records:
+                        record_key = record.get(self.deduplication_key)
+                        if record_key is None:
+                            self.logger.warning(f"[{self.name}] Record missing deduplication key: {record}")
+                            continue
+
+                        if record_key in seen_keys:
+                            continue  # skip duplicate
+
+                        seen_keys.add(record_key)
+                        keys_on_page.add(record_key)
+                        yield record
+                        yielded_any = True
+
+                    if not yielded_any:
+                        self.logger.warning(f"[{self.name}] Duplicate page detected (no new keys). Aborting.")
+                        break
+                else:
+                    # If no deduplication, just yield all
+                    for record in records:
+                        yield record
+
+                
                 # If we got exactly default_count records, there might be more pages
                 if len(records) < self.default_count:
                     break

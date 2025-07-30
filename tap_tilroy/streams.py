@@ -208,6 +208,8 @@ class SuppliersStream(TilroyStream):
     replication_key = None
     replication_method = "FULL_TABLE"
     records_jsonpath = "$[*]"
+    deduplication_key = "tilroyId"
+    enable_deduplication_check = True
 
     def post_process(self, row: dict, context: t.Optional[dict] = None) -> dict:
         """Post process the record."""
@@ -268,8 +270,8 @@ class PurchaseOrdersStream(DateFilteredStream):
         params["orderDateFrom"] = start_date.strftime("%Y-%m-%d")
         
         # Set end date to today to limit the range
-        end_date = datetime.now().strftime("%Y-%m-%d")
-        params["orderDateTo"] = end_date
+        # end_date = datetime.now().strftime("%Y-%m-%d")
+        # params["orderDateTo"] = end_date
         
         # Set page parameter for pagination
         if next_page_token:
