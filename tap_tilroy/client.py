@@ -143,6 +143,7 @@ class TilroyStream(RESTStream):
                 data_json = json.loads(data)
                 # Extract records using jsonpath
                 records = list(extract_jsonpath(self.records_jsonpath, data_json))
+                self.logger.info(f"🔍 Found {len(records)} records")
                 if not records:  # If no records returned, we've reached the end
                     break
                 for record in records:
