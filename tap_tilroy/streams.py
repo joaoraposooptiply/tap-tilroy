@@ -337,8 +337,8 @@ class PurchaseOrdersStream(DateFilteredStream):
             th.Property("supplierCurrency", th.ObjectType(
                 th.Property("standardVatExc", th.NumberType),
                 th.Property("standardVatInc", th.NumberType),
-                th.Property("vatExc", th.NumberType),
-                th.Property("vatInc", th.NumberType),
+                th.Property("vatExc", th.StringType),
+                th.Property("vatInc", th.StringType),
             )),
         )),
         th.Property("status", th.StringType),
@@ -347,14 +347,14 @@ class PurchaseOrdersStream(DateFilteredStream):
                 th.Property("login", th.StringType),
                 th.Property("sourceId", th.StringType),
             )),
-            th.Property("timestamp", th.StringType),
+            th.Property("timestamp", th.DateTimeType),
         )),
         th.Property("modified", th.ObjectType(
             th.Property("user", th.ObjectType(
                 th.Property("login", th.StringType),
                 th.Property("sourceId", th.StringType),
             )),
-            th.Property("timestamp", th.StringType),
+            th.Property("timestamp", th.DateTimeType),
         )),
         th.Property("lines", th.ArrayType(
             th.ObjectType(
@@ -379,7 +379,7 @@ class PurchaseOrdersStream(DateFilteredStream):
                     )),
                 )),
                 th.Property("status", th.StringType),
-                th.Property("requestedDeliveryDate", th.StringType),
+                th.Property("requestedDeliveryDate", th.DateTimeType),
                 th.Property("qty", th.ObjectType(
                     th.Property("ordered", th.IntegerType),
                     th.Property("delivered", th.IntegerType),
