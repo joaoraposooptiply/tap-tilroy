@@ -37,8 +37,8 @@ class TilroyStream(RESTStream):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.deduplication_key: t.Optional[str] = None 
-        self.enable_deduplication_check: bool = False
+        self.deduplication_key = getattr(self, "deduplication_key", None)
+        self.enable_deduplication_check = getattr(self, "enable_deduplication_check", False)
         self.MAX_PAGES = 1000
 
     @property
