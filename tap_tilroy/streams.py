@@ -277,14 +277,14 @@ class ProductsStream(DynamicRoutingStream):
             "colours",
             th.ArrayType(
                 th.ObjectType(
-                    th.Property("tilroyId", th.StringType),
+                    th.Property("tilroyId", th.CustomType({"type": ["string", "integer"]})),
                     th.Property("sourceId", th.StringType, required=False),
                     th.Property("code", th.StringType),
                     th.Property(
                         "skus",
                         th.ArrayType(
                             th.ObjectType(
-                                th.Property("tilroyId", th.StringType),
+                                th.Property("tilroyId", th.CustomType({"type": ["string", "integer"]})),
                                 th.Property("sourceId", th.StringType, required=False),
                                 th.Property("costPrice", th.NumberType),
                                 th.Property(
@@ -292,7 +292,7 @@ class ProductsStream(DynamicRoutingStream):
                                     th.ArrayType(
                                         th.ObjectType(
                                             th.Property("code", th.StringType),
-                                            th.Property("quantity", th.IntegerType),
+                                            th.Property("quantity", th.NumberType),
                                             th.Property("isInternal", th.BooleanType),
                                         )
                                     ),
