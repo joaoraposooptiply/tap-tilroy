@@ -249,7 +249,7 @@ class ProductsStream(DynamicRoutingStream):
         return row
 
     schema = th.PropertiesList(
-        th.Property("tilroyId", th.StringType),
+        th.Property("tilroyId", th.Union[th.StringType, th.IntegerType]),
         th.Property("sourceId", th.StringType, required=False),
         th.Property("code", th.StringType),
         th.Property(
@@ -391,7 +391,7 @@ class PurchaseOrdersStream(DynamicRoutingStream):
         return row
 
     schema = th.PropertiesList(
-        th.Property("tilroyId", th.StringType),
+        th.Property("tilroyId", th.Union[th.StringType, th.IntegerType],
         th.Property("number", th.StringType),
         th.Property("orderDate", th.DateTimeType),
         th.Property("supplier", th.ObjectType(
@@ -498,7 +498,7 @@ class PurchaseOrdersStream(DynamicRoutingStream):
                 th.Property("id", th.StringType),
             )
         )),
-    ).to_dict()
+    ).to_dict())
 
 class StockChangesStream(DateFilteredStream):
     """Stream for Tilroy stock changes."""
