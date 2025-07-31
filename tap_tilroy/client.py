@@ -37,8 +37,6 @@ class TilroyStream(RESTStream):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.deduplication_key = getattr(self, "deduplication_key", None)
-        self.enable_deduplication_check = getattr(self, "enable_deduplication_check", False)
         self.MAX_PAGES = 1000
 
     @property
@@ -125,7 +123,6 @@ class TilroyStream(RESTStream):
             Records from the stream.
         """
         page = 1
-        seen_keys = set() if self.enable_deduplication_check and self.deduplication_key else None
         while page<=self.MAX_PAGES:
             # Use get_url_params to build the params dict
             params = self.get_url_params(context, page)
@@ -155,29 +152,8 @@ class TilroyStream(RESTStream):
                 if not records:  # If no records returned, we've reached the end
                     break
                 
-                if seen_keys is not None:
-                    yielded_any = False  # track if we yielded at least one unique record
-
-                    for record in records:
-                        record_key = record.get(self.deduplication_key)
-                        if record_key is None:
-                            self.logger.warning(f"[{self.name}] Record missing deduplication key: {record}")
-                            continue
-
-                        if record_key in seen_keys:
-                            continue  # skip duplicate
-
-                        seen_keys.add(record_key)
-                        yield record
-                        yielded_any = True
-
-                    if not yielded_any:
-                        self.logger.warning(f"[{self.name}] Duplicate page detected (no new keys). Aborting.")
-                        break
-                else:
-                    # If no deduplication, just yield all
-                    for record in records:
-                        yield record
+                for record in records:
+                    yield record
 
                 
                 # If we got exactly default_count records, there might be more pages
