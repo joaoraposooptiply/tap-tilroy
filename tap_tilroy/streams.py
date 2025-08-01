@@ -334,7 +334,7 @@ class SuppliersStream(TilroyStream):
     replication_key = None
     replication_method = "FULL_TABLE"
     records_jsonpath = "$[*]"
-    default_count = 1000
+    default_count = 10000
 
     def post_process(self, row: dict, context: t.Optional[dict] = None) -> dict:
         """Post process the record."""
