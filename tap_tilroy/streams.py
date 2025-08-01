@@ -261,6 +261,10 @@ class ProductsStream(DynamicRoutingStream):
                 )
             ),
         ),
+        th.Property("supplier", th.ObjectType(
+            th.Property("code", th.StringType),
+            th.Property("name", th.StringType),
+        )),
         th.Property("brand", th.ObjectType(
             th.Property("code", th.StringType),
             th.Property(
@@ -307,7 +311,7 @@ class ProductsStream(DynamicRoutingStream):
                                     "lifeStatus",
                                     th.ObjectType(
                                         th.Property("code", th.StringType),
-                                    ),
+                                    ),required=False
                                 ),
                                 th.Property(
                                     "rrp",
