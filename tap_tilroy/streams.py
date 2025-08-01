@@ -302,17 +302,12 @@ class ProductsStream(DynamicRoutingStream):
                                     ),
                                 ),
                                 th.Property(
-                                    "size",
-                                    th.ObjectType(
-                                        th.Property("code", th.StringType),
-                                    ),
-                                ),
-                                th.Property(
-                                    "lifeStatus",
-                                    th.ObjectType(
-                                        th.Property("code", th.StringType),
-                                    ),required=False
-                                ),
+                                     "size",
+                                     th.ObjectType(
+                                         th.Property("code", th.StringType),
+                                     ),
+                                 ),
+                                
                                 th.Property(
                                     "rrp",
                                     th.ArrayType(th.ObjectType()),
