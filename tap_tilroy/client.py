@@ -35,9 +35,9 @@ class TilroyStream(RESTStream):
 
     default_count = 100  # Default count per page
     
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.MAX_PAGES = 1000
+    # def __init__(self, *args, **kwargs):
+    #     super().__init__(*args, **kwargs)
+    #     self.MAX_PAGES = 1000
 
     @property
     def url_base(self) -> str:
@@ -123,7 +123,7 @@ class TilroyStream(RESTStream):
             Records from the stream.
         """
         page = 1
-        while page<=self.MAX_PAGES:
+        while True:
             # Use get_url_params to build the params dict
             params = self.get_url_params(context, page)
             url = f"{self.url_base}{self.path}"
