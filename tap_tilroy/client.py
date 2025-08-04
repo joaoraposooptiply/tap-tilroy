@@ -54,19 +54,21 @@ class TilroyStream(RESTStream):
         Returns:
             A flattened dictionary
         """
-        items = []
+        items = {}
         for key, value in record.items():
             new_key = f"{parent_key}{sep}{key}" if parent_key else key
             
             if isinstance(value, dict):
-                items.extend(self.flatten_record(value, new_key, sep=sep).items())
+                # Recursively flatten nested objects
+                flattened = self.flatten_record(value, new_key, sep=sep)
+                items.update(flattened)
             elif isinstance(value, list):
-                # For arrays, we'll keep them as is
-                items.append((new_key, value))
+                # For arrays, keep them as is
+                items[new_key] = value
             else:
-                items.append((new_key, value))
+                items[new_key] = value
                 
-        return dict(items)
+        return items
 
     def post_process(self, row: dict, context: t.Optional[dict] = None) -> dict:
         """Post-process a record after it has been fetched.
