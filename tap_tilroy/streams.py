@@ -225,7 +225,6 @@ class ProductsStream(DynamicRoutingStream):
 
     def post_process(self, row: dict, context: t.Optional[dict] = None) -> dict:
         """Post process the record and add synthetic timestamp."""
-        row = super().post_process(row, context)
         if not row:
             return None
         
@@ -248,12 +247,10 @@ class ProductsStream(DynamicRoutingStream):
                 )
             ),
         ),
-        # th.Property("supplier", th.ObjectType(
-        #     th.Property("code", th.StringType),
-        #     th.Property("name", th.StringType),
-        # )),
-        th.Property("supplier.code", th.StringType),
-        th.Property("supplier.name", th.StringType),
+        th.Property("supplier", th.ObjectType(
+            th.Property("code", th.StringType),
+            th.Property("name", th.StringType),
+        )),
         th.Property("brand", th.ObjectType(
             th.Property("code", th.StringType),
             th.Property(
@@ -369,7 +366,7 @@ class PurchaseOrdersStream(DynamicRoutingStream):
                 self.logger.warning(f"Could not parse orderDate: {row['orderDate']}")
                 return None
 
-        return super().post_process(row, context)
+        return row
 
     schema = th.PropertiesList(
     th.Property("tilroyId", th.CustomType({"type": ["string", "integer"]})),
