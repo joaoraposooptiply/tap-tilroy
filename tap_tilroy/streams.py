@@ -178,6 +178,12 @@ class DynamicRoutingStream(DateFilteredStream):
     def _get_historical_date_params(self, start_date: datetime) -> dict:
         """Get date parameters for historical sync. Override in subclasses if needed."""
         return {"dateFrom": start_date.strftime("%Y-%m-%d")}
+    
+    def post_process(self, row: dict, context: t.Optional[dict] = None) -> dict:
+        row = super().post_process(row, context)
+        if not row:
+            return None
+        return row
 
 class ShopsStream(DateFilteredStream):
     """Stream for Tilroy shops."""
@@ -366,6 +372,7 @@ class PurchaseOrdersStream(DynamicRoutingStream):
 
     def post_process(self, row: dict, context: Optional[dict] = None) -> Optional[dict]:
         """Post-process record."""
+        row = super().post_process(row, context)
         if not row:
             return None
 
