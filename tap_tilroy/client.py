@@ -43,42 +43,7 @@ class TilroyStream(RESTStream):
     def url_base(self) -> str:
         return self.config["api_url"]
 
-    def flatten_record(self, record: dict, parent_key: str = "", sep: str = ".") -> dict:
-        """Flatten a nested dictionary by concatenating nested keys with a separator.
 
-        Args:
-            record: The record to flatten
-            parent_key: The parent key for nested dictionaries
-            sep: The separator to use between nested keys
-
-        Returns:
-            A flattened dictionary
-        """
-        items = []
-        for key, value in record.items():
-            new_key = f"{parent_key}{sep}{key}" if parent_key else key
-            
-            if isinstance(value, dict):
-                items.extend(self.flatten_record(value, new_key, sep=sep).items())
-            elif isinstance(value, list):
-                # For arrays, we'll keep them as is
-                items.append((new_key, value))
-            else:
-                items.append((new_key, value))
-                
-        return dict(items)
-
-    def post_process(self, row: dict, context: t.Optional[dict] = None) -> dict:
-        """Post-process a record after it has been fetched.
-
-        Args:
-            row: Individual record in the stream.
-            context: Stream partition or context dictionary.
-
-        Returns:
-            The processed record.
-        """
-        return self.flatten_record(row)
 
     def get_headers(self, context: t.Optional[dict] = None) -> dict:
         """Get headers for the request.

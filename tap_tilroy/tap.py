@@ -61,12 +61,12 @@ class TapTilroy(Tap):
             A list of discovered streams.
         """
         return [
-            ShopsStream(self),
-            ProductsStream(self),
+            # ShopsStream(self),
+            # ProductsStream(self),
             PurchaseOrdersStream(self),
-            StockChangesStream(self),
-            SalesStream(self),
-            SuppliersStream(self)
+            # StockChangesStream(self),
+            # SalesStream(self),
+            # SuppliersStream(self)
 
         ]
 

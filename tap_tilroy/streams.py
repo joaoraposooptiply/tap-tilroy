@@ -54,12 +54,6 @@ class DateFilteredStream(TilroyStream):
         
         return params
 
-    def post_process(self, row: dict, context: t.Optional[dict] = None) -> dict:
-        row = super().post_process(row, context)
-        if not row:
-            return None
-        return row
-
 class DynamicRoutingStream(DateFilteredStream):
     """Base class for streams that can switch between historical and incremental endpoints.
     
@@ -178,11 +172,6 @@ class DynamicRoutingStream(DateFilteredStream):
     def _get_historical_date_params(self, start_date: datetime) -> dict:
         """Get date parameters for historical sync. Override in subclasses if needed."""
         return {"dateFrom": start_date.strftime("%Y-%m-%d")}
-    def post_process(self, row: dict, context: t.Optional[dict] = None) -> dict:
-        row = super().post_process(row, context)
-        if not row:
-            return None
-        return row
 
 class ShopsStream(DateFilteredStream):
     """Stream for Tilroy shops."""
@@ -192,13 +181,6 @@ class ShopsStream(DateFilteredStream):
     replication_key = None
     records_jsonpath = "$[*]"
     next_page_token_jsonpath = None
-
-    def post_process(self, row: dict, context: t.Optional[dict] = None) -> dict:
-        """Post process the record."""
-        row = super().post_process(row, context)
-        if not row:
-            return None
-        return row
 
     schema = th.PropertiesList(
         th.Property("tilroyId", th.StringType),
@@ -343,13 +325,6 @@ class SuppliersStream(TilroyStream):
     records_jsonpath = "$[*]"
     default_count = 10000
 
-    def post_process(self, row: dict, context: t.Optional[dict] = None) -> dict:
-        """Post process the record."""
-        row = super().post_process(row, context)
-        if not row:
-            return None
-        return row
-
     schema = th.PropertiesList(
         th.Property("tilroyId", th.IntegerType),
         th.Property("code", th.StringType),
@@ -373,7 +348,6 @@ class PurchaseOrdersStream(DynamicRoutingStream):
 
     def post_process(self, row: dict, context: Optional[dict] = None) -> Optional[dict]:
         """Post-process record."""
-        # row = super().post_process(row, context)
         if not row:
             return None
 
@@ -398,43 +372,113 @@ class PurchaseOrdersStream(DynamicRoutingStream):
         return super().post_process(row, context)
 
     schema = th.PropertiesList(
-        th.Property("tilroyId", th.CustomType({"type": ["string", "integer"]})),
-        th.Property("number", th.StringType()),
-        th.Property("orderMethod", th.StringType()),
-        th.Property("orderDate", th.DateTimeType()),
-        th.Property("supplier.code", th.StringType()),
-        th.Property("supplier.name", th.StringType()),
-        th.Property("supplierReference", th.StringType()),
-        th.Property("requestedDeliveryDate", th.DateTimeType()),
-        th.Property("warehouse.number", th.IntegerType()),
-        th.Property("warehouse.name", th.StringType()),
-        th.Property("legalEntity.id", th.StringType()),
-        th.Property("legalEntity.code", th.StringType()),
-        th.Property("currency.code", th.StringType()),
-        th.Property("prices.tenantCurrency.standardUnitVatExc", th.NumberType()),
-        th.Property("prices.tenantCurrency.unitVatExc", th.NumberType()),
-        th.Property("prices.tenantCurrency.standardUnitVatInc", th.NumberType()),
-        th.Property("prices.tenantCurrency.unitVatInc", th.NumberType()),
-        th.Property("prices.tenantCurrency.vat", th.NumberType()),
-        th.Property("prices.tenantCurrency.standardVatExc", th.NumberType()),
-        th.Property("prices.tenantCurrency.standardVatInc", th.NumberType()),
-        th.Property("prices.tenantCurrency.vatExc", th.NumberType()),
-        th.Property("prices.tenantCurrency.vatInc", th.NumberType()),
-        th.Property("prices.supplierCurrency.standardUnitVatExc", th.CustomType({"type": ["string", "integer", "number"]})),
-        th.Property("prices.supplierCurrency.unitVatExc", th.CustomType({"type": ["string", "integer", "number"]})),
-        th.Property("prices.supplierCurrency.standardUnitVatInc", th.CustomType({"type": ["string", "integer", "number"]})),
-        th.Property("prices.supplierCurrency.unitVatInc", th.CustomType({"type": ["string", "integer", "number"]})),
-        th.Property("prices.supplierCurrency.vat", th.CustomType({"type": ["string", "integer", "number"]})),
-        th.Property("prices.supplierCurrency.standardVatExc", th.CustomType({"type": ["string", "integer", "number"]})),
-        th.Property("prices.supplierCurrency.standardVatInc", th.CustomType({"type": ["string", "integer", "number"]})),
-        th.Property("prices.supplierCurrency.vatExc", th.CustomType({"type": ["string", "integer", "number"]})),
-        th.Property("prices.supplierCurrency.vatInc", th.CustomType({"type": ["string", "integer", "number"]})),
-        th.Property("status", th.StringType()),
-        th.Property("comment", th.StringType()),
-        th.Property("created.user.login", th.StringType()),
-        th.Property("created.timestamp", th.DateTimeType()),
-        th.Property("modified.timestamp", th.DateTimeType()),
-        th.Property("lines", th.ArrayType(th.StringType())),
+    th.Property("tilroyId", th.CustomType({"type": ["string", "integer"]})),
+    th.Property("number", th.StringType),
+    th.Property("orderDate", th.DateTimeType),
+    th.Property("supplier", th.ObjectType(
+            th.Property("tilroyId", th.IntegerType),
+            th.Property("code", th.StringType),
+            th.Property("name", th.StringType),
+        )),
+    th.Property("supplierReference", th.StringType),
+    th.Property("requestedDeliveryDate", th.StringType),
+    th.Property("warehouse", th.ObjectType(
+            th.Property("number", th.IntegerType),
+            th.Property("name", th.StringType),
+        )),
+    th.Property("currency", th.ObjectType(
+            th.Property("code", th.StringType),
+        )),
+    th.Property("prices", th.ObjectType(
+            th.Property("tenantCurrency", th.ObjectType(
+                th.Property("standardVatExc", th.NumberType),
+                th.Property("standardVatInc", th.NumberType),
+                th.Property("vatExc", th.NumberType),
+                th.Property("vatInc", th.NumberType),
+            )),
+            th.Property("supplierCurrency", th.ObjectType(
+                th.Property("standardVatExc", th.NumberType),
+                th.Property("standardVatInc", th.NumberType),
+                th.Property("vatExc", th.StringType),
+                th.Property("vatInc", th.StringType),
+            )),
+        )),
+    th.Property("status", th.StringType),
+    th.Property("created", th.ObjectType(
+            th.Property("user", th.ObjectType(
+                th.Property("login", th.StringType),
+                th.Property("sourceId", th.StringType),
+            )),
+            th.Property("timestamp", th.DateTimeType),
+        )),
+    th.Property("modified", th.ObjectType(
+            th.Property("user", th.ObjectType(
+                th.Property("login", th.StringType),
+                th.Property("sourceId", th.StringType),
+            )),
+            th.Property("timestamp", th.DateTimeType),
+        )),
+    th.Property("lines", th.ArrayType(
+            th.ObjectType(
+                th.Property("sku", th.ObjectType(
+                    th.Property("tilroyId", th.StringType),
+                    th.Property("sourceId", th.StringType),
+                )),
+                th.Property("warehouse", th.ObjectType(
+                    th.Property("number", th.IntegerType),
+                    th.Property("name", th.StringType),
+                )),
+                th.Property("created", th.ObjectType(
+                    th.Property("user", th.ObjectType(
+                        th.Property("login", th.StringType),
+                        th.Property("sourceId", th.StringType),
+                    )),
+                )),
+                th.Property("modified", th.ObjectType(
+                    th.Property("user", th.ObjectType(
+                        th.Property("login", th.StringType),
+                        th.Property("sourceId", th.StringType),
+                    )),
+                )),
+                th.Property("status", th.StringType),
+                th.Property("requestedDeliveryDate", th.DateTimeType),
+                th.Property("qty", th.ObjectType(
+                    th.Property("ordered", th.IntegerType),
+                    th.Property("delivered", th.IntegerType),
+                    th.Property("backOrder", th.IntegerType),
+                    th.Property("cancelled", th.IntegerType),
+                )),
+                th.Property("prices", th.ObjectType(
+                    th.Property("tenantCurrency", th.ObjectType(
+                        th.Property("vatExc", th.NumberType),
+                        th.Property("vatInc", th.NumberType),
+                        th.Property("unitVatExc", th.NumberType),
+                        th.Property("unitVatInc", th.NumberType),
+                        th.Property("standardUnitVatExc", th.NumberType),
+                        th.Property("standardVatExc", th.NumberType),
+                        th.Property("standardVatInc", th.NumberType),
+                        th.Property("standardUnitVatInc", th.NumberType),
+                    )),
+                    th.Property("supplierCurrency", th.ObjectType(
+                        th.Property("vatExc", th.NumberType),
+                        th.Property("vatInc", th.NumberType),
+                        th.Property("unitVatExc", th.NumberType),
+                        th.Property("unitVatInc", th.NumberType),
+                        th.Property("standardUnitVatExc", th.NumberType),
+                        th.Property("standardVatExc", th.NumberType),
+                        th.Property("standardVatInc", th.NumberType),
+                        th.Property("standardUnitVatInc", th.NumberType),
+                    )),
+                )),
+                th.Property("discount", th.ObjectType(
+                    th.Property("amount", th.NumberType),
+                    th.Property("percentage", th.NumberType),
+                    th.Property("total", th.NumberType),
+                    th.Property("newStandardPrice", th.NumberType),
+                )),
+                th.Property("id", th.StringType),
+            )
+        )),
     ).to_dict()
 
 class StockChangesStream(DateFilteredStream):
@@ -450,7 +494,7 @@ class StockChangesStream(DateFilteredStream):
 
     def post_process(self, row: dict, context: t.Optional[dict] = None) -> dict:
         """Post process the record."""
-        row = super().post_process(row, context)
+        # row = super().post_process(row, context)
         if not row:
             return None
         # Add timestamp if not present
@@ -499,13 +543,6 @@ class SalesStream(DateFilteredStream):
     records_jsonpath = "$[*]"
     next_page_token_jsonpath = None
     default_count = 500  # Default count per page
-
-    def post_process(self, row: dict, context: t.Optional[dict] = None) -> dict:
-        """Post process the record."""
-        row = super().post_process(row, context)
-        if not row:
-            return None
-        return row
 
     schema = th.PropertiesList(
         th.Property("idTilroySale", th.StringType),
