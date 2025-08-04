@@ -178,7 +178,6 @@ class DynamicRoutingStream(DateFilteredStream):
     def _get_historical_date_params(self, start_date: datetime) -> dict:
         """Get date parameters for historical sync. Override in subclasses if needed."""
         return {"dateFrom": start_date.strftime("%Y-%m-%d")}
-    
     def post_process(self, row: dict, context: t.Optional[dict] = None) -> dict:
         row = super().post_process(row, context)
         if not row:
@@ -372,7 +371,7 @@ class PurchaseOrdersStream(DynamicRoutingStream):
 
     def post_process(self, row: dict, context: Optional[dict] = None) -> Optional[dict]:
         """Post-process record."""
-        row = super().post_process(row, context)
+        # row = super().post_process(row, context)
         if not row:
             return None
 
@@ -394,7 +393,7 @@ class PurchaseOrdersStream(DynamicRoutingStream):
                 self.logger.warning(f"Could not parse orderDate: {row['orderDate']}")
                 return None
 
-        return row
+        return super().post_process(row, context)
 
     schema = th.PropertiesList(
         th.Property("tilroyId", th.CustomType({"type": ["string", "integer"]})),
@@ -405,12 +404,18 @@ class PurchaseOrdersStream(DynamicRoutingStream):
             th.Property("code", th.StringType),
             th.Property("name", th.StringType),
         )),
+    th.Property("supplier.tilroyId", th.IntegerType),
+    th.Property("supplier.code", th.StringType),
+    th.Property("supplier.name", th.StringType),
         th.Property("supplierReference", th.StringType),
         th.Property("requestedDeliveryDate", th.StringType),
         th.Property("warehouse", th.ObjectType(
             th.Property("number", th.IntegerType),
             th.Property("name", th.StringType),
         )),
+    th.Property("warehouse.number", th.IntegerType),
+    th.Property("warehouse.name", th.StringType),
+    th.Property("currency.code", th.StringType),
         th.Property("currency", th.ObjectType(
             th.Property("code", th.StringType),
         )),
