@@ -266,10 +266,12 @@ class ProductsStream(DynamicRoutingStream):
                 )
             ),
         ),
-        th.Property("supplier", th.ObjectType(
-            th.Property("code", th.StringType),
-            th.Property("name", th.StringType),
-        )),
+        # th.Property("supplier", th.ObjectType(
+        #     th.Property("code", th.StringType),
+        #     th.Property("name", th.StringType),
+        # )),
+        th.Property("supplier.code", th.StringType),
+        th.Property("supplier.name", th.StringType),
         th.Property("brand", th.ObjectType(
             th.Property("code", th.StringType),
             th.Property(
