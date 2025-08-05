@@ -58,7 +58,7 @@ class TilroyStream(RESTStream):
         result = {}
         for key, value in data.items():
             if isinstance(value, dict) :
-                self.logger.info(f"Converting {key} to JSON string")
+                # self.logger.info(f"Converting {key} to JSON string")
                 result[key] = json.dumps(value)
             else:
                 result[key] = value
