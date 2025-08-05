@@ -57,7 +57,7 @@ class TilroyStream(RESTStream):
         """Convert nested objects and arrays to JSON strings."""
         result = {}
         for key, value in data.items():
-            if isinstance(value, dict) or isinstance(value, list):
+            if isinstance(value, dict) :
                 self.logger.info(f"Converting {key} to JSON string")
                 result[key] = json.dumps(value)
             else:
