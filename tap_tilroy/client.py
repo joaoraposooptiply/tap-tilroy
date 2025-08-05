@@ -43,7 +43,26 @@ class TilroyStream(RESTStream):
     def url_base(self) -> str:
         return self.config["api_url"]
 
-
+    def post_process(self, row: dict, context: t.Optional[dict] = None) -> dict:
+        """Post-process a record after it has been fetched.
+        
+        Converts nested objects and arrays to JSON strings for CSV compatibility.
+        """
+        if not row:
+            return row
+        
+        return self._stringify_objects(row)
+    
+    def _stringify_objects(self, data: dict) -> dict:
+        """Convert nested objects and arrays to JSON strings."""
+        result = {}
+        for key, value in data.items():
+            if isinstance(value, dict) or isinstance(value, list):
+                self.logger.info(f"Converting {key} to JSON string")
+                result[key] = json.dumps(value)
+            else:
+                result[key] = value
+        return result
 
     def get_headers(self, context: t.Optional[dict] = None) -> dict:
         """Get headers for the request.
