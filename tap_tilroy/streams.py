@@ -187,28 +187,16 @@ class ShopsStream(DateFilteredStream):
         th.Property("sourceId", th.StringType, required=False),
         th.Property("number", th.StringType),
         th.Property("name", th.StringType),
-        th.Property("type", th.ObjectType(
-            th.Property("tilroyId", th.StringType),
-            th.Property("code", th.StringType),
-        )),
-        th.Property("subType", th.ObjectType(
-            th.Property("tilroyId", th.StringType),
-            th.Property("code", th.StringType),
-        )),
-        th.Property("language", th.ObjectType(
-            th.Property("tilroyId", th.StringType),
-            th.Property("code", th.StringType),
-        )),
+        th.Property("type", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("subType", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("language", th.CustomType({"type": ["object", "string", "null"]})),
         th.Property("latitude", th.StringType, required=False),
         th.Property("longitude", th.StringType, required=False),
         th.Property("postalCode", th.StringType, required=False),
         th.Property("street", th.StringType, required=False),
         th.Property("houseNumber", th.StringType, required=False),
         th.Property("legalEntityId", th.IntegerType),
-        th.Property("country", th.ObjectType(
-            th.Property("tilroyId", th.StringType),
-            th.Property("countryCode", th.StringType),
-        )),
+        th.Property("country", th.CustomType({"type": ["object", "string", "null"]})),
     ).to_dict()
 
 class ProductsStream(DynamicRoutingStream):
@@ -247,22 +235,8 @@ class ProductsStream(DynamicRoutingStream):
                 )
             ),
         ),
-        th.Property("supplier", th.ObjectType(
-            th.Property("code", th.StringType),
-            th.Property("name", th.StringType),
-        )),
-        th.Property("brand", th.ObjectType(
-            th.Property("code", th.StringType),
-            th.Property(
-                "descriptions",
-                th.ArrayType(
-                    th.ObjectType(
-                        th.Property("languageCode", th.StringType, required=False),
-                        th.Property("standard", th.StringType, required=False),
-                    ),
-                ),
-            ),
-        )),
+        th.Property("supplier", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("brand", th.CustomType({"type": ["object", "string", "null"]})),
         th.Property(
             "colours",
             th.ArrayType(
@@ -372,49 +346,15 @@ class PurchaseOrdersStream(DynamicRoutingStream):
     th.Property("tilroyId", th.CustomType({"type": ["string", "integer"]})),
     th.Property("number", th.StringType),
     th.Property("orderDate", th.DateTimeType),
-    th.Property("supplier", th.ObjectType(
-            th.Property("tilroyId", th.IntegerType),
-            th.Property("code", th.StringType),
-            th.Property("name", th.StringType),
-        )),
+    th.Property("supplier", th.CustomType({"type": ["object", "string", "null"]})),
     th.Property("supplierReference", th.StringType),
     th.Property("requestedDeliveryDate", th.StringType),
-    th.Property("warehouse", th.ObjectType(
-            th.Property("number", th.IntegerType),
-            th.Property("name", th.StringType),
-        )),
-    th.Property("currency", th.ObjectType(
-            th.Property("code", th.StringType),
-        )),
-    th.Property("prices", th.ObjectType(
-            th.Property("tenantCurrency", th.ObjectType(
-                th.Property("standardVatExc", th.NumberType),
-                th.Property("standardVatInc", th.NumberType),
-                th.Property("vatExc", th.NumberType),
-                th.Property("vatInc", th.NumberType),
-            )),
-            th.Property("supplierCurrency", th.ObjectType(
-                th.Property("standardVatExc", th.NumberType),
-                th.Property("standardVatInc", th.NumberType),
-                th.Property("vatExc", th.StringType),
-                th.Property("vatInc", th.StringType),
-            )),
-        )),
+    th.Property("warehouse", th.CustomType({"type": ["object", "string", "null"]})),
+    th.Property("currency", th.CustomType({"type": ["object", "string", "null"]})),
+    th.Property("prices", th.CustomType({"type": ["object", "string", "null"]})),
     th.Property("status", th.StringType),
-    th.Property("created", th.ObjectType(
-            th.Property("user", th.ObjectType(
-                th.Property("login", th.StringType),
-                th.Property("sourceId", th.StringType),
-            )),
-            th.Property("timestamp", th.DateTimeType),
-        )),
-    th.Property("modified", th.ObjectType(
-            th.Property("user", th.ObjectType(
-                th.Property("login", th.StringType),
-                th.Property("sourceId", th.StringType),
-            )),
-            th.Property("timestamp", th.DateTimeType),
-        )),
+    th.Property("created", th.CustomType({"type": ["object", "string", "null"]})),
+    th.Property("modified", th.CustomType({"type": ["object", "string", "null"]})),
     th.Property("lines", th.ArrayType(
             th.ObjectType(
                 th.Property("sku", th.ObjectType(
@@ -497,6 +437,7 @@ class StockChangesStream(DateFilteredStream):
         # Add timestamp if not present
         if "timestamp" not in row:
             row["timestamp"] = datetime.utcnow().isoformat()
+        
         return row
 
     schema = th.PropertiesList(
@@ -504,25 +445,11 @@ class StockChangesStream(DateFilteredStream):
         th.Property("timestamp", th.DateTimeType),
         th.Property("sourceId", th.StringType),
         th.Property("reason", th.StringType),
-        th.Property("shop", th.ObjectType(
-            th.Property("number", th.IntegerType),
-            th.Property("sourceId", th.StringType, required=False),
-        )),
-        th.Property("product", th.ObjectType(
-            th.Property("code", th.StringType),
-            th.Property("sourceId", th.StringType),
-        )),
-        th.Property("colour", th.ObjectType(
-            th.Property("code", th.StringType),
-            th.Property("sourceId", th.StringType),
-        )),
-        th.Property("size", th.ObjectType(
-            th.Property("code", th.StringType),
-        )),
-        th.Property("sku", th.ObjectType(
-            th.Property("barcode", th.StringType),
-            th.Property("sourceId", th.StringType),
-        )),
+        th.Property("shop", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("product", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("colour", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("size", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("sku", th.CustomType({"type": ["object", "string", "null"]})),
         th.Property("qtyDelta", th.IntegerType),
         th.Property("qtyTransferredDelta", th.IntegerType),
         th.Property("qtyReservedDelta", th.IntegerType),
@@ -545,40 +472,11 @@ class SalesStream(DateFilteredStream):
         th.Property("idTilroySale", th.StringType),
         th.Property("idTenant", th.StringType),
         th.Property("idSession", th.StringType),
-        th.Property("customer", th.ObjectType(
-            th.Property("idTilroy", th.StringType, required=False),
-            th.Property("idSource", th.StringType, required=False),
-        )),
+        th.Property("customer", th.CustomType({"type": ["object", "string", "null"]})),
         th.Property("idSourceCustomer", th.StringType, required=False),
-        th.Property("vatTypeCalculation", th.ObjectType(
-            th.Property("UseCalculation", th.BooleanType),
-            th.Property("IdVatType", th.StringType),
-            th.Property("VatTypeCode", th.StringType),
-            th.Property("VatExempt", th.BooleanType),
-            th.Property("IsVatIncl", th.BooleanType),
-            th.Property("IsIntraComm", th.BooleanType),
-            th.Property("IsExport", th.BooleanType),
-            th.Property("IsCustom", th.BooleanType),
-            th.Property("IdCountryFrom", th.IntegerType),
-            th.Property("CountryFromIsIntrastat", th.BooleanType),
-            th.Property("IdCountryTo", th.IntegerType),
-            th.Property("CountryToIsIntrastat", th.BooleanType),
-            th.Property("Invoice", th.BooleanType),
-            th.Property("VatNumber", th.StringType),
-            th.Property("IdCustomer", th.StringType),
-        )),
-        th.Property("shop", th.ObjectType(
-            th.Property("idTilroy", th.StringType),
-            th.Property("idSource", th.StringType, required=False),
-            th.Property("number", th.IntegerType),
-            th.Property("name", th.StringType),
-            th.Property("country", th.StringType),
-        )),
-        th.Property("till", th.ObjectType(
-            th.Property("idTilroy", th.StringType),
-            th.Property("number", th.IntegerType),
-            th.Property("idSource", th.StringType, required=False),
-        )),
+        th.Property("vatTypeCalculation", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("shop", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("till", th.CustomType({"type": ["object", "string", "null"]})),
         th.Property("saleDate", th.DateTimeType),
         th.Property("eTicket", th.BooleanType),
         th.Property("orderDate", th.StringType, required=False),
@@ -680,10 +578,5 @@ class SalesStream(DateFilteredStream):
                 ),
             ),
         ),
-        th.Property("legalEntity", th.ObjectType(
-            th.Property("idTilroy", th.StringType),
-            th.Property("code", th.StringType),
-            th.Property("name", th.StringType),
-            th.Property("vatNr", th.StringType),
-        )),
+        th.Property("legalEntity", th.CustomType({"type": ["object", "string", "null"]})),
     ).to_dict()
