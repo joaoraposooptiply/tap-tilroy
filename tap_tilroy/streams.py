@@ -268,10 +268,7 @@ class ProductsStream(DynamicRoutingStream):
                                      ),
                                  ),
                                 
-                                th.Property(
-                                    "rrp",
-                                    th.ArrayType(th.ObjectType()),
-                                ),
+                               th.Property("rrp", th.CustomType({"type": ["array","object", "string", "null"]})),
                             )
                         ),
                     ),
@@ -422,23 +419,31 @@ class StockChangesStream(DateFilteredStream):
     """Stream for Tilroy stock changes."""
     name = "stock_changes"
     path = "/stockapi/production/stockchanges"
-    primary_keys: t.ClassVar[list[str]] = ["tilroyId"]
-    replication_key = "timestamp"
+    # primary_keys: t.ClassVar[list[str]] = ["tilroyId"]
+    primary_keys = ["tilroyId"]
+    replication_key = "dateUpdated"
     replication_method = "INCREMENTAL"
     records_jsonpath = "$[*]"
     next_page_token_jsonpath = None
     default_count = 100  # Match SalesStream's default count
 
-    def post_process(self, row: dict, context: t.Optional[dict] = None) -> dict:
-        """Post process the record."""
-        # row = super().post_process(row, context)
-        if not row:
-            return None
-        # Add timestamp if not present
-        if "timestamp" not in row:
-            row["timestamp"] = datetime.utcnow().isoformat()
+    def get_url_params(
+        self,
+        context: t.Optional[dict],
+        next_page_token: t.Optional[t.Any] = None,
+    ) -> dict[str, t.Any]:
+        """Get URL query parameters for stock changes with dateFrom and dateTo."""
+        params = super().get_url_params(context, next_page_token)
         
-        return row
+        # Add dateTo parameter set to current date
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        params["dateTo"] = current_date
+        
+        self.logger.info(f"📅 [{self.name}] Added dateTo parameter: {current_date}")
+        
+        return params
+
+
 
     schema = th.PropertiesList(
         th.Property("tilroyId", th.StringType),
@@ -447,14 +452,18 @@ class StockChangesStream(DateFilteredStream):
         th.Property("reason", th.StringType),
         th.Property("shop", th.CustomType({"type": ["object", "string", "null"]})),
         th.Property("product", th.CustomType({"type": ["object", "string", "null"]})),
-        th.Property("colour", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("qty",th.CustomType({"type": ["object", "string", "null"]})),
+        # th.Property("colour", th.CustomType({"type": ["object", "string", "null"]})),
         th.Property("size", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("refill",th.IntegerType),
         th.Property("sku", th.CustomType({"type": ["object", "string", "null"]})),
         th.Property("qtyDelta", th.IntegerType),
         th.Property("qtyTransferredDelta", th.IntegerType),
         th.Property("qtyReservedDelta", th.IntegerType),
         th.Property("qtyRequestedDelta", th.IntegerType),
         th.Property("cause", th.StringType, required=False),
+        th.Property("dateCreated", th.DateTimeType),
+        th.Property("dateUpdated", th.DateTimeType),
     ).to_dict()
 
 class SalesStream(DateFilteredStream):
