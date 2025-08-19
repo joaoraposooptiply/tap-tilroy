@@ -280,6 +280,7 @@ class ProductsStream(DynamicRoutingStream):
             ),
         ),
         th.Property("isUsed", th.BooleanType),
+        th.Property("suppliers", th.CustomType({"type": ["array","object", "string", "null"]})),
         th.Property("extraction_timestamp", th.DateTimeType),  # Synthetic replication key
     ).to_dict()
 
