@@ -147,3 +147,26 @@ class TilroyStream(RESTStream):
             except Exception as e:
                 self.logger.error(f"Error fetching records: {str(e)}")
                 raise
+        
+    def post_process(self, row: dict, context: dict) -> dict:
+        """Convert string numbers to float and handle NA values."""
+        for key, value in row.items():
+            # Handle actual null values
+            if value is None:
+                continue  # Already None, no need to change
+            
+            if isinstance(value, str):
+                # Handle NA values
+                if value.upper() in ['NA', 'N/A', 'NULL', 'NONE', '']:
+                    row[key] = None
+                    continue
+                
+                # Convert string numbers to float
+                field_types = self.schema.get("properties", {}).get(key, {}).get("type")
+                if field_types and "number" in field_types:
+                    try:
+                        row[key] = float(value)
+                    except ValueError:
+                        self.logger.debug(f"Parsing {key}={value} failed")
+                        raise ValueError(f"Parsing {key}={value} failed")
+        return row
