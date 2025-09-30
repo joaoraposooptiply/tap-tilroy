@@ -6,6 +6,9 @@ from tap_tilroy.client import TilroyStream
 import requests
 from datetime import datetime, timedelta
 from typing import Optional
+import json
+import http.client
+from urllib.parse import urlencode
 
 class DateFilteredStream(TilroyStream):
     """Base class for streams that use date-based filtering."""
@@ -130,6 +133,12 @@ class DynamicRoutingStream(DateFilteredStream):
         next_page_token: t.Optional[t.Any] = None,
     ) -> dict[str, t.Any]:
         """Get URL query parameters with dynamic parameter naming."""
+        # Check development page limit
+        dev_max_pages = self.config.get("dev_max_pages")
+        if dev_max_pages and next_page_token and next_page_token > dev_max_pages:
+            self.logger.info(f"🛑 [{self.name}] Development page limit reached ({dev_max_pages})")
+            return {}
+        
         params = {}
         
         # Get the start date from the bookmark or use config
@@ -166,12 +175,18 @@ class DynamicRoutingStream(DateFilteredStream):
         # Set count parameter
         params["count"] = self.default_count
         
+        # Add development logging
+        if dev_max_pages:
+            current_page = next_page_token if next_page_token else 1
+            self.logger.info(f"🔧 [{self.name}] Dev mode: page {current_page}/{dev_max_pages}")
+        
         self.logger.info(f"🔧 [{self.name}] Final URL params: {params}")
         return params
     
     def _get_historical_date_params(self, start_date: datetime) -> dict:
         """Get date parameters for historical sync. Override in subclasses if needed."""
         return {"dateFrom": start_date.strftime("%Y-%m-%d")}
+    
 
 class ShopsStream(DateFilteredStream):
     """Stream for Tilroy shops."""
@@ -210,6 +225,11 @@ class ProductsStream(DynamicRoutingStream):
     records_jsonpath = "$[*]"
     next_page_token_jsonpath = None
     default_count = 1000  # Override default count to 1000 for products
+    
+    # Class variable to store SKU IDs for prices stream
+    _collected_sku_ids: list[str] = []
+    _child_contexts: list[dict] = []  # Store child contexts for batching
+    _batch_size = 100  # API limit for prices
 
     def post_process(self, row: dict, context: t.Optional[dict] = None) -> dict:
         """Post process the record and add synthetic timestamp."""
@@ -220,7 +240,97 @@ class ProductsStream(DynamicRoutingStream):
         # This allows us to use the export endpoint for delta syncs
         row["extraction_timestamp"] = datetime.utcnow().isoformat()
         
+        # Collect SKU IDs for prices stream
+        self._collect_sku_ids_from_product(row)
+        
+        # Create child context for this record
+        child_context = self.get_child_context(row, context)
+        if child_context:
+            self._child_contexts.append(child_context)
+            
+            # If we have 100 contexts, flush them
+            if len(self._child_contexts) >= self._batch_size:
+                self._flush_child_contexts()
+        
         return row
+    
+    def get_child_context(self, record: dict, context: t.Optional[dict] = None) -> dict:
+        """Return a child context object for a given record."""
+        # Extract SKU IDs from this product record
+        sku_ids = []
+        if "colours" in record and isinstance(record["colours"], list):
+            for colour in record["colours"]:
+                if "skus" in colour and isinstance(colour["skus"], list):
+                    for sku in colour["skus"]:
+                        if "tilroyId" in sku:
+                            sku_ids.append(str(sku["tilroyId"]))
+        
+        if sku_ids:
+            return {
+                "sku_ids": sku_ids,
+                "product_id": record.get("tilroyId"),
+                "context": context
+            }
+        return None
+    
+    def _flush_child_contexts(self) -> None:
+        """Flush collected child contexts to PricesStream."""
+        if not self._child_contexts:
+            return
+        
+        # Combine all SKU IDs from contexts
+        all_sku_ids = []
+        for context in self._child_contexts:
+            all_sku_ids.extend(context["sku_ids"])
+        
+        # Remove duplicates
+        unique_sku_ids = list(set(all_sku_ids))
+        
+        # Add to global collection
+        for sku_id in unique_sku_ids:
+            if sku_id not in self._collected_sku_ids:
+                self._collected_sku_ids.append(sku_id)
+        
+        self.logger.info(f"📦 [{self.name}] Flushed {len(self._child_contexts)} contexts, collected {len(unique_sku_ids)} unique SKU IDs")
+        
+        # Clear contexts
+        self._child_contexts = []
+    
+    def finalize_child_contexts(self) -> None:
+        """Finalize any remaining child contexts."""
+        if self._child_contexts:
+            self._flush_child_contexts()
+        
+        self.logger.info(f"✅ [{self.name}] Final SKU collection: {len(self._collected_sku_ids)} unique SKU IDs collected for PricesStream")
+    
+    def _collect_sku_ids_from_product(self, product: dict) -> None:
+        """Extract SKU IDs from a product record and store them."""
+        if "colours" in product and isinstance(product["colours"], list):
+            for colour in product["colours"]:
+                if "skus" in colour and isinstance(colour["skus"], list):
+                    for sku in colour["skus"]:
+                        if "tilroyId" in sku:
+                            sku_id = str(sku["tilroyId"])
+                            if sku_id not in self._collected_sku_ids:
+                                self._collected_sku_ids.append(sku_id)
+                                # Log every 100 SKU IDs collected for monitoring
+                                if len(self._collected_sku_ids) % 100 == 0:
+                                    self.logger.info(f"📦 [{self.name}] Collected {len(self._collected_sku_ids)} SKU IDs so far...")
+    
+    @classmethod
+    def get_collected_sku_ids(cls) -> list[str]:
+        """Get the collected SKU IDs for use by other streams."""
+        return cls._collected_sku_ids.copy()
+    
+    @classmethod
+    def clear_collected_sku_ids(cls) -> None:
+        """Clear the collected SKU IDs (useful for testing or reset)."""
+        cls._collected_sku_ids.clear()
+    
+    def finalize_sku_collection(self) -> None:
+        """Log final SKU collection statistics."""
+        self.logger.info(f"✅ [{self.name}] Final SKU collection: {len(self._collected_sku_ids)} unique SKU IDs collected for PricesStream")
+    
 
     schema = th.PropertiesList(
         th.Property("tilroyId", th.CustomType({"type": ["string", "integer"]})),
@@ -589,4 +699,149 @@ class SalesStream(DateFilteredStream):
             ),
         ),
         th.Property("legalEntity", th.CustomType({"type": ["object", "string", "null"]})),
+    ).to_dict()
+
+
+class PricesStream(TilroyStream):
+    """Stream for Tilroy prices that collects SKU IDs from products and batches API calls."""
+    
+    name = "prices"
+    path = "/priceapi/production/prices"
+    # parent_stream_type = ProductsStream  # Declare parent stream
+    primary_keys: t.ClassVar[list[str]] = ["sku_tilroy_id", "price_tilroy_id", "type"]
+    replication_key = "date_created"
+    replication_method = "INCREMENTAL"
+    records_jsonpath = "$[*]"
+    next_page_token_jsonpath = None
+    
+    # Store collected SKU IDs
+    _sku_ids: list[str] = []
+    _batch_size = 100  # API limit
+    _current_start_idx = 0
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._sku_ids = []
+        self._current_start_idx = 0
+        self.logger.info(f"🔧 [{self.name}] PricesStream initialized")
+    
+    def _collect_sku_ids_from_products_stream(self) -> None:
+        """Get SKU IDs that were collected by the ProductsStream."""
+        self.logger.info(f"🔄 [{self.name}] Getting SKU IDs from ProductsStream...")
+        
+        try:
+            # Get SKU IDs collected by ProductsStream
+            self._sku_ids = ProductsStream.get_collected_sku_ids()
+            
+            if not self._sku_ids:
+                self.logger.warning(f"⚠️ [{self.name}] No SKU IDs found from ProductsStream. Make sure ProductsStream runs before PricesStream.")
+            else:
+                self.logger.info(f"📦 [{self.name}] Retrieved {len(self._sku_ids)} SKU IDs from ProductsStream")
+            
+        except Exception as e:
+            self.logger.error(f"❌ [{self.name}] Error getting SKU IDs from ProductsStream: {str(e)}")
+            self._sku_ids = []
+    
+    def get_url_params(self, context: t.Optional[dict], next_page_token: t.Optional[t.Any] = None) -> dict:
+        """Get URL parameters with SKU IDs for the current chunk."""
+        self.logger.info(f"🔧 [{self.name}] get_url_params called")
+        
+        # If we don't have SKU IDs yet, try to collect them
+        if not self._sku_ids:
+            self.logger.info(f"📥 [{self.name}] No SKU IDs, collecting from ProductsStream...")
+            self._collect_sku_ids_from_products_stream()
+        
+        # If still no SKU IDs, return empty params to skip this stream
+        if not self._sku_ids:
+            self.logger.warning(f"⚠️ [{self.name}] No SKU IDs collected, skipping prices stream")
+            return {}
+        
+        # Get current chunk of SKU IDs (max 100)
+        start_idx = getattr(self, '_current_start_idx', 0)
+        end_idx = min(start_idx + self._batch_size, len(self._sku_ids))
+        chunk_sku_ids = self._sku_ids[start_idx:end_idx]
+        
+        if not chunk_sku_ids:
+            self.logger.info(f"🏁 [{self.name}] No more SKU IDs to process")
+            return {}
+        
+        # Build parameters
+        sku_ids_param = ",".join(chunk_sku_ids)
+        params = {
+            "skuIds": sku_ids_param,
+            "shopNumber": "500095",
+            "priceRange": "retail"
+        }
+        
+        self.logger.info(f"🔗 [{self.name}] Processing {len(chunk_sku_ids)} SKU IDs (indices {start_idx}-{end_idx-1})")
+        self.logger.info(f"🌐 [{self.name}] URL params: {params}")
+        
+        # Update start index for next call
+        self._current_start_idx = end_idx
+        
+        return params
+
+    def request_records(self, context: t.Optional[dict]) -> t.Iterator[dict]:
+        """Override to handle price flattening properly."""
+        # Use parent's request_records but handle flattening
+        for record in super().request_records(context):
+            if "prices" in record and isinstance(record["prices"], list):
+                # Flatten each price into a separate record
+                for price in record["prices"]:
+                    flattened_record = self._flatten_price_record(record["sku"], price)
+                    if flattened_record:
+                        yield flattened_record
+            else:
+                # Skip records without prices array
+                continue
+    
+    def _flatten_price_record(self, sku: dict, price: dict) -> dict:
+        """Flatten a price record to create a single record per price type."""
+        if not sku or not price:
+            return None
+        
+        record = {
+            "sku_tilroy_id": sku.get("tilroyId"),
+            "sku_source_id": sku.get("sourceId"),
+            "price_tilroy_id": str(price.get("priceTilroyId", "")),
+            "price_source_id": price.get("priceSourceId"),
+            "price": price.get("price"),
+            "type": price.get("type"),
+            "quantity": price.get("quantity", 1),
+            "run_tilroy_id": price.get("run", {}).get("tilroyId") if price.get("run") else None,
+            "run_source_id": price.get("run", {}).get("sourceId") if price.get("run") else None,
+            "label_type": price.get("labelType"),
+            "end_date": price.get("endDate"),
+            "start_date": price.get("startDate"),
+            "date_created": price.get("dateCreated"),
+        }
+        
+        # Ensure date_created is not None (required for replication key)
+        if not record["date_created"]:
+            record["date_created"] = datetime.utcnow().isoformat()
+        
+        return record
+    
+    # def sync(self, *args, **kwargs):
+    #     """Override sync to add debugging."""
+    #     self.logger.info(f"🚀 [{self.name}] Starting sync...")
+    #     result = super().sync(*args, **kwargs)
+    #     self.logger.info(f"✅ [{self.name}] Sync completed")
+    #     return result
+
+
+    schema = th.PropertiesList(
+        th.Property("sku_tilroy_id", th.StringType),
+        th.Property("sku_source_id", th.StringType, required=False),
+        th.Property("price_tilroy_id", th.StringType),
+        th.Property("price_source_id", th.StringType, required=False),
+        th.Property("price", th.NumberType),
+        th.Property("type", th.StringType),  # "standard" or "promo"
+        th.Property("quantity", th.IntegerType),
+        th.Property("run_tilroy_id", th.StringType, required=False),
+        th.Property("run_source_id", th.StringType, required=False),
+        th.Property("label_type", th.StringType, required=False),
+        th.Property("end_date", th.DateTimeType, required=False),
+        th.Property("start_date", th.DateTimeType, required=False),
+        th.Property("date_created", th.DateTimeType),
     ).to_dict()
