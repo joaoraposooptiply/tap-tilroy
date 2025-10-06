@@ -61,18 +61,18 @@ class TapTilroy(Tap):
             secret=True,  # Flag config as protected.
             description="The AWS API key for authentication",
         ),
-                th.Property(
-                    "api_url",
-                    th.StringType,
-                    required=True,
-                    description="The URL for the Tilroy API service",
-                ),
-                th.Property(
-                    "prices_shop_number",
-                    th.StringType,
-                    required=True,
-                    description="The shop number for the Tilroy API service",
-                ),
+        th.Property(
+            "api_url",
+            th.StringType,
+            required=True,
+            description="The URL for the Tilroy API service",
+        ),
+        th.Property(
+            "prices_shop_number",
+            th.IntegerType,
+            required=True,
+            description="The shop number for the Tilroy API service",
+        ),
     ).to_dict()
 
     def discover_streams(self) -> list[streams.TilroyStream]:
