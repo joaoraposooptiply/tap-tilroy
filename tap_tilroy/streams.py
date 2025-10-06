@@ -769,7 +769,7 @@ class PricesStream(TilroyStream):
         sku_ids_param = ",".join(chunk_sku_ids)
         params = {
             "skuIds": sku_ids_param,
-            "shopNumber": "500095",
+            "shopNumber": str(self.config.get("prices_shop_number")),
             "priceRange": "retail"
         }
         
