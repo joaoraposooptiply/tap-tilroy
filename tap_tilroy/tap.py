@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from singer_sdk import Tap
 from singer_sdk.singerlib import StateMessage
 from singer_sdk import typing as th  # JSON schema typing helpers
@@ -32,6 +34,16 @@ class TapTilroy(Tap):
     """Tilroy tap class."""
 
     name = "tap-tilroy"
+
+    def __init__(self, *args, **kwargs):
+        """Initialize the tap and suppress schema warnings for specific streams."""
+        super().__init__(*args, **kwargs)
+
+        # The API returns many fields not defined in the schema, causing excessive
+        # warnings. This silences warnings for the 'sales' and 'products' streams
+        # by setting their logger level to ERROR.
+        logging.getLogger("tap-tilroy.sales").setLevel(logging.ERROR)
+        logging.getLogger("tap-tilroy.products").setLevel(logging.ERROR)
 
     # TODO: Update this section with the actual config values you expect:
     config_jsonschema = th.PropertiesList(
