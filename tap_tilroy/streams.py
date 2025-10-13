@@ -843,12 +843,6 @@ class PricesStream(TilroyStream):
         
         return record
     
-    # def sync(self, *args, **kwargs):
-    #     """Override sync to add debugging."""
-    #     self.logger.info(f"🚀 [{self.name}] Starting sync...")
-    #     result = super().sync(*args, **kwargs)
-    #     self.logger.info(f"✅ [{self.name}] Sync completed")
-    #     return result
 
 
     schema = th.PropertiesList(
