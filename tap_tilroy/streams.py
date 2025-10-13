@@ -588,6 +588,27 @@ class SalesStream(DateFilteredStream):
     next_page_token_jsonpath = None
     default_count = 500  # Default count per page
 
+    def post_process(self, row: dict, context: t.Optional[dict] = None) -> t.Optional[dict]:
+        """
+        Post-process each record to handle potential API errors and ensure
+        the replication key is present.
+        """
+        # The API can return error objects instead of valid records.
+        # We need to identify and skip these.
+        if "message" in row and "code" in row:
+            self.logger.warning(
+                f"Skipping record due to an API error: {row['message']}"
+            )
+            return None
+
+        # The replication key 'saleDate' is essential for incremental sync.
+        # If it is missing, the record is invalid and must be skipped.
+        if self.replication_key not in row or not row[self.replication_key]:
+            self.logger.warning(f"Skipping record without a '{self.replication_key}': {row}")
+            return None
+
+        return row
+
     schema = th.PropertiesList(
         th.Property("idTilroySale", th.StringType),
         th.Property("idTenant", th.StringType),
