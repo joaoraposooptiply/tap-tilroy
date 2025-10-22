@@ -34,47 +34,35 @@ class TilroyStream(RESTStream):
     """Tilroy stream class."""
 
     default_count = 100  # Default count per page
+    
+    # def __init__(self, *args, **kwargs):
+    #     super().__init__(*args, **kwargs)
+    #     self.MAX_PAGES = 1000
 
     @property
     def url_base(self) -> str:
         return self.config["api_url"]
 
-    def flatten_record(self, record: dict, parent_key: str = "", sep: str = ".") -> dict:
-        """Flatten a nested dictionary by concatenating nested keys with a separator.
-
-        Args:
-            record: The record to flatten
-            parent_key: The parent key for nested dictionaries
-            sep: The separator to use between nested keys
-
-        Returns:
-            A flattened dictionary
-        """
-        items = []
-        for key, value in record.items():
-            new_key = f"{parent_key}{sep}{key}" if parent_key else key
-            
-            if isinstance(value, dict):
-                items.extend(self.flatten_record(value, new_key, sep=sep).items())
-            elif isinstance(value, list):
-                # For arrays, we'll keep them as is
-                items.append((new_key, value))
-            else:
-                items.append((new_key, value))
-                
-        return dict(items)
-
     def post_process(self, row: dict, context: t.Optional[dict] = None) -> dict:
         """Post-process a record after it has been fetched.
-
-        Args:
-            row: Individual record in the stream.
-            context: Stream partition or context dictionary.
-
-        Returns:
-            The processed record.
+        
+        Converts nested objects and arrays to JSON strings for CSV compatibility.
         """
-        return self.flatten_record(row)
+        if not row:
+            return row
+        
+        return self._stringify_objects(row)
+    
+    def _stringify_objects(self, data: dict) -> dict:
+        """Convert nested objects and arrays to JSON strings."""
+        result = {}
+        for key, value in data.items():
+            if isinstance(value, dict) :
+                # self.logger.info(f"Converting {key} to JSON string")
+                result[key] = json.dumps(value)
+            else:
+                result[key] = value
+        return result
 
     def get_headers(self, context: t.Optional[dict] = None) -> dict:
         """Get headers for the request.
@@ -124,9 +112,14 @@ class TilroyStream(RESTStream):
             params = self.get_url_params(context, page)
             url = f"{self.url_base}{self.path}"
             headers = self.get_headers(context)
-            # Debug log to print the final URL and parameters
-            self.logger.info(f"Request URL: {url}")
-            self.logger.info(f"Request params: {params}")
+            
+            # Build query string and complete URL for logging
+            query_string = "&".join([f"{k}={v}" for k, v in params.items()])
+            complete_url = f"{url}?{query_string}"
+            
+            # Debug log to print the complete request URL
+            self.logger.info(f"🌐 Complete Request URL: {complete_url}")
+            self.logger.info(f"📋 Request params: {params}")
             try:
                 # Use http.client for the request
                 conn = http.client.HTTPSConnection("api.tilroy.com")
@@ -138,10 +131,15 @@ class TilroyStream(RESTStream):
                 data_json = json.loads(data)
                 # Extract records using jsonpath
                 records = list(extract_jsonpath(self.records_jsonpath, data_json))
+                self.logger.info(f"🔍 Found {len(records)} records")
+                
                 if not records:  # If no records returned, we've reached the end
                     break
+                
                 for record in records:
                     yield record
+
+                
                 # If we got exactly default_count records, there might be more pages
                 if len(records) < self.default_count:
                     break
@@ -149,3 +147,26 @@ class TilroyStream(RESTStream):
             except Exception as e:
                 self.logger.error(f"Error fetching records: {str(e)}")
                 raise
+        
+    def post_process(self, row: dict, context: dict) -> dict:
+        """Convert string numbers to float and handle NA values."""
+        for key, value in row.items():
+            # Handle actual null values
+            if value is None:
+                continue  # Already None, no need to change
+            
+            if isinstance(value, str):
+                # Handle NA values
+                if value.upper() in ['NA', 'N/A', 'NULL', 'NONE', '']:
+                    row[key] = None
+                    continue
+                
+                # Convert string numbers to float
+                field_types = self.schema.get("properties", {}).get(key, {}).get("type")
+                if field_types and "number" in field_types:
+                    try:
+                        row[key] = float(value)
+                    except ValueError:
+                        self.logger.debug(f"Parsing {key}={value} failed")
+                        raise ValueError(f"Parsing {key}={value} failed")
+        return row
