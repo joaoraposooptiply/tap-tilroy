@@ -860,3 +860,139 @@ class PricesStream(TilroyStream):
         th.Property("start_date", th.DateTimeType, required=False),
         th.Property("date_created", th.DateTimeType),
     ).to_dict()
+
+
+class StockStream(TilroyStream):
+    """Stream for Tilroy stock that collects SKU IDs from products and batches API calls."""
+    
+    name = "stock"
+    path = "/stockapi/production/stock"
+    primary_keys: t.ClassVar[list[str]] = ["tilroyId"]
+    replication_key = "dateUpdated"
+    replication_method = "INCREMENTAL"
+    records_jsonpath = "$[*]"
+    next_page_token_jsonpath = None
+    
+    # Store collected SKU IDs
+    _sku_ids: list[str] = []
+    _batch_size = 1000  # URL length limit - can handle ~1000 SKU IDs
+    _current_start_idx = 0
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._sku_ids = []
+        self._current_start_idx = 0
+        self.logger.info(f"🔧 [{self.name}] StockStream initialized")
+    
+    def _collect_sku_ids_from_products_stream(self) -> None:
+        """Get SKU IDs that were collected by the ProductsStream."""
+        self.logger.info(f"🔄 [{self.name}] Getting SKU IDs from ProductsStream...")
+        
+        try:
+            # Get SKU IDs collected by ProductsStream
+            self._sku_ids = ProductsStream.get_collected_sku_ids()
+            
+            if not self._sku_ids:
+                self.logger.warning(f"⚠️ [{self.name}] No SKU IDs found from ProductsStream. Make sure ProductsStream runs before StockStream.")
+            else:
+                self.logger.info(f"📦 [{self.name}] Retrieved {len(self._sku_ids)} SKU IDs from ProductsStream")
+            
+        except Exception as e:
+            self.logger.error(f"❌ [{self.name}] Error getting SKU IDs from ProductsStream: {str(e)}")
+            self._sku_ids = []
+    
+    def get_url_params(self, context: t.Optional[dict], next_page_token: t.Optional[t.Any] = None) -> dict:
+        """Get URL parameters with SKU IDs for the current chunk."""
+        self.logger.info(f"🔧 [{self.name}] get_url_params called")
+        
+        # If we don't have SKU IDs yet, try to collect them
+        if not self._sku_ids:
+            self.logger.info(f"📥 [{self.name}] No SKU IDs, collecting from ProductsStream...")
+            self._collect_sku_ids_from_products_stream()
+        
+        # If still no SKU IDs, return empty params to skip this stream
+        if not self._sku_ids:
+            self.logger.warning(f"⚠️ [{self.name}] No SKU IDs collected, skipping stock stream")
+            return {}
+        
+        # Get current chunk of SKU IDs (max 1000)
+        start_idx = getattr(self, '_current_start_idx', 0)
+        end_idx = min(start_idx + self._batch_size, len(self._sku_ids))
+        chunk_sku_ids = self._sku_ids[start_idx:end_idx]
+        
+        if not chunk_sku_ids:
+            self.logger.info(f"🏁 [{self.name}] No more SKU IDs to process")
+            return {}
+        
+        # Build parameters - use skuTilroyId parameter as shown in the endpoint
+        sku_ids_param = ",".join(chunk_sku_ids)
+        params = {
+            "skuTilroyId": sku_ids_param
+        }
+        
+        self.logger.info(f"🔗 [{self.name}] Processing {len(chunk_sku_ids)} SKU IDs (indices {start_idx}-{end_idx-1})")
+        self.logger.info(f"🌐 [{self.name}] URL params: skuTilroyId={sku_ids_param[:100]}...")  # Log first 100 chars
+        
+        # Update start index for next call
+        self._current_start_idx = end_idx
+        
+        return params
+    
+    def request_records(self, context: t.Optional[dict]) -> t.Iterator[dict]:
+        """Override to handle stock records properly."""
+        # Use parent's request_records but handle the stock response format
+        for record in super().request_records(context):
+            if record:
+                yield record
+    
+    def post_process(self, row: dict, context: t.Optional[dict] = None) -> t.Optional[dict]:
+        """Post-process each stock record."""
+        if not row:
+            return None
+        
+        # Ensure dateUpdated exists and is valid for replication key
+        if "dateUpdated" not in row or not row["dateUpdated"]:
+            self.logger.warning(f"Skipping record without dateUpdated: {row}")
+            return None
+        
+        # Convert dateUpdated to datetime if it's a string
+        if isinstance(row["dateUpdated"], str):
+            try:
+                row["dateUpdated"] = datetime.fromisoformat(row["dateUpdated"].replace("Z", "+00:00"))
+            except ValueError:
+                self.logger.warning(f"Could not parse dateUpdated: {row['dateUpdated']}")
+                return None
+        
+        return row
+
+    schema = th.PropertiesList(
+        th.Property("tilroyId", th.StringType),
+        th.Property(
+            "sku",
+            th.ObjectType(
+                th.Property("tilroyId", th.StringType),
+                th.Property("sourceId", th.StringType),
+            )
+        ),
+        th.Property("location1", th.StringType, required=False),
+        th.Property("location2", th.StringType, required=False),
+        th.Property(
+            "qty",
+            th.ObjectType(
+                th.Property("available", th.IntegerType),
+                th.Property("ideal", th.IntegerType, required=False),
+                th.Property("max", th.IntegerType, required=False),
+                th.Property("requested", th.IntegerType),
+                th.Property("transfered", th.IntegerType),
+            )
+        ),
+        th.Property("refill", th.IntegerType),
+        th.Property("dateUpdated", th.DateTimeType),
+        th.Property(
+            "shop",
+            th.ObjectType(
+                th.Property("tilroyId", th.StringType),
+                th.Property("number", th.IntegerType),
+            )
+        ),
+    ).to_dict()

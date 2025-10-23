@@ -14,7 +14,8 @@ from tap_tilroy.streams import (
     StockChangesStream,
     SalesStream,
     SuppliersStream,
-    PricesStream
+    PricesStream,
+    StockStream
 )
 
 # TODO: Import your custom stream types here:
@@ -27,7 +28,8 @@ STREAM_TYPES = [
     StockChangesStream,
     SalesStream,
     SuppliersStream,
-    PricesStream
+    PricesStream,
+    StockStream
 ]
 
 class TapTilroy(Tap):
@@ -104,10 +106,11 @@ class TapTilroy(Tap):
         # 2. Define the custom execution order
         products_stream = self.streams.get("products")
         prices_stream = self.streams.get("prices")
+        stock_stream = self.streams.get("stock")
         other_streams = [
             s
             for s in self.streams.values()
-            if s not in [products_stream, prices_stream]
+            if s not in [products_stream, prices_stream, stock_stream]
         ]
 
         ordered_streams = []
@@ -116,6 +119,8 @@ class TapTilroy(Tap):
         ordered_streams.extend(other_streams)
         if prices_stream:
             ordered_streams.append(prices_stream)
+        if stock_stream:
+            ordered_streams.append(stock_stream)
 
         # 3. Execute streams in the custom order
         if products_stream:
