@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 
 from singer_sdk import Tap
-from singer_sdk.singerlib import StateMessage
 from singer_sdk import typing as th  # JSON schema typing helpers
 from tap_tilroy.streams import (
     ShopsStream,
@@ -100,8 +99,7 @@ class TapTilroy(Tap):
         # 1. Perform setup from the base class
         self._reset_state_progress_markers()
         self._set_compatible_replication_methods()
-        if self.state:
-            self.write_message(StateMessage(value=self.state))
+        # State is handled by the base class automatically
 
         # 2. Define the custom execution order
         products_stream = self.streams.get("products")

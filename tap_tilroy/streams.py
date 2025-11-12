@@ -875,7 +875,7 @@ class StockStream(TilroyStream):
     
     # Store collected SKU IDs
     _sku_ids: list[str] = []
-    _batch_size = 1000  # URL length limit - can handle ~1000 SKU IDs
+    _batch_size = 50  # Reduced batch size to avoid URL length/header overflow errors
     _current_start_idx = 0
     
     def __init__(self, *args, **kwargs):
@@ -915,7 +915,7 @@ class StockStream(TilroyStream):
             self.logger.warning(f"⚠️ [{self.name}] No SKU IDs collected, skipping stock stream")
             return {}
         
-        # Get current chunk of SKU IDs (max 1000)
+        # Get current chunk of SKU IDs (max batch_size)
         start_idx = getattr(self, '_current_start_idx', 0)
         end_idx = min(start_idx + self._batch_size, len(self._sku_ids))
         chunk_sku_ids = self._sku_ids[start_idx:end_idx]
@@ -931,7 +931,8 @@ class StockStream(TilroyStream):
         }
         
         self.logger.info(f"🔗 [{self.name}] Processing {len(chunk_sku_ids)} SKU IDs (indices {start_idx}-{end_idx-1})")
-        self.logger.info(f"🌐 [{self.name}] URL params: skuTilroyId={sku_ids_param[:100]}...")  # Log first 100 chars
+        self.logger.info(f"🌐 [{self.name}] Complete Request URL: {self.url_base}{self.path}?skuTilroyId={sku_ids_param[:100]}...")
+        self.logger.info(f"📋 [{self.name}] Request params: {params}")
         
         # Update start index for next call
         self._current_start_idx = end_idx
@@ -939,20 +940,105 @@ class StockStream(TilroyStream):
         return params
     
     def request_records(self, context: t.Optional[dict]) -> t.Iterator[dict]:
-        """Override to handle stock records properly."""
-        # Use parent's request_records but handle the stock response format
-        for record in super().request_records(context):
-            if record:
-                yield record
+        """Override to handle batching of SKU IDs across multiple requests."""
+        from singer_sdk.helpers.jsonpath import extract_jsonpath
+        import json
+        import http.client
+        
+        # Collect SKU IDs if not already done
+        if not self._sku_ids:
+            self.logger.info(f"📥 [{self.name}] No SKU IDs, collecting from ProductsStream...")
+            self._collect_sku_ids_from_products_stream()
+        
+        # If no SKU IDs, skip this stream
+        if not self._sku_ids:
+            self.logger.warning(f"⚠️ [{self.name}] No SKU IDs collected, skipping stock stream")
+            return
+        
+        # Reset start index for this sync
+        self._current_start_idx = 0
+        
+        # Process SKU IDs in batches
+        total_sku_ids = len(self._sku_ids)
+        self.logger.info(f"🚀 [{self.name}] Starting to process {total_sku_ids} SKU IDs in batches of {self._batch_size}")
+        
+        while self._current_start_idx < total_sku_ids:
+            # Get current batch
+            start_idx = self._current_start_idx
+            end_idx = min(start_idx + self._batch_size, total_sku_ids)
+            chunk_sku_ids = self._sku_ids[start_idx:end_idx]
+            
+            if not chunk_sku_ids:
+                break
+            
+            # Build URL with SKU IDs
+            sku_ids_param = ",".join(chunk_sku_ids)
+            url = f"{self.url_base}{self.path}?skuTilroyId={sku_ids_param}"
+            headers = self.get_headers(context)
+            
+            self.logger.info(f"🔗 [{self.name}] Processing batch {start_idx//self._batch_size + 1}: {len(chunk_sku_ids)} SKU IDs (indices {start_idx}-{end_idx-1})")
+            self.logger.info(f"🌐 [{self.name}] Complete Request URL: {url[:200]}...")  # Log first 200 chars
+            
+            try:
+                # Make the request
+                conn = http.client.HTTPSConnection("api.tilroy.com")
+                query_string = f"skuTilroyId={sku_ids_param}"
+                conn.request("GET", f"{self.path}?{query_string}", "", headers)
+                response = conn.getresponse()
+                data = response.read().decode("utf-8")
+                
+                # Check for errors
+                if response.status != 200:
+                    self.logger.error(f"❌ [{self.name}] API returned status {response.status}: {data[:500]}")
+                    # Continue to next batch instead of failing completely
+                    self._current_start_idx = end_idx
+                    continue
+                
+                # Parse the response
+                data_json = json.loads(data)
+                
+                # Check if the response is an error object
+                if isinstance(data_json, dict) and "code" in data_json and "message" in data_json:
+                    self.logger.error(f"❌ [{self.name}] API returned error: {data_json.get('message', 'Unknown error')}")
+                    # Continue to next batch instead of failing completely
+                    self._current_start_idx = end_idx
+                    continue
+                
+                # Extract records using jsonpath
+                records = list(extract_jsonpath(self.records_jsonpath, data_json))
+                self.logger.info(f"🔍 [{self.name}] Found {len(records)} records in this batch")
+                
+                # Yield each record
+                for record in records:
+                    # Post-process the record
+                    processed_record = self.post_process(record, context)
+                    if processed_record:
+                        yield processed_record
+                
+                # Move to next batch
+                self._current_start_idx = end_idx
+                
+            except Exception as e:
+                self.logger.error(f"❌ [{self.name}] Error fetching batch (indices {start_idx}-{end_idx-1}): {str(e)}")
+                # Continue to next batch instead of failing completely
+                self._current_start_idx = end_idx
+                continue
+        
+        self.logger.info(f"✅ [{self.name}] Finished processing all {total_sku_ids} SKU IDs")
     
     def post_process(self, row: dict, context: t.Optional[dict] = None) -> t.Optional[dict]:
         """Post-process each stock record."""
         if not row:
             return None
         
+        # Handle error responses from the API
+        if "code" in row and "message" in row:
+            self.logger.warning(f"⚠️ [{self.name}] Skipping API error response: {row.get('message', 'Unknown error')}")
+            return None
+        
         # Ensure dateUpdated exists and is valid for replication key
         if "dateUpdated" not in row or not row["dateUpdated"]:
-            self.logger.warning(f"Skipping record without dateUpdated: {row}")
+            self.logger.warning(f"⚠️ [{self.name}] Skipping record without dateUpdated: {row}")
             return None
         
         # Convert dateUpdated to datetime if it's a string
@@ -960,7 +1046,7 @@ class StockStream(TilroyStream):
             try:
                 row["dateUpdated"] = datetime.fromisoformat(row["dateUpdated"].replace("Z", "+00:00"))
             except ValueError:
-                self.logger.warning(f"Could not parse dateUpdated: {row['dateUpdated']}")
+                self.logger.warning(f"⚠️ [{self.name}] Could not parse dateUpdated: {row['dateUpdated']}")
                 return None
         
         return row
