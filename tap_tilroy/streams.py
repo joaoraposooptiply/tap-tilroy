@@ -875,7 +875,7 @@ class StockStream(TilroyStream):
     
     # Store collected SKU IDs
     _sku_ids: list[str] = []
-    _batch_size = 50  # Reduced batch size to avoid URL length/header overflow errors
+    _batch_size = 250  # Optimized batch size: ~2310 chars (tested safe limit, balances performance vs URL length)
     _current_start_idx = 0
     
     def __init__(self, *args, **kwargs):
