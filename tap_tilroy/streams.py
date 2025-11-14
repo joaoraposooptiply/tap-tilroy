@@ -875,13 +875,17 @@ class StockStream(TilroyStream):
     
     # Store collected SKU IDs
     _sku_ids: list[str] = []
-    _batch_size = 250  # Optimized batch size: ~2310 chars (tested safe limit, balances performance vs URL length)
+    _batch_size = 250  # Number of SKU IDs to send per batch
+    _api_record_limit = 10  # API returns 10 items per page (pagination supported)
     _current_start_idx = 0
+    _detected_api_limit: t.Optional[int] = None  # Track detected API response limit
+    _response_counts: list[int] = []  # Track record counts per response for analysis
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._sku_ids = []
         self._current_start_idx = 0
+        self._response_counts = []
         self.logger.info(f"🔧 [{self.name}] StockStream initialized")
     
     def _collect_sku_ids_from_products_stream(self) -> None:
@@ -980,40 +984,133 @@ class StockStream(TilroyStream):
             self.logger.info(f"🌐 [{self.name}] Complete Request URL: {url[:200]}...")  # Log first 200 chars
             
             try:
-                # Make the request
-                conn = http.client.HTTPSConnection("api.tilroy.com")
-                query_string = f"skuTilroyId={sku_ids_param}"
-                conn.request("GET", f"{self.path}?{query_string}", "", headers)
-                response = conn.getresponse()
-                data = response.read().decode("utf-8")
+                # Process all pages for this batch of SKU IDs
+                page = 1
+                total_records_for_batch = 0
+                total_pages = None
                 
-                # Check for errors
-                if response.status != 200:
-                    self.logger.error(f"❌ [{self.name}] API returned status {response.status}: {data[:500]}")
-                    # Continue to next batch instead of failing completely
-                    self._current_start_idx = end_idx
-                    continue
+                while True:
+                    # Build URL with SKU IDs and page parameter
+                    query_params = f"skuTilroyId={sku_ids_param}"
+                    if page > 1:
+                        query_params += f"&page={page}"
+                    
+                    # Make the request
+                    conn = http.client.HTTPSConnection("api.tilroy.com")
+                    conn.request("GET", f"{self.path}?{query_params}", "", headers)
+                    response = conn.getresponse()
+                    data = response.read().decode("utf-8")
+                    
+                    # Check for errors
+                    if response.status != 200:
+                        self.logger.error(f"❌ [{self.name}] API returned status {response.status}: {data[:500]}")
+                        # Continue to next batch instead of failing completely
+                        break
+                    
+                    # Extract pagination headers
+                    paging_page_count = response.getheader("X-Paging-PageCount")
+                    paging_items_per_page = response.getheader("X-Paging-ItemsPerPage")
+                    paging_item_count = response.getheader("X-Paging-ItemCount")
+                    
+                    # Parse pagination info on first page
+                    if page == 1:
+                        if paging_page_count:
+                            total_pages = int(paging_page_count)
+                            self.logger.info(
+                                f"📄 [{self.name}] Pagination detected: {total_pages} pages, "
+                                f"{paging_items_per_page or '10'} items per page, "
+                                f"{paging_item_count or '?'} total items"
+                            )
+                        else:
+                            # If no pagination header, assume single page
+                            total_pages = 1
+                    
+                    # Parse the response
+                    data_json = json.loads(data)
+                    
+                    # Log response structure for debugging (first batch, first page only)
+                    if start_idx == 0 and page == 1:
+                        if isinstance(data_json, dict):
+                            self.logger.info(f"📊 [{self.name}] API response structure (first batch): {list(data_json.keys())}")
+                            # Check for pagination or match count in response
+                            if "matchCount" in data_json or "match_count" in data_json:
+                                match_count = data_json.get("matchCount") or data_json.get("match_count")
+                                self.logger.info(f"📊 [{self.name}] API match count: {match_count}")
+                            if "total" in data_json or "totalCount" in data_json:
+                                total = data_json.get("total") or data_json.get("totalCount")
+                                self.logger.info(f"📊 [{self.name}] API total count: {total}")
+                        elif isinstance(data_json, list):
+                            self.logger.info(f"📊 [{self.name}] API response is a list with {len(data_json)} items")
+                    
+                    # Check if the response is an error object
+                    if isinstance(data_json, dict) and "code" in data_json and "message" in data_json:
+                        self.logger.error(f"❌ [{self.name}] API returned error: {data_json.get('message', 'Unknown error')}")
+                        break
+                    
+                    # Extract records using jsonpath
+                    records = list(extract_jsonpath(self.records_jsonpath, data_json))
+                    
+                    # Track response counts for analysis
+                    self._response_counts.append(len(records))
+                    total_records_for_batch += len(records)
+                    
+                    # Extract unique SKU IDs from the records we got to see which SKUs we successfully retrieved
+                    retrieved_sku_ids = set()
+                    for record in records:
+                        if isinstance(record, dict) and "sku" in record:
+                            sku_obj = record.get("sku")
+                            if isinstance(sku_obj, dict) and "tilroyId" in sku_obj:
+                                retrieved_sku_ids.add(str(sku_obj["tilroyId"]))
+                    
+                    # Log page progress
+                    if total_pages and total_pages > 1:
+                        self.logger.info(
+                            f"📄 [{self.name}] Batch {start_idx//self._batch_size + 1}, Page {page}/{total_pages}: "
+                            f"Got {len(records)} stock records (total so far: {total_records_for_batch})"
+                        )
+                    else:
+                        self.logger.info(
+                            f"📊 [{self.name}] Batch {start_idx//self._batch_size + 1}: "
+                            f"Got {len(records)} stock records"
+                        )
+                    
+                    # Log the actual SKU IDs for the first batch, first page (for debugging)
+                    if start_idx == 0 and page == 1:
+                        self.logger.info(
+                            f"📋 [{self.name}] First batch SKU IDs ({len(chunk_sku_ids)} total): "
+                            f"{', '.join(chunk_sku_ids[:50])}{'...' if len(chunk_sku_ids) > 50 else ''}"
+                        )
+                    
+                    # Yield each record
+                    for record in records:
+                        # Post-process the record
+                        processed_record = self.post_process(record, context)
+                        if processed_record:
+                            yield processed_record
+                    
+                    # Check if we need to fetch more pages
+                    if not records:
+                        # No records on this page, we're done
+                        break
+                    
+                    # If we know total pages, check if we've reached the last page
+                    if total_pages and page >= total_pages:
+                        break
+                    
+                    # If we got fewer records than items per page, we're likely on the last page
+                    items_per_page = int(paging_items_per_page) if paging_items_per_page else 10
+                    if len(records) < items_per_page:
+                        break
+                    
+                    # Move to next page
+                    page += 1
                 
-                # Parse the response
-                data_json = json.loads(data)
-                
-                # Check if the response is an error object
-                if isinstance(data_json, dict) and "code" in data_json and "message" in data_json:
-                    self.logger.error(f"❌ [{self.name}] API returned error: {data_json.get('message', 'Unknown error')}")
-                    # Continue to next batch instead of failing completely
-                    self._current_start_idx = end_idx
-                    continue
-                
-                # Extract records using jsonpath
-                records = list(extract_jsonpath(self.records_jsonpath, data_json))
-                self.logger.info(f"🔍 [{self.name}] Found {len(records)} records in this batch")
-                
-                # Yield each record
-                for record in records:
-                    # Post-process the record
-                    processed_record = self.post_process(record, context)
-                    if processed_record:
-                        yield processed_record
+                # Log summary for this batch
+                self.logger.info(
+                    f"✅ [{self.name}] Batch {start_idx//self._batch_size + 1} complete: "
+                    f"Retrieved {total_records_for_batch} total stock records across {page} page(s) "
+                    f"for {len(chunk_sku_ids)} SKU IDs"
+                )
                 
                 # Move to next batch
                 self._current_start_idx = end_idx
@@ -1023,6 +1120,29 @@ class StockStream(TilroyStream):
                 # Continue to next batch instead of failing completely
                 self._current_start_idx = end_idx
                 continue
+        
+        # Log summary of response patterns
+        if self._response_counts:
+            unique_counts = set(self._response_counts)
+            count_frequency = {}
+            for count in self._response_counts:
+                count_frequency[count] = count_frequency.get(count, 0) + 1
+            
+            self.logger.info(
+                f"📈 [{self.name}] Response analysis: "
+                f"Total batches: {len(self._response_counts)}, "
+                f"Unique record counts: {sorted(unique_counts)}, "
+                f"Most common: {max(count_frequency.items(), key=lambda x: x[1])}"
+            )
+            
+            # Check if we consistently got exactly 10 records
+            exactly_10_count = sum(1 for c in self._response_counts if c == 10)
+            if exactly_10_count > 0:
+                percentage = (exactly_10_count / len(self._response_counts)) * 100
+                self.logger.warning(
+                    f"⚠️ [{self.name}] {exactly_10_count}/{len(self._response_counts)} batches ({percentage:.1f}%) "
+                    f"returned exactly 10 records, suggesting an API hard limit."
+                )
         
         self.logger.info(f"✅ [{self.name}] Finished processing all {total_sku_ids} SKU IDs")
     
