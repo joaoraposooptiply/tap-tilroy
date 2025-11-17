@@ -875,7 +875,7 @@ class StockStream(TilroyStream):
     
     # Store collected SKU IDs
     _sku_ids: list[str] = []
-    _batch_size = 250  # Number of SKU IDs to send per batch
+    _batch_size = 50  # Number of SKU IDs to send per batch (reduced to allow pagination without URL overflow)
     _api_record_limit = 10  # API returns 10 items per page (pagination supported)
     _current_start_idx = 0
     _detected_api_limit: t.Optional[int] = None  # Track detected API response limit
