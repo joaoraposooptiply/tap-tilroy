@@ -868,8 +868,8 @@ class StockStream(TilroyStream):
     name = "stock"
     path = "/stockapi/production/stock"
     primary_keys: t.ClassVar[list[str]] = ["tilroyId"]
-    replication_key = "dateUpdated"
-    replication_method = "INCREMENTAL"
+    replication_key = None  # No replication key - always fetches all stock for all products (child of products stream)
+    replication_method = "FULL_TABLE"
     records_jsonpath = "$[*]"
     next_page_token_jsonpath = None
     
@@ -1156,24 +1156,11 @@ class StockStream(TilroyStream):
             self.logger.warning(f"⚠️ [{self.name}] Skipping API error response: {row.get('message', 'Unknown error')}")
             return None
         
-        # Ensure dateUpdated exists and is valid for replication key
-        if "dateUpdated" not in row or not row["dateUpdated"]:
-            self.logger.warning(f"⚠️ [{self.name}] Skipping record without dateUpdated: {row}")
-            return None
-        
-        # Convert dateUpdated to datetime if it's a string
-        if isinstance(row["dateUpdated"], str):
-            try:
-                row["dateUpdated"] = datetime.fromisoformat(row["dateUpdated"].replace("Z", "+00:00"))
-            except ValueError:
-                self.logger.warning(f"⚠️ [{self.name}] Could not parse dateUpdated: {row['dateUpdated']}")
-                return None
-        
         # Flatten nested objects to avoid duplicate columns in CSV
         flattened = {}
         
         # Copy top-level fields
-        for key in ["tilroyId", "location1", "location2", "refill", "dateUpdated"]:
+        for key in ["tilroyId", "location1", "location2", "refill"]:
             if key in row:
                 flattened[key] = row[key]
         
@@ -1212,7 +1199,6 @@ class StockStream(TilroyStream):
         th.Property("qty_requested", th.IntegerType),
         th.Property("qty_transfered", th.IntegerType),
         th.Property("refill", th.IntegerType),
-        th.Property("dateUpdated", th.DateTimeType),
         th.Property("shop_tilroyId", th.StringType),
         th.Property("shop_number", th.IntegerType),
     ).to_dict()
