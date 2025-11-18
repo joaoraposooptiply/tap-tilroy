@@ -875,7 +875,7 @@ class StockStream(TilroyStream):
     
     # Store collected SKU IDs
     _sku_ids: list[str] = []
-    _batch_size = 50  # Number of SKU IDs to send per batch (reduced to allow pagination without URL overflow)
+    _batch_size = 150  # Number of SKU IDs to send per batch (increased from 50 since pagination is working)
     _api_record_limit = 10  # API returns 10 items per page (pagination supported)
     _current_start_idx = 0
     _detected_api_limit: t.Optional[int] = None  # Track detected API response limit
@@ -1147,7 +1147,7 @@ class StockStream(TilroyStream):
         self.logger.info(f"✅ [{self.name}] Finished processing all {total_sku_ids} SKU IDs")
     
     def post_process(self, row: dict, context: t.Optional[dict] = None) -> t.Optional[dict]:
-        """Post-process each stock record."""
+        """Post-process each stock record and flatten nested objects."""
         if not row:
             return None
         
@@ -1169,36 +1169,50 @@ class StockStream(TilroyStream):
                 self.logger.warning(f"⚠️ [{self.name}] Could not parse dateUpdated: {row['dateUpdated']}")
                 return None
         
-        return row
+        # Flatten nested objects to avoid duplicate columns in CSV
+        flattened = {}
+        
+        # Copy top-level fields
+        for key in ["tilroyId", "location1", "location2", "refill", "dateUpdated"]:
+            if key in row:
+                flattened[key] = row[key]
+        
+        # Flatten sku object
+        if "sku" in row and isinstance(row["sku"], dict):
+            sku = row["sku"]
+            flattened["sku_tilroyId"] = sku.get("tilroyId")
+            flattened["sku_sourceId"] = sku.get("sourceId")
+        
+        # Flatten qty object
+        if "qty" in row and isinstance(row["qty"], dict):
+            qty = row["qty"]
+            flattened["qty_available"] = qty.get("available")
+            flattened["qty_ideal"] = qty.get("ideal")
+            flattened["qty_max"] = qty.get("max")
+            flattened["qty_requested"] = qty.get("requested")
+            flattened["qty_transfered"] = qty.get("transfered")
+        
+        # Flatten shop object
+        if "shop" in row and isinstance(row["shop"], dict):
+            shop = row["shop"]
+            flattened["shop_tilroyId"] = shop.get("tilroyId")
+            flattened["shop_number"] = shop.get("number")
+        
+        return flattened
 
     schema = th.PropertiesList(
         th.Property("tilroyId", th.StringType),
-        th.Property(
-            "sku",
-            th.ObjectType(
-                th.Property("tilroyId", th.StringType),
-                th.Property("sourceId", th.StringType),
-            )
-        ),
+        th.Property("sku_tilroyId", th.StringType),
+        th.Property("sku_sourceId", th.StringType, required=False),
         th.Property("location1", th.StringType, required=False),
         th.Property("location2", th.StringType, required=False),
-        th.Property(
-            "qty",
-            th.ObjectType(
-                th.Property("available", th.IntegerType),
-                th.Property("ideal", th.IntegerType, required=False),
-                th.Property("max", th.IntegerType, required=False),
-                th.Property("requested", th.IntegerType),
-                th.Property("transfered", th.IntegerType),
-            )
-        ),
+        th.Property("qty_available", th.IntegerType),
+        th.Property("qty_ideal", th.IntegerType, required=False),
+        th.Property("qty_max", th.IntegerType, required=False),
+        th.Property("qty_requested", th.IntegerType),
+        th.Property("qty_transfered", th.IntegerType),
         th.Property("refill", th.IntegerType),
         th.Property("dateUpdated", th.DateTimeType),
-        th.Property(
-            "shop",
-            th.ObjectType(
-                th.Property("tilroyId", th.StringType),
-                th.Property("number", th.IntegerType),
-            )
-        ),
+        th.Property("shop_tilroyId", th.StringType),
+        th.Property("shop_number", th.IntegerType),
     ).to_dict()
