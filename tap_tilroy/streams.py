@@ -1156,13 +1156,35 @@ class StockStream(TilroyStream):
             self.logger.warning(f"⚠️ [{self.name}] Skipping API error response: {row.get('message', 'Unknown error')}")
             return None
         
-        # Flatten nested objects to avoid duplicate columns in CSV
-        flattened = {}
+        # Debug: Log the raw row structure (first record only)
+        if not hasattr(self, '_post_process_logged'):
+            self._post_process_logged = True
+            self.logger.info(f"🔍 [{self.name}] Raw row keys: {list(row.keys())}")
+            self.logger.info(f"🔍 [{self.name}] Raw row sample: {row}")
+            if "sku" in row:
+                self.logger.info(f"🔍 [{self.name}] sku type: {type(row['sku'])}, value: {row['sku']}")
+            if "qty" in row:
+                self.logger.info(f"🔍 [{self.name}] qty type: {type(row['qty'])}, value: {row['qty']}")
+            if "shop" in row:
+                self.logger.info(f"🔍 [{self.name}] shop type: {type(row['shop'])}, value: {row['shop']}")
         
-        # Copy top-level fields
-        for key in ["tilroyId", "location1", "location2", "refill"]:
-            if key in row:
-                flattened[key] = row[key]
+        # Flatten nested objects to avoid duplicate columns in CSV
+        # Initialize with all expected fields to ensure they're always present
+        flattened = {
+            "tilroyId": row.get("tilroyId"),
+            "sku_tilroyId": None,
+            "sku_sourceId": None,
+            "location1": row.get("location1"),
+            "location2": row.get("location2"),
+            "qty_available": None,
+            "qty_ideal": None,
+            "qty_max": None,
+            "qty_requested": None,
+            "qty_transfered": None,
+            "refill": row.get("refill"),
+            "shop_tilroyId": None,
+            "shop_number": None,
+        }
         
         # Flatten sku object
         if "sku" in row:
@@ -1217,6 +1239,12 @@ class StockStream(TilroyStream):
                     flattened["shop_number"] = shop.get("number")
                 except (json.JSONDecodeError, TypeError):
                     pass
+        
+        # Debug: Log the flattened result (first record only)
+        if hasattr(self, '_post_process_logged') and not hasattr(self, '_post_process_result_logged'):
+            self._post_process_result_logged = True
+            self.logger.info(f"🔍 [{self.name}] Flattened keys: {list(flattened.keys())}")
+            self.logger.info(f"🔍 [{self.name}] Flattened sample: {flattened}")
         
         return flattened
 
