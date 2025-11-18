@@ -1165,25 +1165,58 @@ class StockStream(TilroyStream):
                 flattened[key] = row[key]
         
         # Flatten sku object
-        if "sku" in row and isinstance(row["sku"], dict):
-            sku = row["sku"]
-            flattened["sku_tilroyId"] = sku.get("tilroyId")
-            flattened["sku_sourceId"] = sku.get("sourceId")
+        if "sku" in row:
+            if isinstance(row["sku"], dict):
+                sku = row["sku"]
+                flattened["sku_tilroyId"] = sku.get("tilroyId")
+                flattened["sku_sourceId"] = sku.get("sourceId")
+            elif isinstance(row["sku"], str):
+                # If it's already a JSON string, parse it
+                try:
+                    import json
+                    sku = json.loads(row["sku"])
+                    flattened["sku_tilroyId"] = sku.get("tilroyId")
+                    flattened["sku_sourceId"] = sku.get("sourceId")
+                except (json.JSONDecodeError, TypeError):
+                    pass
         
         # Flatten qty object
-        if "qty" in row and isinstance(row["qty"], dict):
-            qty = row["qty"]
-            flattened["qty_available"] = qty.get("available")
-            flattened["qty_ideal"] = qty.get("ideal")
-            flattened["qty_max"] = qty.get("max")
-            flattened["qty_requested"] = qty.get("requested")
-            flattened["qty_transfered"] = qty.get("transfered")
+        if "qty" in row:
+            if isinstance(row["qty"], dict):
+                qty = row["qty"]
+                flattened["qty_available"] = qty.get("available")
+                flattened["qty_ideal"] = qty.get("ideal")
+                flattened["qty_max"] = qty.get("max")
+                flattened["qty_requested"] = qty.get("requested")
+                flattened["qty_transfered"] = qty.get("transfered")
+            elif isinstance(row["qty"], str):
+                # If it's already a JSON string, parse it
+                try:
+                    import json
+                    qty = json.loads(row["qty"])
+                    flattened["qty_available"] = qty.get("available")
+                    flattened["qty_ideal"] = qty.get("ideal")
+                    flattened["qty_max"] = qty.get("max")
+                    flattened["qty_requested"] = qty.get("requested")
+                    flattened["qty_transfered"] = qty.get("transfered")
+                except (json.JSONDecodeError, TypeError):
+                    pass
         
         # Flatten shop object
-        if "shop" in row and isinstance(row["shop"], dict):
-            shop = row["shop"]
-            flattened["shop_tilroyId"] = shop.get("tilroyId")
-            flattened["shop_number"] = shop.get("number")
+        if "shop" in row:
+            if isinstance(row["shop"], dict):
+                shop = row["shop"]
+                flattened["shop_tilroyId"] = shop.get("tilroyId")
+                flattened["shop_number"] = shop.get("number")
+            elif isinstance(row["shop"], str):
+                # If it's already a JSON string, parse it
+                try:
+                    import json
+                    shop = json.loads(row["shop"])
+                    flattened["shop_tilroyId"] = shop.get("tilroyId")
+                    flattened["shop_number"] = shop.get("number")
+                except (json.JSONDecodeError, TypeError):
+                    pass
         
         return flattened
 
