@@ -1151,36 +1151,16 @@ class StockStream(TilroyStream):
         if not row:
             return None
         
-        return row
+        # Convert nested objects to JSON strings for CSV compatibility (like original)
+        return self._stringify_objects(row)
 
     schema = th.PropertiesList(
         th.Property("tilroyId", th.StringType),
-        th.Property(
-            "sku",
-            th.ObjectType(
-                th.Property("tilroyId", th.StringType),
-                th.Property("sourceId", th.StringType),
-            )
-        ),
+        th.Property("sku", th.CustomType({"type": ["object", "string", "null"]})),
         th.Property("location1", th.StringType, required=False),
         th.Property("location2", th.StringType, required=False),
-        th.Property(
-            "qty",
-            th.ObjectType(
-                th.Property("available", th.IntegerType),
-                th.Property("ideal", th.IntegerType, required=False),
-                th.Property("max", th.IntegerType, required=False),
-                th.Property("requested", th.IntegerType),
-                th.Property("transfered", th.IntegerType),
-            )
-        ),
+        th.Property("qty", th.CustomType({"type": ["object", "string", "null"]})),
         th.Property("refill", th.IntegerType),
         th.Property("dateUpdated", th.DateTimeType),
-        th.Property(
-            "shop",
-            th.ObjectType(
-                th.Property("tilroyId", th.StringType),
-                th.Property("number", th.IntegerType),
-            )
-        ),
+        th.Property("shop", th.CustomType({"type": ["object", "string", "null"]})),
     ).to_dict()
