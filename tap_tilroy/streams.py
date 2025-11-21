@@ -1151,32 +1151,36 @@ class StockStream(TilroyStream):
         if not row:
             return None
         
-        # Handle error responses from the API
-        if "code" in row and "message" in row:
-            self.logger.warning(f"⚠️ [{self.name}] Skipping API error response: {row.get('message', 'Unknown error')}")
-            return None
-        
-        # Let the base class handle converting nested objects to JSON strings
-        return super().post_process(row, context)
+        return row
 
     schema = th.PropertiesList(
         th.Property("tilroyId", th.StringType),
-        th.Property("sku", th.ObjectType(
-            th.Property("tilroyId", th.StringType),
-            th.Property("sourceId", th.StringType, required=False),
-        )),
+        th.Property(
+            "sku",
+            th.ObjectType(
+                th.Property("tilroyId", th.StringType),
+                th.Property("sourceId", th.StringType),
+            )
+        ),
         th.Property("location1", th.StringType, required=False),
         th.Property("location2", th.StringType, required=False),
-        th.Property("qty", th.ObjectType(
-            th.Property("available", th.IntegerType),
-            th.Property("ideal", th.IntegerType, required=False),
-            th.Property("max", th.IntegerType, required=False),
-            th.Property("requested", th.IntegerType),
-            th.Property("transfered", th.IntegerType),
-        )),
+        th.Property(
+            "qty",
+            th.ObjectType(
+                th.Property("available", th.IntegerType),
+                th.Property("ideal", th.IntegerType, required=False),
+                th.Property("max", th.IntegerType, required=False),
+                th.Property("requested", th.IntegerType),
+                th.Property("transfered", th.IntegerType),
+            )
+        ),
         th.Property("refill", th.IntegerType),
-        th.Property("shop", th.ObjectType(
-            th.Property("tilroyId", th.StringType),
-            th.Property("number", th.IntegerType),
-        )),
+        th.Property("dateUpdated", th.DateTimeType),
+        th.Property(
+            "shop",
+            th.ObjectType(
+                th.Property("tilroyId", th.StringType),
+                th.Property("number", th.IntegerType),
+            )
+        ),
     ).to_dict()
