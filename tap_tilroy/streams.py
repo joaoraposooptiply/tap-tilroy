@@ -1156,6 +1156,8 @@ class StockStream(TilroyStream):
             self.logger.warning(f"⚠️ [{self.name}] Skipping API error response: {row.get('message', 'Unknown error')}")
             return None
         
+        import json
+        
         # Flatten nested objects into separate columns
         flattened = {
             "tilroyId": row.get("tilroyId"),
@@ -1173,23 +1175,23 @@ class StockStream(TilroyStream):
             "shop_number": None,
         }
         
-        # Flatten sku object
+        # Flatten sku object - handle both dict and JSON string
         if "sku" in row:
             sku = row["sku"]
             if isinstance(sku, dict):
                 flattened["sku_tilroyId"] = sku.get("tilroyId")
                 flattened["sku_sourceId"] = sku.get("sourceId")
-            elif isinstance(sku, str):
+            elif isinstance(sku, str) and sku.strip():
                 # If it's already a JSON string, parse it
                 try:
-                    import json
-                    sku = json.loads(sku)
-                    flattened["sku_tilroyId"] = sku.get("tilroyId")
-                    flattened["sku_sourceId"] = sku.get("sourceId")
-                except (json.JSONDecodeError, TypeError):
-                    pass
+                    sku_dict = json.loads(sku)
+                    if isinstance(sku_dict, dict):
+                        flattened["sku_tilroyId"] = sku_dict.get("tilroyId")
+                        flattened["sku_sourceId"] = sku_dict.get("sourceId")
+                except (json.JSONDecodeError, TypeError, ValueError) as e:
+                    self.logger.debug(f"[{self.name}] Failed to parse sku JSON: {e}")
         
-        # Flatten qty object
+        # Flatten qty object - handle both dict and JSON string
         if "qty" in row:
             qty = row["qty"]
             if isinstance(qty, dict):
@@ -1198,34 +1200,50 @@ class StockStream(TilroyStream):
                 flattened["qty_max"] = qty.get("max")
                 flattened["qty_requested"] = qty.get("requested")
                 flattened["qty_transfered"] = qty.get("transfered")
-            elif isinstance(qty, str):
+            elif isinstance(qty, str) and qty.strip():
                 # If it's already a JSON string, parse it
                 try:
-                    import json
-                    qty = json.loads(qty)
-                    flattened["qty_available"] = qty.get("available")
-                    flattened["qty_ideal"] = qty.get("ideal")
-                    flattened["qty_max"] = qty.get("max")
-                    flattened["qty_requested"] = qty.get("requested")
-                    flattened["qty_transfered"] = qty.get("transfered")
-                except (json.JSONDecodeError, TypeError):
-                    pass
+                    qty_dict = json.loads(qty)
+                    if isinstance(qty_dict, dict):
+                        flattened["qty_available"] = qty_dict.get("available")
+                        flattened["qty_ideal"] = qty_dict.get("ideal")
+                        flattened["qty_max"] = qty_dict.get("max")
+                        flattened["qty_requested"] = qty_dict.get("requested")
+                        flattened["qty_transfered"] = qty_dict.get("transfered")
+                except (json.JSONDecodeError, TypeError, ValueError) as e:
+                    self.logger.debug(f"[{self.name}] Failed to parse qty JSON: {e}")
         
-        # Flatten shop object
+        # Flatten shop object - handle both dict and JSON string
         if "shop" in row:
             shop = row["shop"]
             if isinstance(shop, dict):
                 flattened["shop_tilroyId"] = shop.get("tilroyId")
                 flattened["shop_number"] = shop.get("number")
-            elif isinstance(shop, str):
+            elif isinstance(shop, str) and shop.strip():
                 # If it's already a JSON string, parse it
                 try:
-                    import json
-                    shop = json.loads(shop)
-                    flattened["shop_tilroyId"] = shop.get("tilroyId")
-                    flattened["shop_number"] = shop.get("number")
-                except (json.JSONDecodeError, TypeError):
-                    pass
+                    shop_dict = json.loads(shop)
+                    if isinstance(shop_dict, dict):
+                        flattened["shop_tilroyId"] = shop_dict.get("tilroyId")
+                        flattened["shop_number"] = shop_dict.get("number")
+                except (json.JSONDecodeError, TypeError, ValueError) as e:
+                    self.logger.debug(f"[{self.name}] Failed to parse shop JSON: {e}")
+        
+        # Debug: Log first record to see what we're getting (only in debug mode to avoid log spam)
+        if not hasattr(self, '_post_process_debug_logged'):
+            self._post_process_debug_logged = True
+            self.logger.info(f"🔍 [{self.name}] post_process input row keys: {list(row.keys())}")
+            if "sku" in row:
+                self.logger.info(f"🔍 [{self.name}] post_process input sku type: {type(row.get('sku')).__name__}, value: {repr(str(row.get('sku'))[:100])}")
+            if "qty" in row:
+                self.logger.info(f"🔍 [{self.name}] post_process input qty type: {type(row.get('qty')).__name__}, value: {repr(str(row.get('qty'))[:100])}")
+            if "shop" in row:
+                self.logger.info(f"🔍 [{self.name}] post_process input shop type: {type(row.get('shop')).__name__}, value: {repr(str(row.get('shop'))[:100])}")
+            self.logger.info(f"🔍 [{self.name}] post_process output - sku_tilroyId: {flattened.get('sku_tilroyId')}, qty_available: {flattened.get('qty_available')}, shop_tilroyId: {flattened.get('shop_tilroyId')}")
+            
+            # Warn if nested objects are missing
+            if "sku" not in row and "qty" not in row and "shop" not in row:
+                self.logger.warning(f"⚠️ [{self.name}] Record missing nested objects (sku, qty, shop) - keys: {list(row.keys())}")
         
         return flattened
 
