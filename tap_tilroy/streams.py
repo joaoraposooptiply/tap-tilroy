@@ -1147,7 +1147,7 @@ class StockStream(TilroyStream):
         self.logger.info(f"✅ [{self.name}] Finished processing all {total_sku_ids} SKU IDs")
     
     def post_process(self, row: dict, context: t.Optional[dict] = None) -> t.Optional[dict]:
-        """Post-process each stock record and flatten nested objects."""
+        """Post-process each stock record."""
         if not row:
             return None
         
@@ -1156,102 +1156,27 @@ class StockStream(TilroyStream):
             self.logger.warning(f"⚠️ [{self.name}] Skipping API error response: {row.get('message', 'Unknown error')}")
             return None
         
-        import json
-        
-        # Flatten nested objects into separate columns - ALWAYS extract data
-        flattened = {
-            "tilroyId": row.get("tilroyId"),
-            "sku_tilroyId": None,
-            "sku_sourceId": None,
-            "location1": row.get("location1"),
-            "location2": row.get("location2"),
-            "qty_available": None,
-            "qty_ideal": None,
-            "qty_max": None,
-            "qty_requested": None,
-            "qty_transfered": None,
-            "refill": row.get("refill"),
-            "shop_tilroyId": None,
-            "shop_number": None,
-        }
-        
-        # Flatten sku object - handle dict, JSON string, or any format
-        sku_value = row.get("sku")
-        if sku_value is not None:
-            if isinstance(sku_value, dict):
-                flattened["sku_tilroyId"] = sku_value.get("tilroyId")
-                flattened["sku_sourceId"] = sku_value.get("sourceId")
-            elif isinstance(sku_value, str) and sku_value.strip():
-                # Try to parse as JSON string
-                try:
-                    sku_dict = json.loads(sku_value)
-                    if isinstance(sku_dict, dict):
-                        flattened["sku_tilroyId"] = sku_dict.get("tilroyId")
-                        flattened["sku_sourceId"] = sku_dict.get("sourceId")
-                except (json.JSONDecodeError, TypeError, ValueError):
-                    pass
-        
-        # Flatten qty object - handle dict, JSON string, or any format
-        qty_value = row.get("qty")
-        if qty_value is not None:
-            if isinstance(qty_value, dict):
-                flattened["qty_available"] = qty_value.get("available")
-                flattened["qty_ideal"] = qty_value.get("ideal")
-                flattened["qty_max"] = qty_value.get("max")
-                flattened["qty_requested"] = qty_value.get("requested")
-                flattened["qty_transfered"] = qty_value.get("transfered")
-            elif isinstance(qty_value, str) and qty_value.strip():
-                # Try to parse as JSON string
-                try:
-                    qty_dict = json.loads(qty_value)
-                    if isinstance(qty_dict, dict):
-                        flattened["qty_available"] = qty_dict.get("available")
-                        flattened["qty_ideal"] = qty_dict.get("ideal")
-                        flattened["qty_max"] = qty_dict.get("max")
-                        flattened["qty_requested"] = qty_dict.get("requested")
-                        flattened["qty_transfered"] = qty_dict.get("transfered")
-                except (json.JSONDecodeError, TypeError, ValueError):
-                    pass
-        
-        # Flatten shop object - handle dict, JSON string, or any format
-        shop_value = row.get("shop")
-        if shop_value is not None:
-            if isinstance(shop_value, dict):
-                flattened["shop_tilroyId"] = shop_value.get("tilroyId")
-                flattened["shop_number"] = shop_value.get("number")
-            elif isinstance(shop_value, str) and shop_value.strip():
-                # Try to parse as JSON string
-                try:
-                    shop_dict = json.loads(shop_value)
-                    if isinstance(shop_dict, dict):
-                        flattened["shop_tilroyId"] = shop_dict.get("tilroyId")
-                        flattened["shop_number"] = shop_dict.get("number")
-                except (json.JSONDecodeError, TypeError, ValueError):
-                    pass
-        
-        # Debug: Log first record to see what we're getting
-        if not hasattr(self, '_post_process_debug_logged'):
-            self._post_process_debug_logged = True
-            self.logger.info(f"🔍 [{self.name}] post_process input row keys: {list(row.keys())}")
-            self.logger.info(f"🔍 [{self.name}] post_process input sku: type={type(row.get('sku')).__name__}, value={repr(row.get('sku'))}")
-            self.logger.info(f"🔍 [{self.name}] post_process input qty: type={type(row.get('qty')).__name__}, value={repr(row.get('qty'))}")
-            self.logger.info(f"🔍 [{self.name}] post_process input shop: type={type(row.get('shop')).__name__}, value={repr(row.get('shop'))}")
-            self.logger.info(f"🔍 [{self.name}] post_process OUTPUT: sku_tilroyId={flattened.get('sku_tilroyId')}, qty_available={flattened.get('qty_available')}, shop_tilroyId={flattened.get('shop_tilroyId')}, shop_number={flattened.get('shop_number')}")
-        
-        return flattened
+        # Let the base class handle converting nested objects to JSON strings
+        return super().post_process(row, context)
 
     schema = th.PropertiesList(
         th.Property("tilroyId", th.StringType),
-        th.Property("sku_tilroyId", th.StringType),
-        th.Property("sku_sourceId", th.StringType, required=False),
+        th.Property("sku", th.ObjectType(
+            th.Property("tilroyId", th.StringType),
+            th.Property("sourceId", th.StringType, required=False),
+        )),
         th.Property("location1", th.StringType, required=False),
         th.Property("location2", th.StringType, required=False),
-        th.Property("qty_available", th.IntegerType),
-        th.Property("qty_ideal", th.IntegerType, required=False),
-        th.Property("qty_max", th.IntegerType, required=False),
-        th.Property("qty_requested", th.IntegerType),
-        th.Property("qty_transfered", th.IntegerType),
+        th.Property("qty", th.ObjectType(
+            th.Property("available", th.IntegerType),
+            th.Property("ideal", th.IntegerType, required=False),
+            th.Property("max", th.IntegerType, required=False),
+            th.Property("requested", th.IntegerType),
+            th.Property("transfered", th.IntegerType),
+        )),
         th.Property("refill", th.IntegerType),
-        th.Property("shop_tilroyId", th.StringType),
-        th.Property("shop_number", th.IntegerType),
+        th.Property("shop", th.ObjectType(
+            th.Property("tilroyId", th.StringType),
+            th.Property("number", th.IntegerType),
+        )),
     ).to_dict()
