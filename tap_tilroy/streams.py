@@ -857,8 +857,8 @@ class SalesProductionStream(DateFilteredStream):
 
     def post_process(self, row: dict, context: t.Optional[dict] = None) -> t.Optional[dict]:
         """
-        Post-process each record to handle potential API errors and ensure
-        the replication key is present.
+        Post-process each record to handle potential API errors, ensure
+        the replication key is present, and convert string numbers to floats.
         """
         if not row:
             return None
@@ -876,7 +876,32 @@ class SalesProductionStream(DateFilteredStream):
             self.logger.warning(f"[{self.name}] Skipping record without a '{self.replication_key}': {row}")
             return None
 
-        return row
+        # Recursively convert string numbers to floats throughout the record
+        return self._convert_string_numbers(row)
+    
+    def _convert_string_numbers(self, data: t.Any) -> t.Any:
+        """Recursively convert string numbers to floats in nested structures."""
+        if isinstance(data, dict):
+            result = {}
+            for key, value in data.items():
+                result[key] = self._convert_string_numbers(value)
+            return result
+        elif isinstance(data, list):
+            return [self._convert_string_numbers(item) for item in data]
+        elif isinstance(data, str):
+            # Handle NA values
+            if data.upper() in ['NA', 'N/A', 'NULL', 'NONE', '']:
+                return None
+            # Try to convert to float if it's a valid numeric string
+            try:
+                # Use float() which handles decimals, negatives, scientific notation, etc.
+                # This will raise ValueError if it's not a valid number
+                return float(data)
+            except (ValueError, TypeError):
+                # Not a number, return as-is
+                return data
+        else:
+            return data
 
     schema = th.PropertiesList(
         th.Property("idTilroySale", th.StringType),
