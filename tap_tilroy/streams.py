@@ -723,13 +723,13 @@ class SalesStream(DateFilteredStream):
     ).to_dict()
 
 
-class SalesProductionStream(TilroyStream):
-    """Stream for Tilroy sales using the production sales endpoint with lastId pagination."""
+class SalesProductionStream(DateFilteredStream):
+    """Stream for Tilroy sales using the production sales endpoint with dateFrom and lastId pagination."""
     name = "sales_production"
     path = "/saleapi/production/sales"
     primary_keys: t.ClassVar[list[str]] = ["idTilroySale"]
-    replication_key = None
-    replication_method = "FULL_TABLE"
+    replication_key = "saleDate"
+    replication_method = "INCREMENTAL"
     records_jsonpath = "$[*]"
     next_page_token_jsonpath = None
     default_count = 100  # As shown in curl example
@@ -739,7 +739,7 @@ class SalesProductionStream(TilroyStream):
         context: t.Optional[dict],
         next_page_token: t.Optional[t.Any] = None,
     ) -> dict[str, t.Any]:
-        """Get URL query parameters with lastId-based pagination.
+        """Get URL query parameters with dateFrom and lastId-based pagination.
         
         Args:
             context: Stream partition or context dictionary.
@@ -748,11 +748,13 @@ class SalesProductionStream(TilroyStream):
         Returns:
             Dictionary of URL query parameters.
         """
-        params = {
-            "count": self.default_count,
-        }
+        # Get dateFrom from the bookmark or use config (from DateFilteredStream)
+        params = super().get_url_params(context, next_page_token)
         
-        # Add lastId if we have one (from previous response)
+        # Remove the 'page' parameter that DateFilteredStream adds (we use lastId instead)
+        params.pop("page", None)
+        
+        # Add lastId if we have one (from previous response for pagination within same date)
         if next_page_token:
             params["lastId"] = next_page_token
             self.logger.info(f"📄 [{self.name}] Using lastId for pagination: {next_page_token}")
@@ -762,7 +764,7 @@ class SalesProductionStream(TilroyStream):
         return params
 
     def request_records(self, context: t.Optional[dict]) -> t.Iterator[dict]:
-        """Request records using lastId-based pagination.
+        """Request records using dateFrom and lastId-based pagination.
         
         Args:
             context: Stream partition or context dictionary.
@@ -774,10 +776,10 @@ class SalesProductionStream(TilroyStream):
         import json
         import http.client
         
-        last_id = None  # Start without lastId
+        last_id = None  # Start without lastId for the current dateFrom
         
         while True:
-            # Build URL parameters
+            # Build URL parameters (includes dateFrom from DateFilteredStream)
             params = self.get_url_params(context, last_id)
             url = f"{self.url_base}{self.path}"
             headers = self.get_headers(context)
@@ -814,7 +816,7 @@ class SalesProductionStream(TilroyStream):
                 self.logger.info(f"🔍 [{self.name}] Found {len(records)} records")
                 
                 if not records:
-                    # No records returned, we've reached the end
+                    # No records returned, we've reached the end for this date
                     self.logger.info(f"🏁 [{self.name}] No more records, pagination complete")
                     break
                 
@@ -824,7 +826,7 @@ class SalesProductionStream(TilroyStream):
                     if processed_record:
                         yield processed_record
                 
-                # Extract lastId from the last record for next iteration
+                # Extract lastId from the last record for next iteration (pagination within same dateFrom)
                 # The lastId should be the idTilroySale from the last record
                 if records:
                     last_record = records[-1]
@@ -832,8 +834,7 @@ class SalesProductionStream(TilroyStream):
                         last_id = str(last_record["idTilroySale"])
                         self.logger.info(f"📌 [{self.name}] Extracted lastId from last record: {last_id}")
                     else:
-                        # If we can't find idTilroySale, try to use the record itself as a fallback
-                        # or check if there's a different field name
+                        # If we can't find idTilroySale, we can't continue pagination
                         self.logger.warning(f"⚠️ [{self.name}] Could not find idTilroySale in last record. Record keys: {list(last_record.keys()) if isinstance(last_record, dict) else 'N/A'}")
                         # If we got fewer records than count, we're done
                         if len(records) < self.default_count:
@@ -845,9 +846,9 @@ class SalesProductionStream(TilroyStream):
                     # No records, we're done
                     break
                     
-                # If we got fewer records than count, we've reached the end
+                # If we got fewer records than count, we've reached the end for this dateFrom
                 if len(records) < self.default_count:
-                    self.logger.info(f"🏁 [{self.name}] Received fewer records than count ({len(records)} < {self.default_count}), pagination complete")
+                    self.logger.info(f"🏁 [{self.name}] Received fewer records than count ({len(records)} < {self.default_count}), pagination complete for this date")
                     break
                     
             except Exception as e:
@@ -856,7 +857,8 @@ class SalesProductionStream(TilroyStream):
 
     def post_process(self, row: dict, context: t.Optional[dict] = None) -> t.Optional[dict]:
         """
-        Post-process each record to handle potential API errors.
+        Post-process each record to handle potential API errors and ensure
+        the replication key is present.
         """
         if not row:
             return None
@@ -866,6 +868,12 @@ class SalesProductionStream(TilroyStream):
             self.logger.warning(
                 f"[{self.name}] Skipping record due to an API error: {row['message']}"
             )
+            return None
+
+        # The replication key 'saleDate' is essential for incremental sync.
+        # If it is missing, the record is invalid and must be skipped.
+        if self.replication_key not in row or not row[self.replication_key]:
+            self.logger.warning(f"[{self.name}] Skipping record without a '{self.replication_key}': {row}")
             return None
 
         return row
@@ -893,7 +901,7 @@ class SalesProductionStream(TilroyStream):
             "lines",
             th.ArrayType(
                 th.ObjectType(
-                    th.Property("idTilroySaleLine", th.StringType),
+                    th.Property("idTilroySaleLine", th.CustomType({"type": ["string", "integer"]})),
                     th.Property("type", th.StringType),
                     th.Property(
                         "sku",
@@ -937,7 +945,7 @@ class SalesProductionStream(TilroyStream):
             "payments",
             th.ArrayType(
                 th.ObjectType(
-                    th.Property("idTilroySalePayment", th.StringType),
+                    th.Property("idTilroySalePayment", th.CustomType({"type": ["string", "integer"]})),
                     th.Property(
                         "paymentType",
                         th.ObjectType(
