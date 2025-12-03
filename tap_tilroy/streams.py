@@ -723,6 +723,267 @@ class SalesStream(DateFilteredStream):
     ).to_dict()
 
 
+class SalesProductionStream(TilroyStream):
+    """Stream for Tilroy sales using the production sales endpoint with lastId pagination."""
+    name = "sales_production"
+    path = "/saleapi/production/sales"
+    primary_keys: t.ClassVar[list[str]] = ["idTilroySale"]
+    replication_key = None
+    replication_method = "FULL_TABLE"
+    records_jsonpath = "$[*]"
+    next_page_token_jsonpath = None
+    default_count = 100  # As shown in curl example
+
+    def get_url_params(
+        self,
+        context: t.Optional[dict],
+        next_page_token: t.Optional[t.Any] = None,
+    ) -> dict[str, t.Any]:
+        """Get URL query parameters with lastId-based pagination.
+        
+        Args:
+            context: Stream partition or context dictionary.
+            next_page_token: The lastId from the previous response (if any).
+            
+        Returns:
+            Dictionary of URL query parameters.
+        """
+        params = {
+            "count": self.default_count,
+        }
+        
+        # Add lastId if we have one (from previous response)
+        if next_page_token:
+            params["lastId"] = next_page_token
+            self.logger.info(f"📄 [{self.name}] Using lastId for pagination: {next_page_token}")
+        else:
+            self.logger.info(f"📄 [{self.name}] Starting pagination without lastId")
+        
+        return params
+
+    def request_records(self, context: t.Optional[dict]) -> t.Iterator[dict]:
+        """Request records using lastId-based pagination.
+        
+        Args:
+            context: Stream partition or context dictionary.
+            
+        Yields:
+            Records from the stream.
+        """
+        from singer_sdk.helpers.jsonpath import extract_jsonpath
+        import json
+        import http.client
+        
+        last_id = None  # Start without lastId
+        
+        while True:
+            # Build URL parameters
+            params = self.get_url_params(context, last_id)
+            url = f"{self.url_base}{self.path}"
+            headers = self.get_headers(context)
+            
+            # Build query string
+            query_string = "&".join([f"{k}={v}" for k, v in params.items()])
+            complete_url = f"{url}?{query_string}"
+            
+            self.logger.info(f"🌐 [{self.name}] Complete Request URL: {complete_url}")
+            self.logger.info(f"📋 [{self.name}] Request params: {params}")
+            
+            try:
+                # Make the request
+                conn = http.client.HTTPSConnection("api.tilroy.com")
+                conn.request("GET", f"{self.path}?{query_string}", "", headers)
+                response = conn.getresponse()
+                data = response.read().decode("utf-8")
+                
+                # Check for errors
+                if response.status != 200:
+                    self.logger.error(f"❌ [{self.name}] API returned status {response.status}: {data[:500]}")
+                    break
+                
+                # Parse the response
+                data_json = json.loads(data)
+                
+                # Check if the response is an error object
+                if isinstance(data_json, dict) and "code" in data_json and "message" in data_json:
+                    self.logger.error(f"❌ [{self.name}] API returned error: {data_json.get('message', 'Unknown error')}")
+                    break
+                
+                # Extract records using jsonpath
+                records = list(extract_jsonpath(self.records_jsonpath, data_json))
+                self.logger.info(f"🔍 [{self.name}] Found {len(records)} records")
+                
+                if not records:
+                    # No records returned, we've reached the end
+                    self.logger.info(f"🏁 [{self.name}] No more records, pagination complete")
+                    break
+                
+                # Yield each record
+                for record in records:
+                    processed_record = self.post_process(record, context)
+                    if processed_record:
+                        yield processed_record
+                
+                # Extract lastId from the last record for next iteration
+                # The lastId should be the idTilroySale from the last record
+                if records:
+                    last_record = records[-1]
+                    if isinstance(last_record, dict) and "idTilroySale" in last_record:
+                        last_id = str(last_record["idTilroySale"])
+                        self.logger.info(f"📌 [{self.name}] Extracted lastId from last record: {last_id}")
+                    else:
+                        # If we can't find idTilroySale, try to use the record itself as a fallback
+                        # or check if there's a different field name
+                        self.logger.warning(f"⚠️ [{self.name}] Could not find idTilroySale in last record. Record keys: {list(last_record.keys()) if isinstance(last_record, dict) else 'N/A'}")
+                        # If we got fewer records than count, we're done
+                        if len(records) < self.default_count:
+                            break
+                        # Otherwise, we can't continue pagination
+                        self.logger.error(f"❌ [{self.name}] Cannot continue pagination without lastId")
+                        break
+                else:
+                    # No records, we're done
+                    break
+                    
+                # If we got fewer records than count, we've reached the end
+                if len(records) < self.default_count:
+                    self.logger.info(f"🏁 [{self.name}] Received fewer records than count ({len(records)} < {self.default_count}), pagination complete")
+                    break
+                    
+            except Exception as e:
+                self.logger.error(f"❌ [{self.name}] Error fetching records: {str(e)}")
+                raise
+
+    def post_process(self, row: dict, context: t.Optional[dict] = None) -> t.Optional[dict]:
+        """
+        Post-process each record to handle potential API errors.
+        """
+        if not row:
+            return None
+            
+        # The API can return error objects instead of valid records.
+        if "message" in row and "code" in row:
+            self.logger.warning(
+                f"[{self.name}] Skipping record due to an API error: {row['message']}"
+            )
+            return None
+
+        return row
+
+    schema = th.PropertiesList(
+        th.Property("idTilroySale", th.StringType),
+        th.Property("idTenant", th.StringType),
+        th.Property("idSession", th.StringType),
+        th.Property("customer", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("idSourceCustomer", th.StringType, required=False),
+        th.Property("vatTypeCalculation", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("shop", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("till", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("saleDate", th.DateTimeType),
+        th.Property("eTicket", th.BooleanType),
+        th.Property("orderDate", th.StringType, required=False),
+        th.Property("totalAmountStandard", th.NumberType),
+        th.Property("totalAmountSell", th.NumberType),
+        th.Property("totalAmountDiscount", th.NumberType),
+        th.Property("totalAmountSellRounded", th.NumberType),
+        th.Property("totalAmountSellRoundedPart", th.NumberType),
+        th.Property("totalAmountSellNotRoundedPart", th.NumberType),
+        th.Property("totalAmountOutstanding", th.NumberType),
+        th.Property(
+            "lines",
+            th.ArrayType(
+                th.ObjectType(
+                    th.Property("idTilroySaleLine", th.StringType),
+                    th.Property("type", th.StringType),
+                    th.Property(
+                        "sku",
+                        th.ObjectType(
+                            th.Property("idTilroy", th.StringType),
+                            th.Property("idSource", th.StringType),
+                        ),
+                    ),
+                    th.Property("description", th.StringType),
+                    th.Property("quantity", th.IntegerType),
+                    th.Property("quantityReturned", th.IntegerType),
+                    th.Property("quantityNet", th.IntegerType),
+                    th.Property("costPrice", th.NumberType),
+                    th.Property("sellPrice", th.NumberType),
+                    th.Property("standardPrice", th.NumberType),
+                    th.Property("promoPrice", th.NumberType),
+                    th.Property("rrp", th.NumberType),
+                    th.Property("retailPrice", th.NumberType),
+                    th.Property("discount", th.NumberType),
+                    th.Property("discountType", th.IntegerType),
+                    th.Property("lineTotalCost", th.NumberType),
+                    th.Property("lineTotalStandard", th.NumberType),
+                    th.Property("lineTotalSell", th.NumberType),
+                    th.Property("lineTotalDiscount", th.NumberType),
+                    th.Property("lineTotalVatExcl", th.NumberType),
+                    th.Property("lineTotalVat", th.NumberType),
+                    th.Property("vatPercentage", th.NumberType),
+                    th.Property("code", th.StringType),
+                    th.Property("comments", th.StringType, required=False),
+                    th.Property("serialNumberSale", th.StringType, required=False),
+                    th.Property("webDescription", th.StringType),
+                    th.Property("colour", th.StringType),
+                    th.Property("size", th.StringType),
+                    th.Property("ean", th.StringType),
+                    th.Property("timestamp", th.StringType),
+                ),
+            ),
+        ),
+        th.Property("totalAmountPaid", th.NumberType),
+        th.Property(
+            "payments",
+            th.ArrayType(
+                th.ObjectType(
+                    th.Property("idTilroySalePayment", th.StringType),
+                    th.Property(
+                        "paymentType",
+                        th.ObjectType(
+                            th.Property("idTilroy", th.StringType),
+                            th.Property("code", th.StringType),
+                            th.Property("idSource", th.StringType, required=False),
+                            th.Property(
+                                "descriptions",
+                                th.ArrayType(
+                                    th.ObjectType(
+                                        th.Property("description", th.StringType),
+                                        th.Property("languageCode", th.StringType),
+                                    ),
+                                ),
+                            ),
+                            th.Property("reporting", th.BooleanType),
+                        ),
+                    ),
+                    th.Property("amount", th.NumberType),
+                    th.Property("paymentReference", th.StringType),
+                    th.Property("timestamp", th.StringType),
+                    th.Property("isPaid", th.BooleanType),
+                ),
+            ),
+        ),
+        th.Property(
+            "vat",
+            th.ArrayType(
+                th.ObjectType(
+                    th.Property("idTilroy", th.StringType),
+                    th.Property("vatPercentage", th.NumberType),
+                    th.Property("vatKind", th.StringType),
+                    th.Property("amountNet", th.NumberType),
+                    th.Property("amountLines", th.NumberType),
+                    th.Property("amountTaxable", th.NumberType),
+                    th.Property("amountVat", th.NumberType),
+                    th.Property("vatAmount", th.NumberType),
+                    th.Property("totalAmount", th.NumberType),
+                    th.Property("timestamp", th.StringType),
+                ),
+            ),
+        ),
+        th.Property("legalEntity", th.CustomType({"type": ["object", "string", "null"]})),
+    ).to_dict()
+
+
 class PricesStream(TilroyStream):
     """Stream for Tilroy prices that collects SKU IDs from products and batches API calls."""
     

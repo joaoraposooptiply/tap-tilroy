@@ -12,6 +12,7 @@ from tap_tilroy.streams import (
     PurchaseOrdersStream,
     StockChangesStream,
     SalesStream,
+    SalesProductionStream,
     SuppliersStream,
     PricesStream,
     StockStream
@@ -26,6 +27,7 @@ STREAM_TYPES = [
     PurchaseOrdersStream,
     StockChangesStream,
     SalesStream,
+    SalesProductionStream,
     SuppliersStream,
     PricesStream,
     StockStream
