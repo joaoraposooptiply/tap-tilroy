@@ -881,35 +881,39 @@ class SalesProductionStream(DateFilteredStream):
         converted = self._convert_string_numbers(row)
         # Ensure top-level ID fields are always strings (even if API returns them as numbers/Decimals)
         if isinstance(converted, dict):
+            from decimal import Decimal
+            
             id_fields = ["idTilroySale", "idTenant", "idSession", "idSourceCustomer"]
             for field in id_fields:
                 if field in converted and not isinstance(converted[field], str):
-                    converted[field] = str(converted[field])
+                    if isinstance(converted[field], Decimal):
+                        if converted[field] == converted[field].to_integral_value():
+                            converted[field] = str(int(converted[field]))
+                        else:
+                            converted[field] = str(converted[field])
+                    else:
+                        converted[field] = str(converted[field])
             
-            # Explicitly ensure code and ean fields in lines array are strings
-            if "lines" in converted and isinstance(converted["lines"], list):
-                for line in converted["lines"]:
-                    if isinstance(line, dict):
-                        # Ensure code is a string
-                        if "code" in line and not isinstance(line["code"], str):
-                            from decimal import Decimal
-                            if isinstance(line["code"], Decimal):
-                                if line["code"] == line["code"].to_integral_value():
-                                    line["code"] = str(int(line["code"]))
+            # Final safety pass: recursively find and convert any Decimal in code/ean fields
+            def fix_decimal_strings(obj):
+                """Recursively fix Decimal values in code/ean fields."""
+                if isinstance(obj, dict):
+                    for key, val in obj.items():
+                        if key in ["code", "ean"]:
+                            if isinstance(val, Decimal):
+                                if val == val.to_integral_value():
+                                    obj[key] = str(int(val))
                                 else:
-                                    line["code"] = str(line["code"])
-                            else:
-                                line["code"] = str(line["code"])
-                        # Ensure ean is a string
-                        if "ean" in line and not isinstance(line["ean"], str) and line["ean"] is not None:
-                            from decimal import Decimal
-                            if isinstance(line["ean"], Decimal):
-                                if line["ean"] == line["ean"].to_integral_value():
-                                    line["ean"] = str(int(line["ean"]))
-                                else:
-                                    line["ean"] = str(line["ean"])
-                            else:
-                                line["ean"] = str(line["ean"])
+                                    obj[key] = str(val)
+                            elif val is not None and not isinstance(val, str):
+                                obj[key] = str(val)
+                        else:
+                            fix_decimal_strings(val)
+                elif isinstance(obj, list):
+                    for item in obj:
+                        fix_decimal_strings(item)
+            
+            fix_decimal_strings(converted)
         return converted
     
     def _convert_string_numbers(self, data: t.Any) -> t.Any:
@@ -958,6 +962,12 @@ class SalesProductionStream(DateFilteredStream):
                     # Convert to string if it's a number or Decimal
                     if value is None:
                         result[key] = None
+                    elif isinstance(value, Decimal):
+                        # Explicitly handle Decimal - this is critical for code/ean fields
+                        if value == value.to_integral_value():
+                            result[key] = str(int(value))
+                        else:
+                            result[key] = str(value)
                     elif is_numeric(value):
                         result[key] = convert_to_string(value)
                     elif isinstance(value, str):
