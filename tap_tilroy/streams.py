@@ -879,22 +879,48 @@ class SalesProductionStream(DateFilteredStream):
         # Recursively convert string numbers to floats throughout the record
         # Convert string numbers to floats, but preserve ID fields as strings
         converted = self._convert_string_numbers(row)
-        # Ensure idTilroySale is always a string (even if API returns it as a number)
-        if isinstance(converted, dict) and "idTilroySale" in converted:
-            if not isinstance(converted["idTilroySale"], str):
-                converted["idTilroySale"] = str(converted["idTilroySale"])
+        # Ensure top-level ID fields are always strings (even if API returns them as numbers/Decimals)
+        if isinstance(converted, dict):
+            id_fields = ["idTilroySale", "idTenant", "idSession", "idSourceCustomer"]
+            for field in id_fields:
+                if field in converted and not isinstance(converted[field], str):
+                    converted[field] = str(converted[field])
         return converted
     
     def _convert_string_numbers(self, data: t.Any) -> t.Any:
-        """Recursively convert string numbers to floats in nested structures."""
+        """Recursively convert string numbers to floats in nested structures, preserving ID fields as strings."""
+        # List of ID field names that should always remain as strings
+        id_field_names = [
+            "idTilroySale", "idTenant", "idSession", "idSourceCustomer",
+            "idTilroySaleLine", "idTilroySalePayment", 
+            "idTilroy", "idSource"
+        ]
+        
+        # Check if value is a Decimal (import if needed)
+        from decimal import Decimal
+        
+        def is_decimal(value):
+            return isinstance(value, Decimal) or (hasattr(value, '__class__') and 'Decimal' in str(type(value)))
+        
+        def is_numeric(value):
+            return isinstance(value, (int, float)) or is_decimal(value)
+        
         if isinstance(data, dict):
             result = {}
             for key, value in data.items():
-                # Skip ID fields - they should remain as strings
-                if key in ["idTilroySale", "idTilroySaleLine", "idTilroySalePayment", "idTilroy", "idSource"]:
-                    # Convert to string if it's a number
-                    if isinstance(value, (int, float)) or (hasattr(value, '__class__') and 'Decimal' in str(type(value))):
-                        result[key] = str(value)
+                # ID fields should always be strings
+                if key in id_field_names:
+                    # Convert to string if it's a number or Decimal
+                    if is_numeric(value):
+                        if is_decimal(value):
+                            # Convert Decimal to string, removing trailing zeros
+                            result[key] = str(value).rstrip('0').rstrip('.')
+                        elif isinstance(value, float) and value.is_integer():
+                            result[key] = str(int(value))
+                        else:
+                            result[key] = str(value)
+                    elif isinstance(value, str):
+                        result[key] = value
                     else:
                         result[key] = self._convert_string_numbers(value)
                 else:
@@ -914,16 +940,17 @@ class SalesProductionStream(DateFilteredStream):
             except (ValueError, TypeError):
                 # Not a number, return as-is
                 return data
-        elif hasattr(data, '__class__') and 'Decimal' in str(type(data)):
+        elif is_decimal(data):
             # Handle Decimal objects - convert to float for numeric fields
+            # But we should have caught ID fields above, so this is for numeric fields
             return float(data)
         else:
             return data
 
     schema = th.PropertiesList(
         th.Property("idTilroySale", th.CustomType({"type": ["string", "integer"]})),
-        th.Property("idTenant", th.StringType),
-        th.Property("idSession", th.StringType),
+        th.Property("idTenant", th.CustomType({"type": ["string", "integer"]})),
+        th.Property("idSession", th.CustomType({"type": ["string", "integer", "null"]})),
         th.Property("customer", th.CustomType({"type": ["object", "string", "null"]})),
         th.Property("idSourceCustomer", th.StringType, required=False),
         th.Property("vatTypeCalculation", th.CustomType({"type": ["object", "string", "null"]})),
