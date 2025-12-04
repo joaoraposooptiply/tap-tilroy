@@ -876,50 +876,46 @@ class SalesProductionStream(DateFilteredStream):
             self.logger.warning(f"[{self.name}] Skipping record without a '{self.replication_key}': {row}")
             return None
 
-        # Recursively convert string numbers to floats throughout the record
+        # FIRST: Convert ALL Decimal values to strings BEFORE any other processing
+        # This prevents Decimals from causing validation errors
+        from decimal import Decimal
+        
+        def convert_all_decimals_to_strings(obj):
+            """Recursively convert ALL Decimal values to strings throughout the record."""
+            if isinstance(obj, dict):
+                for key, val in obj.items():
+                    if isinstance(val, Decimal):
+                        # Convert Decimal to string, removing trailing .0 if integer
+                        if val == val.to_integral_value():
+                            obj[key] = str(int(val))
+                        else:
+                            obj[key] = str(val)
+                    elif isinstance(val, (list, dict)):
+                        convert_all_decimals_to_strings(val)
+            elif isinstance(obj, list):
+                for i, item in enumerate(obj):
+                    if isinstance(item, Decimal):
+                        if item == item.to_integral_value():
+                            obj[i] = str(int(item))
+                        else:
+                            obj[i] = str(item)
+                    elif isinstance(item, (list, dict)):
+                        convert_all_decimals_to_strings(item)
+        
+        # Convert all Decimals FIRST, before any other processing
+        convert_all_decimals_to_strings(row)
+        
+        # NOW: Recursively convert string numbers to floats throughout the record
         # Convert string numbers to floats, but preserve ID fields as strings
         converted = self._convert_string_numbers(row)
+        
         # Ensure top-level ID fields are always strings (even if API returns them as numbers/Decimals)
         if isinstance(converted, dict):
-            from decimal import Decimal
-            
             id_fields = ["idTilroySale", "idTenant", "idSession", "idSourceCustomer"]
             for field in id_fields:
                 if field in converted and not isinstance(converted[field], str):
-                    if isinstance(converted[field], Decimal):
-                        if converted[field] == converted[field].to_integral_value():
-                            converted[field] = str(int(converted[field]))
-                        else:
-                            converted[field] = str(converted[field])
-                    else:
-                        converted[field] = str(converted[field])
-            
-            # Final safety pass: Convert ALL Decimal values to strings throughout the entire record
-            # The API returns Decimals for many string fields, so we convert all of them
-            def convert_all_decimals_to_strings(obj):
-                """Recursively convert ALL Decimal values to strings throughout the record."""
-                from decimal import Decimal
-                if isinstance(obj, dict):
-                    for key, val in obj.items():
-                        if isinstance(val, Decimal):
-                            # Convert Decimal to string, removing trailing .0 if integer
-                            if val == val.to_integral_value():
-                                obj[key] = str(int(val))
-                            else:
-                                obj[key] = str(val)
-                        elif isinstance(val, (list, dict)):
-                            convert_all_decimals_to_strings(val)
-                elif isinstance(obj, list):
-                    for i, item in enumerate(obj):
-                        if isinstance(item, Decimal):
-                            if item == item.to_integral_value():
-                                obj[i] = str(int(item))
-                            else:
-                                obj[i] = str(item)
-                        elif isinstance(item, (list, dict)):
-                            convert_all_decimals_to_strings(item)
-            
-            convert_all_decimals_to_strings(converted)
+                    converted[field] = str(converted[field])
+        
         return converted
     
     def _convert_string_numbers(self, data: t.Any) -> t.Any:
@@ -1064,7 +1060,7 @@ class SalesProductionStream(DateFilteredStream):
                     th.Property("returnReason", th.CustomType({"type": ["object", "null"]}), required=False),
                     th.Property("code", th.CustomType({"type": ["string", "number", "null"]})),
                     th.Property("comments", th.CustomType({"type": ["string", "number", "null"]}), required=False),
-                    th.Property("serialNumberSale", th.CustomType({"type": ["string", "null"]}), required=False),
+                    th.Property("serialNumberSale", th.CustomType({"type": ["string", "number", "null"]}), required=False),
                     th.Property("serialNumberSaleActivator", th.StringType, required=False),
                     th.Property("promotionName", th.StringType, required=False),
                     th.Property("idSaleLineReturned", th.CustomType({"type": ["string", "integer", "null"]}), required=False),
