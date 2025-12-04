@@ -877,13 +877,36 @@ class SalesProductionStream(DateFilteredStream):
             self.logger.warning(f"[{self.name}] Skipping record without a '{self.replication_key}': {row}")
             return None
 
-        # Convert ALL Decimal values to appropriate types (strings for IDs, numbers for numeric fields)
-        # This prevents Decimals from causing validation errors
+        # Convert ALL Decimal values and string numbers to appropriate types (strings for IDs, numbers for numeric fields)
+        # This prevents Decimals and string numbers from causing validation errors
         # Arrays are preserved as arrays - they are NOT flattened
         from decimal import Decimal
         
+        # Define numeric fields that should be converted from strings to numbers
+        # These field names can appear at any nesting level
+        numeric_fields = {
+            "totalAmountStandard", "totalAmountSell", "totalAmountDiscount", 
+            "totalAmountSellRounded", "totalAmountSellRoundedPart", 
+            "totalAmountSellNotRoundedPart", "totalAmountOutstanding",
+            "costPrice", "sellPrice", "standardPrice", "promoPrice", "rrp", 
+            "retailPrice", "discount", "lineTotalCost", "lineTotalStandard", 
+            "lineTotalSell", "lineTotalDiscount", "lineTotalVatExcl", 
+            "lineTotalVat", "maxDiscount", "depositValue", "vatPercentage",
+            "discountTransaction", "priceTransactionDiscount", "priceLineDiscount"
+        }
+        
+        def is_numeric_string(s):
+            """Check if a string represents a number."""
+            if not isinstance(s, str):
+                return False
+            try:
+                float(s)
+                return True
+            except (ValueError, TypeError):
+                return False
+        
         def convert_decimals_recursive(obj):
-            """Recursively convert Decimal values, preserving array structure."""
+            """Recursively convert Decimal values and string numbers, preserving array structure."""
             if isinstance(obj, dict):
                 result = {}
                 for key, val in obj.items():
@@ -906,6 +929,9 @@ class SalesProductionStream(DateFilteredStream):
                         else:
                             # Numeric fields - convert to float
                             result[key] = float(val)
+                    elif isinstance(val, str) and is_numeric_string(val) and key in numeric_fields:
+                        # Convert string numbers to float for numeric fields (works at any nesting level)
+                        result[key] = float(val)
                     elif isinstance(val, list):
                         # Preserve arrays - recursively process items but keep as list
                         result[key] = [convert_decimals_recursive(item) for item in val]
@@ -919,6 +945,9 @@ class SalesProductionStream(DateFilteredStream):
                 return [convert_decimals_recursive(item) for item in obj]
             elif isinstance(obj, Decimal):
                 # Standalone Decimal - convert to float
+                return float(obj)
+            elif isinstance(obj, str) and is_numeric_string(obj):
+                # Standalone numeric string - convert to float
                 return float(obj)
             else:
                 return obj
