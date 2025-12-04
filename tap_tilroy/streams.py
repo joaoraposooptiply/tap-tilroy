@@ -916,7 +916,7 @@ class SalesProductionStream(DateFilteredStream):
             "descriptions", "icons", "insurances", "shipment", "taxes",
             "paymentType", "customer", "shop", "till", "vatTypeCalculation",
             "tenantCurrency", "supplierCurrency", "discount", "legalEntity",
-            "orderNumber",
+            "orderNumber", "currency",
         }
         
         def is_numeric_string(s):
@@ -1313,7 +1313,7 @@ class SalesProductionStream(DateFilteredStream):
         th.Property("externalLoyaltyCredits", th.NumberType, required=False),
         th.Property("activationCode", th.CustomType({"type": ["string", "number", "null"]}), required=False),
         th.Property("channel", th.ObjectType(), required=False),
-        th.Property("currency", th.IntegerType, required=False),
+        th.Property("currency", th.CustomType({"type": ["string", "integer", "null"]}), required=False),
         th.Property("currencyData", th.ObjectType(), required=False),
         th.Property("user", th.ObjectType(), required=False),
         th.Property("timestamp", th.CustomType({"type": ["string", "number", "null"]}), required=False),
