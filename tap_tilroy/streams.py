@@ -885,16 +885,43 @@ class SalesProductionStream(DateFilteredStream):
             for field in id_fields:
                 if field in converted and not isinstance(converted[field], str):
                     converted[field] = str(converted[field])
+            
+            # Explicitly ensure code and ean fields in lines array are strings
+            if "lines" in converted and isinstance(converted["lines"], list):
+                for line in converted["lines"]:
+                    if isinstance(line, dict):
+                        # Ensure code is a string
+                        if "code" in line and not isinstance(line["code"], str):
+                            from decimal import Decimal
+                            if isinstance(line["code"], Decimal):
+                                if line["code"] == line["code"].to_integral_value():
+                                    line["code"] = str(int(line["code"]))
+                                else:
+                                    line["code"] = str(line["code"])
+                            else:
+                                line["code"] = str(line["code"])
+                        # Ensure ean is a string
+                        if "ean" in line and not isinstance(line["ean"], str) and line["ean"] is not None:
+                            from decimal import Decimal
+                            if isinstance(line["ean"], Decimal):
+                                if line["ean"] == line["ean"].to_integral_value():
+                                    line["ean"] = str(int(line["ean"]))
+                                else:
+                                    line["ean"] = str(line["ean"])
+                            else:
+                                line["ean"] = str(line["ean"])
         return converted
     
     def _convert_string_numbers(self, data: t.Any) -> t.Any:
         """Recursively convert string numbers to floats in nested structures, preserving ID fields as strings."""
-        # List of ID field names that should always remain as strings
+        # List of ID field names and other fields that should always remain as strings
         id_field_names = [
             "idTilroySale", "idTenant", "idSession", "idSourceCustomer",
             "idTilroySaleLine", "idTilroySalePayment", 
             "idTilroy", "idSource"
         ]
+        # Fields that should be strings even if API returns them as numbers
+        string_fields = ["code", "ean"]
         
         # Check if value is a Decimal (import if needed)
         from decimal import Decimal
@@ -905,23 +932,38 @@ class SalesProductionStream(DateFilteredStream):
         def is_numeric(value):
             return isinstance(value, (int, float)) or is_decimal(value)
         
+        def convert_to_string(value):
+            """Convert a numeric value to string, handling Decimal specially."""
+            if is_decimal(value):
+                if isinstance(value, Decimal):
+                    decimal_value = value
+                else:
+                    decimal_value = Decimal(str(value))
+                if decimal_value == decimal_value.to_integral_value():
+                    return str(int(decimal_value))
+                else:
+                    return str(decimal_value)
+            elif isinstance(value, float) and value.is_integer():
+                return str(int(value))
+            elif isinstance(value, int):
+                return str(value)
+            else:
+                return str(value)
+        
         if isinstance(data, dict):
             result = {}
             for key, value in data.items():
-                # ID fields should always be strings
-                if key in id_field_names:
+                # ID fields and string fields should always be strings
+                if key in id_field_names or key in string_fields:
                     # Convert to string if it's a number or Decimal
-                    if is_numeric(value):
-                        if is_decimal(value):
-                            # Convert Decimal to string, removing trailing zeros
-                            result[key] = str(value).rstrip('0').rstrip('.')
-                        elif isinstance(value, float) and value.is_integer():
-                            result[key] = str(int(value))
-                        else:
-                            result[key] = str(value)
+                    if value is None:
+                        result[key] = None
+                    elif is_numeric(value):
+                        result[key] = convert_to_string(value)
                     elif isinstance(value, str):
                         result[key] = value
                     else:
+                        # Recursively process nested structures
                         result[key] = self._convert_string_numbers(value)
                 else:
                     result[key] = self._convert_string_numbers(value)
@@ -952,13 +994,13 @@ class SalesProductionStream(DateFilteredStream):
         th.Property("idTenant", th.CustomType({"type": ["string", "integer"]})),
         th.Property("idSession", th.CustomType({"type": ["string", "integer", "null"]})),
         th.Property("customer", th.CustomType({"type": ["object", "string", "null"]})),
-        th.Property("idSourceCustomer", th.StringType, required=False),
-        th.Property("vatTypeCalculation", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("idSourceCustomer", th.CustomType({"type": ["string", "null"]}), required=False),
+        th.Property("vatTypeCalculation", th.CustomType({"type": ["object", "string", "null"]}), required=False),
         th.Property("shop", th.CustomType({"type": ["object", "string", "null"]})),
         th.Property("till", th.CustomType({"type": ["object", "string", "null"]})),
         th.Property("saleDate", th.DateTimeType),
         th.Property("eTicket", th.BooleanType),
-        th.Property("orderDate", th.StringType, required=False),
+        th.Property("orderDate", th.CustomType({"type": ["string", "null"]}), required=False),
         th.Property("totalAmountStandard", th.NumberType),
         th.Property("totalAmountSell", th.NumberType),
         th.Property("totalAmountDiscount", th.NumberType),
@@ -972,13 +1014,7 @@ class SalesProductionStream(DateFilteredStream):
                 th.ObjectType(
                     th.Property("idTilroySaleLine", th.CustomType({"type": ["string", "integer"]})),
                     th.Property("type", th.StringType),
-                    th.Property(
-                        "sku",
-                        th.ObjectType(
-                            th.Property("idTilroy", th.StringType),
-                            th.Property("idSource", th.StringType),
-                        ),
-                    ),
+                    th.Property("sku", th.CustomType({"type": ["object", "null"]})),
                     th.Property("description", th.StringType),
                     th.Property("quantity", th.IntegerType),
                     th.Property("quantityReturned", th.IntegerType),
@@ -997,15 +1033,124 @@ class SalesProductionStream(DateFilteredStream):
                     th.Property("lineTotalDiscount", th.NumberType),
                     th.Property("lineTotalVatExcl", th.NumberType),
                     th.Property("lineTotalVat", th.NumberType),
+                    th.Property("maxDiscount", th.NumberType, required=False),
+                    th.Property("transformedToProduct", th.BooleanType, required=False),
+                    th.Property("transformedIdPaymentType", th.CustomType({"type": ["string", "integer", "null"]}), required=False),
+                    th.Property("idTransactionLine", th.IntegerType, required=False),
+                    th.Property("orderId", th.StringType, required=False),
+                    th.Property("orderLineId", th.StringType, required=False),
+                    th.Property("depositValue", th.NumberType, required=False),
                     th.Property("vatPercentage", th.NumberType),
-                    th.Property("code", th.StringType),
-                    th.Property("comments", th.StringType, required=False),
-                    th.Property("serialNumberSale", th.StringType, required=False),
+                    th.Property("discountTransaction", th.NumberType, required=False),
+                    th.Property("discountReason", th.CustomType({"type": ["object", "null"]}), required=False),
+                    th.Property("priceTransactionDiscount", th.NumberType, required=False),
+                    th.Property("priceLineDiscount", th.NumberType, required=False),
+                    th.Property("returnReason", th.CustomType({"type": ["object", "null"]}), required=False),
+                    th.Property("code", th.CustomType({"type": ["string", "number", "null"]})),
+                    th.Property("comments", th.CustomType({"type": ["string", "null"]}), required=False),
+                    th.Property("serialNumberSale", th.CustomType({"type": ["string", "null"]}), required=False),
+                    th.Property("serialNumberSaleActivator", th.StringType, required=False),
+                    th.Property("promotionName", th.StringType, required=False),
+                    th.Property("idSaleLineReturned", th.CustomType({"type": ["string", "integer", "null"]}), required=False),
+                    th.Property("idRepair", th.IntegerType, required=False),
+                    th.Property("idTillBasketLineOrig", th.CustomType({"type": ["string", "integer", "null"]}), required=False),
+                    th.Property("orderDateOriginal", th.CustomType({"type": ["string", "null"]}), required=False),
+                    th.Property("collectMethodCodeOriginal", th.CustomType({"type": ["string", "null"]}), required=False),
+                    th.Property("orderNumberOriginal", th.StringType, required=False),
+                    th.Property("idTillBasketLine", th.IntegerType, required=False),
                     th.Property("webDescription", th.StringType),
                     th.Property("colour", th.StringType),
                     th.Property("size", th.StringType),
-                    th.Property("ean", th.StringType),
+                    th.Property("ppPriceBundle", th.NumberType, required=False),
+                    th.Property("ppPriceBuyAndGet", th.NumberType, required=False),
+                    th.Property("ppPriceExceptional", th.NumberType, required=False),
+                    th.Property("ppPriceLineDiscount", th.NumberType, required=False),
+                    th.Property("ppPriceManual", th.NumberType, required=False),
+                    th.Property("ppPricePromo", th.NumberType, required=False),
+                    th.Property("ppPriceSellGross", th.NumberType, required=False),
+                    th.Property("ppPriceSet", th.NumberType, required=False),
+                    th.Property("ppBundleApplied", th.BooleanType, required=False),
+                    th.Property("ppBundleDealID", th.StringType, required=False),
+                    th.Property("ppBundleLineParent", th.BooleanType, required=False),
+                    th.Property("ppActionID", th.StringType, required=False),
+                    th.Property("ppBuyAndGetID", th.StringType, required=False),
+                    th.Property("ppCopyFrom", th.StringType, required=False),
+                    th.Property("ppDiscountReasonID", th.StringType, required=False),
+                    th.Property("ppExceptionalPriceID", th.StringType, required=False),
+                    th.Property("ppInBuying", th.BooleanType, required=False),
+                    th.Property("ppLineDiscountID", th.StringType, required=False),
+                    th.Property("ppReturnIncentiveID", th.StringType, required=False),
+                    th.Property("ppSetID", th.StringType, required=False),
+                    th.Property("ppTriggerID", th.StringType, required=False),
+                    th.Property("basedOnSale", th.StringType, required=False),
+                    th.Property("basedOnSaleLine", th.StringType, required=False),
+                    th.Property("collectMethod", th.CustomType({"type": ["object", "null"]}), required=False),
+                    th.Property("generateVoucher", th.BooleanType, required=False),
+                    th.Property("isAdvance", th.BooleanType, required=False),
+                    th.Property("standardUnitPrice", th.NumberType, required=False),
+                    th.Property("order", th.CustomType({"type": ["object", "null"]}), required=False),
+                    th.Property("collectShop", th.CustomType({"type": ["object", "null"]}), required=False),
+                    th.Property("idRental", th.StringType, required=False),
+                    th.Property("reservationReference", th.StringType, required=False),
+                    th.Property("reservation", th.BooleanType, required=False),
+                    th.Property("configuratorType", th.StringType, required=False),
+                    th.Property("configuratorCode", th.StringType, required=False),
+                    th.Property("linkedObjectBarcode", th.StringType, required=False),
+                    th.Property("linkedObjectDisplayValue", th.StringType, required=False),
+                    th.Property("linkedObjectReference", th.StringType, required=False),
+                    th.Property("linkedObjectReferenceType", th.StringType, required=False),
+                    th.Property("netWeight", th.NumberType, required=False),
+                    th.Property("useInNextSaleDiscountCalculations", th.BooleanType, required=False),
+                    th.Property("generateActivationCode", th.BooleanType, required=False),
+                    th.Property("standardPriceOrig", th.NumberType, required=False),
+                    th.Property("stockIsReserved", th.BooleanType, required=False),
+                    th.Property("lineNumber", th.IntegerType, required=False),
                     th.Property("timestamp", th.StringType),
+                    th.Property("picture", th.StringType, required=False),
+                    th.Property("quantityPack", th.IntegerType, required=False),
+                    th.Property("intrastatCode", th.StringType, required=False),
+                    th.Property("ean", th.CustomType({"type": ["string", "number", "null"]})),
+                    th.Property("isMasterLine", th.BooleanType, required=False),
+                    th.Property("amountOpen", th.NumberType, required=False),
+                    th.Property("combinedProductId", th.StringType, required=False),
+                    th.Property("combinedProductCode", th.StringType, required=False),
+                    th.Property("idPaymentRequest", th.StringType, required=False),
+                    th.Property("idInvoicePayment", th.StringType, required=False),
+                    th.Property("isUsedProduct", th.BooleanType, required=False),
+                    th.Property("usedProductBarcode", th.StringType, required=False),
+                    th.Property("isBuyBack", th.BooleanType, required=False),
+                    th.Property("unknownPrice", th.BooleanType, required=False),
+                    th.Property("certificateOnSale", th.BooleanType, required=False),
+                    th.Property("isDiscountedBarcode", th.BooleanType, required=False),
+                    th.Property("idAssetType", th.StringType, required=False),
+                    th.Property("idAsset", th.StringType, required=False),
+                    th.Property("idLeasing", th.StringType, required=False),
+                    th.Property("insurances", th.ArrayType(th.CustomType({"type": ["object", "null"]})), required=False),
+                    th.Property("idDispatchMethod", th.IntegerType, required=False),
+                    th.Property("dispatchMethodCode", th.StringType, required=False),
+                    th.Property("dispatchMethodExtraData", th.StringType, required=False),
+                    th.Property("shipment", th.CustomType({"type": ["object", "null"]}), required=False),
+                    th.Property("deliveryPromise", th.CustomType({"type": ["string", "null"]}), required=False),
+                    th.Property("warrantyDate", th.CustomType({"type": ["string", "null"]}), required=False),
+                    th.Property("warrantyDays", th.IntegerType, required=False),
+                    th.Property("deliveryDate", th.CustomType({"type": ["string", "null"]}), required=False),
+                    th.Property("idUserSalesPerson", th.IntegerType, required=False),
+                    th.Property("userSalesPerson", th.StringType, required=False),
+                    th.Property("cappedStock", th.BooleanType, required=False),
+                    th.Property("icons", th.ArrayType(th.CustomType({"type": ["object", "string", "null"]})), required=False),
+                    th.Property("registrationAtSupplierPossible", th.BooleanType, required=False),
+                    th.Property("isPaymentExternalOrder", th.BooleanType, required=False),
+                    th.Property("hasVatOverride", th.BooleanType, required=False),
+                    th.Property("IsReturnOrderLine", th.BooleanType, required=False),
+                    th.Property("isReturnOrderAdvance", th.BooleanType, required=False),
+                    th.Property("manualPrice", th.CustomType({"type": ["number", "null"]}), required=False),
+                    th.Property("taxes", th.ArrayType(th.CustomType({"type": ["object", "null"]})), required=False),
+                    th.Property("salesOrigin", th.StringType, required=False),
+                    th.Property("idSourceDiscountReason", th.CustomType({"type": ["string", "integer", "null"]}), required=False),
+                    th.Property("idSourceReturnReason", th.CustomType({"type": ["string", "integer", "null"]}), required=False),
+                    th.Property("idSourceSku", th.StringType, required=False),
+                    th.Property("wac", th.CustomType({"type": ["object", "null"]}), required=False),
+                    th.Property("_id", th.StringType, required=False),
                 ),
             ),
         ),
@@ -1014,32 +1159,49 @@ class SalesProductionStream(DateFilteredStream):
             "payments",
             th.ArrayType(
                 th.ObjectType(
+                    th.Property("VatRatio", th.NumberType, required=False),
                     th.Property("idTilroySalePayment", th.CustomType({"type": ["string", "integer"]})),
-                    th.Property(
-                        "paymentType",
-                        th.ObjectType(
-                            th.Property("idTilroy", th.StringType),
-                            th.Property("code", th.StringType),
-                            th.Property("idSource", th.StringType, required=False),
-                            th.Property(
-                                "descriptions",
-                                th.ArrayType(
-                                    th.ObjectType(
-                                        th.Property("description", th.StringType),
-                                        th.Property("languageCode", th.StringType),
-                                    ),
-                                ),
-                            ),
-                            th.Property("reporting", th.BooleanType),
-                        ),
-                    ),
+                    th.Property("paymentType", th.CustomType({"type": ["object", "null"]})),
                     th.Property("amount", th.NumberType),
-                    th.Property("paymentReference", th.StringType),
+                    th.Property("paymentReference", th.CustomType({"type": ["string", "null"]})),
+                    th.Property("paymentReferenceNegativeAdvance", th.StringType, required=False),
+                    th.Property("paymentReferenceReturnOrderAdvance", th.StringType, required=False),
+                    th.Property("czamReference", th.StringType, required=False),
+                    th.Property("czamTicket", th.StringType, required=False),
+                    th.Property("czamSignatureRequired", th.BooleanType, required=False),
+                    th.Property("identificationRequired", th.BooleanType, required=False),
+                    th.Property("merchantInfo", th.StringType, required=False),
+                    th.Property("idRepair", th.IntegerType, required=False),
+                    th.Property("idTillBasketLine", th.IntegerType, required=False),
+                    th.Property("idTilroySaleLine", th.CustomType({"type": ["string", "integer", "null"]}), required=False),
+                    th.Property("advanceSource", th.CustomType({"type": ["object", "null"]}), required=False),
+                    th.Property("advanceReference", th.CustomType({"type": ["string", "null"]}), required=False),
+                    th.Property("idCollectMethod", th.IntegerType, required=False),
+                    th.Property("idSkuTransform", th.CustomType({"type": ["string", "integer", "null"]}), required=False),
+                    th.Property("amountOpen", th.NumberType, required=False),
+                    th.Property("idRental", th.StringType, required=False),
+                    th.Property("isRembours", th.BooleanType, required=False),
+                    th.Property("linkedObjectBarcode", th.StringType, required=False),
+                    th.Property("linkedObjectDisplayValue", th.StringType, required=False),
+                    th.Property("linkedObjectReference", th.StringType, required=False),
+                    th.Property("linkedObjectReferenceType", th.StringType, required=False),
                     th.Property("timestamp", th.StringType),
+                    th.Property("isRounding", th.BooleanType, required=False),
+                    th.Property("idPaymentRequest", th.StringType, required=False),
+                    th.Property("vatPercentage", th.NumberType, required=False),
+                    th.Property("printOnTicket", th.BooleanType, required=False),
+                    th.Property("advanceAmountNegative", th.NumberType, required=False),
+                    th.Property("advanceAmountReturnOrder", th.NumberType, required=False),
+                    th.Property("isAdvanceCheckout", th.BooleanType, required=False),
+                    th.Property("isReservation", th.BooleanType, required=False),
+                    th.Property("isPaymentExternalOrder", th.BooleanType, required=False),
+                    th.Property("isReturnOrderAdvance", th.BooleanType, required=False),
                     th.Property("isPaid", th.BooleanType),
+                    th.Property("idSourcePaymentType", th.CustomType({"type": ["string", "integer", "null"]}), required=False),
                 ),
             ),
         ),
+        th.Property("vouchers", th.ArrayType(th.CustomType({"type": ["object", "null"]})), required=False),
         th.Property(
             "vat",
             th.ArrayType(
@@ -1052,12 +1214,155 @@ class SalesProductionStream(DateFilteredStream):
                     th.Property("amountTaxable", th.NumberType),
                     th.Property("amountVat", th.NumberType),
                     th.Property("vatAmount", th.NumberType),
+                    th.Property("idVat", th.IntegerType, required=False),
                     th.Property("totalAmount", th.NumberType),
+                    th.Property("cashDiscount", th.NumberType, required=False),
+                    th.Property("amountExVat", th.NumberType, required=False),
                     th.Property("timestamp", th.StringType),
+                    th.Property("descriptions", th.ArrayType(th.CustomType({"type": ["object", "null"]})), required=False),
                 ),
             ),
         ),
+        th.Property("activations", th.ArrayType(th.CustomType({"type": ["object", "null"]})), required=False),
+        th.Property("credits", th.ArrayType(th.CustomType({"type": ["object", "null"]})), required=False),
+        th.Property("saleCredits", th.ArrayType(th.CustomType({"type": ["object", "null"]})), required=False),
+        th.Property("transactionDiscountPercentage", th.NumberType, required=False),
+        th.Property("ppCustomerGroupID", th.StringType, required=False),
+        th.Property("ppCustomerSiteID", th.StringType, required=False),
+        th.Property("ppDeliveryID", th.StringType, required=False),
+        th.Property("ppDeliveryMethodID", th.StringType, required=False),
+        th.Property("ppDeliveryMultipleID", th.StringType, required=False),
+        th.Property("ppDeliveryTimeID", th.StringType, required=False),
+        th.Property("ppEmailOnlyCustomer", th.BooleanType, required=False),
+        th.Property("ppLanguageID", th.StringType, required=False),
+        th.Property("ppIsMember", th.BooleanType, required=False),
+        th.Property("ppMemberCardFrom", th.StringType, required=False),
+        th.Property("ppMemberCardShopID", th.StringType, required=False),
+        th.Property("ppShopID", th.StringType, required=False),
+        th.Property("ppZoneID", th.StringType, required=False),
+        th.Property("ppPriceDelivery", th.NumberType, required=False),
+        th.Property("ppPriceDeliveryFixedDay", th.IntegerType, required=False),
+        th.Property("ppPriceDeliveryMultiple", th.NumberType, required=False),
+        th.Property("ppPriceDeliveryNextDay", th.IntegerType, required=False),
+        th.Property("ppPriceDeliveryNormal", th.IntegerType, required=False),
+        th.Property("deliveryAddress", th.CustomType({"type": ["object", "null"]}), required=False),
+        th.Property("type", th.StringType, required=False),
+        th.Property("basedOnSale", th.StringType, required=False),
+        th.Property("customerPhone", th.StringType, required=False),
+        th.Property("customerMobile", th.StringType, required=False),
+        th.Property("customerIdCountry", th.StringType, required=False),
+        th.Property("customerCard", th.StringType, required=False),
+        th.Property("customerIdTitle", th.StringType, required=False),
+        th.Property("customerTitle", th.StringType, required=False),
+        th.Property("discountReason", th.CustomType({"type": ["object", "null"]}), required=False),
+        th.Property("idTillBasket", th.IntegerType, required=False),
+        th.Property("customerCreditsOld", th.NumberType, required=False),
+        th.Property("customerCreditsSale", th.NumberType, required=False),
+        th.Property("customerCreditsUsed", th.NumberType, required=False),
+        th.Property("noNextSaleDiscount", th.BooleanType, required=False),
+        th.Property("ogoneReference", th.StringType, required=False),
+        th.Property("paymentProvider", th.CustomType({"type": ["object", "null"]}), required=False),
+        th.Property("customerFirstName", th.StringType, required=False),
+        th.Property("customerMiddleName", th.StringType, required=False),
+        th.Property("customerSurName", th.StringType, required=False),
+        th.Property("customerCompanyName", th.StringType, required=False),
+        th.Property("customerCode", th.StringType, required=False),
+        th.Property("customerAddress1", th.StringType, required=False),
+        th.Property("customerAddress2", th.StringType, required=False),
+        th.Property("customerAddress3", th.StringType, required=False),
+        th.Property("customerAddress4", th.StringType, required=False),
+        th.Property("customerAddress5", th.StringType, required=False),
+        th.Property("customerHouseNumber", th.StringType, required=False),
+        th.Property("customerBox", th.StringType, required=False),
+        th.Property("customerCity", th.StringType, required=False),
+        th.Property("customerPostalCode", th.StringType, required=False),
+        th.Property("customerCounty", th.StringType, required=False),
+        th.Property("customerCountry", th.StringType, required=False),
+        th.Property("customerVatNumber", th.StringType, required=False),
+        th.Property("customerEmail", th.StringType, required=False),
+        th.Property("emailPickupPoint", th.StringType, required=False),
+        th.Property("idLanguage", th.IntegerType, required=False),
+        th.Property("orderNumber", th.CustomType({"type": ["string", "null"]}), required=False),
+        th.Property("priceType", th.StringType, required=False),
+        th.Property("isVatInclusive", th.BooleanType, required=False),
+        th.Property("isDispatch", th.BooleanType, required=False),
+        th.Property("deliveryDate", th.CustomType({"type": ["string", "null"]}), required=False),
+        th.Property("cashDiscount", th.NumberType, required=False),
+        th.Property("cashDiscountDays", th.IntegerType, required=False),
+        th.Property("paymentCondition", th.CustomType({"type": ["object", "null"]}), required=False),
+        th.Property("expirationDate", th.StringType, required=False),
+        th.Property("vatType", th.CustomType({"type": ["object", "null"]}), required=False),
+        th.Property("vatExempt", th.BooleanType, required=False),
+        th.Property("isPeriodicInvoicing", th.BooleanType, required=False),
+        th.Property("IsPeriodicInvoicingDiscountTransaction", th.BooleanType, required=False),
+        th.Property("status", th.StringType, required=False),
+        th.Property("transactionDiscountAmount", th.NumberType, required=False),
+        th.Property("basedOnSales", th.ArrayType(th.CustomType({"type": ["object", "string", "null"]})), required=False),
+        th.Property("invoiceMethod", th.CustomType({"type": ["object", "null"]}), required=False),
         th.Property("legalEntity", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("isOffline", th.BooleanType, required=False),
+        th.Property("offlineTimestamp", th.CustomType({"type": ["string", "null"]}), required=False),
+        th.Property("idShopMoneyLocation", th.IntegerType, required=False),
+        th.Property("orderId", th.StringType, required=False),
+        th.Property("seal", th.StringType, required=False),
+        th.Property("sealNumber", th.IntegerType, required=False),
+        th.Property("dispatchMethod", th.CustomType({"type": ["object", "null"]}), required=False),
+        th.Property("numberOfCollis", th.IntegerType, required=False),
+        th.Property("additionalInfo", th.StringType, required=False),
+        th.Property("externalReference", th.StringType, required=False),
+        th.Property("internalReference", th.StringType, required=False),
+        th.Property("isService", th.BooleanType, required=False),
+        th.Property("idService", th.StringType, required=False),
+        th.Property("ppDisable", th.BooleanType, required=False),
+        th.Property("refundPaymentName", th.StringType, required=False),
+        th.Property("refundPaymentAccount", th.StringType, required=False),
+        th.Property("refundPaymentText", th.StringType, required=False),
+        th.Property("externalLoyaltyInfo", th.StringType, required=False),
+        th.Property("externalLoyaltyReference", th.StringType, required=False),
+        th.Property("externalLoyaltyCredits", th.NumberType, required=False),
+        th.Property("activationCode", th.StringType, required=False),
+        th.Property("channel", th.CustomType({"type": ["object", "null"]}), required=False),
+        th.Property("currency", th.IntegerType, required=False),
+        th.Property("currencyData", th.CustomType({"type": ["object", "null"]}), required=False),
+        th.Property("user", th.CustomType({"type": ["object", "null"]}), required=False),
+        th.Property("timestamp", th.StringType, required=False),
+        th.Property("invoice", th.CustomType({"type": ["object", "null"]}), required=False),
+        th.Property("invoice2", th.CustomType({"type": ["object", "null"]}), required=False),
+        th.Property("anonymous", th.BooleanType, required=False),
+        th.Property("IdCustomerNSDOtherCustomer", th.StringType, required=False),
+        th.Property("isReturnRemake", th.BooleanType, required=False),
+        th.Property("isReturn", th.BooleanType, required=False),
+        th.Property("idPickupPoint", th.CustomType({"type": ["string", "integer", "null"]}), required=False),
+        th.Property("barcode", th.StringType, required=False),
+        th.Property("idQuotation", th.StringType, required=False),
+        th.Property("passportId", th.StringType, required=False),
+        th.Property("legalentityVatNumber", th.CustomType({"type": ["string", "null"]}), required=False),
+        th.Property("project", th.CustomType({"type": ["object", "null"]}), required=False),
+        th.Property("foreignVat", th.CustomType({"type": ["object", "null"]}), required=False),
+        th.Property("deliveryAllowedFrom", th.CustomType({"type": ["string", "null"]}), required=False),
+        th.Property("expectedDeliveryDate", th.CustomType({"type": ["string", "null"]}), required=False),
+        th.Property("isOrder", th.BooleanType, required=False),
+        th.Property("isInvoiced", th.BooleanType, required=False),
+        th.Property("isSaleWithShopRevenue", th.BooleanType, required=False),
+        th.Property("idShopToTransferStockFrom", th.CustomType({"type": ["string", "integer", "null"]}), required=False),
+        th.Property("isSaleWithCustomerInvoice", th.BooleanType, required=False),
+        th.Property("icons", th.ArrayType(th.CustomType({"type": ["object", "string", "null"]})), required=False),
+        th.Property("tags", th.ArrayType(th.CustomType({"type": ["object", "string", "null"]})), required=False),
+        th.Property("registerAtSupplier", th.BooleanType, required=False),
+        th.Property("customerDepartment", th.StringType, required=False),
+        th.Property("isSelfCheckout", th.BooleanType, required=False),
+        th.Property("contactPerson", th.CustomType({"type": ["object", "null"]}), required=False),
+        th.Property("language", th.StringType, required=False),
+        th.Property("deliveryTrackingCode", th.CustomType({"type": ["string", "null"]}), required=False),
+        th.Property("duplicatedForInvoice", th.BooleanType, required=False),
+        th.Property("idSourceDiscountReason", th.CustomType({"type": ["string", "integer", "null"]}), required=False),
+        th.Property("customerCountryCode", th.StringType, required=False),
+        th.Property("idSourceShop", th.CustomType({"type": ["string", "integer", "null"]}), required=False),
+        th.Property("idSourceTill", th.CustomType({"type": ["string", "integer", "null"]}), required=False),
+        th.Property("idSourceUser", th.CustomType({"type": ["string", "integer", "null"]}), required=False),
+        th.Property("activationText", th.StringType, required=False),
+        th.Property("reInvoiced", th.BooleanType, required=False),
+        th.Property("invoiceRequested", th.CustomType({"type": ["object", "null"]}), required=False),
     ).to_dict()
 
 
