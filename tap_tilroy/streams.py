@@ -879,6 +879,7 @@ class SalesProductionStream(DateFilteredStream):
         # FIRST: Convert ALL Decimal values to strings BEFORE any other processing
         # This prevents Decimals from causing validation errors
         from decimal import Decimal
+        import copy
         
         def convert_all_decimals_to_strings(obj):
             """Recursively convert ALL Decimal values to strings throughout the record."""
@@ -902,12 +903,15 @@ class SalesProductionStream(DateFilteredStream):
                     elif isinstance(item, (list, dict)):
                         convert_all_decimals_to_strings(item)
         
+        # Make a deep copy to avoid modifying the original
+        row_copy = copy.deepcopy(row)
         # Convert all Decimals FIRST, before any other processing
-        convert_all_decimals_to_strings(row)
+        convert_all_decimals_to_strings(row_copy)
         
         # NOW: Recursively convert string numbers to floats throughout the record
-        # Convert string numbers to floats, but preserve ID fields as strings
-        converted = self._convert_string_numbers(row)
+        # BUT: Don't convert strings that look like numbers if they're in fields that should be strings
+        # Since we've updated the schema to accept both string and number, we can be more lenient
+        converted = self._convert_string_numbers(row_copy)
         
         # Ensure top-level ID fields are always strings (even if API returns them as numbers/Decimals)
         if isinstance(converted, dict):
@@ -915,6 +919,31 @@ class SalesProductionStream(DateFilteredStream):
             for field in id_fields:
                 if field in converted and not isinstance(converted[field], str):
                     converted[field] = str(converted[field])
+            
+            # FINAL safety pass: Convert any remaining Decimals to strings
+            # This catches any Decimals that might have been created during processing
+            def final_decimal_check(obj):
+                """Final pass to convert any remaining Decimals to strings."""
+                if isinstance(obj, dict):
+                    for key, val in obj.items():
+                        if isinstance(val, Decimal):
+                            if val == val.to_integral_value():
+                                obj[key] = str(int(val))
+                            else:
+                                obj[key] = str(val)
+                        elif isinstance(val, (list, dict)):
+                            final_decimal_check(val)
+                elif isinstance(obj, list):
+                    for i, item in enumerate(obj):
+                        if isinstance(item, Decimal):
+                            if item == item.to_integral_value():
+                                obj[i] = str(int(item))
+                            else:
+                                obj[i] = str(item)
+                        elif isinstance(item, (list, dict)):
+                            final_decimal_check(item)
+            
+            final_decimal_check(converted)
         
         return converted
     
