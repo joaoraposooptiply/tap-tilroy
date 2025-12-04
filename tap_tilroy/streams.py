@@ -894,12 +894,12 @@ class SalesProductionStream(DateFilteredStream):
                     else:
                         converted[field] = str(converted[field])
             
-            # Final safety pass: recursively find and convert any Decimal in code/ean fields
+            # Final safety pass: recursively find and convert any Decimal in string fields
             def fix_decimal_strings(obj):
-                """Recursively fix Decimal values in code/ean fields."""
+                """Recursively fix Decimal values in string fields (code, ean, paymentReference, advanceReference)."""
                 if isinstance(obj, dict):
                     for key, val in obj.items():
-                        if key in ["code", "ean"]:
+                        if key in ["code", "ean", "paymentReference", "advanceReference"]:
                             if isinstance(val, Decimal):
                                 if val == val.to_integral_value():
                                     obj[key] = str(int(val))
@@ -925,7 +925,7 @@ class SalesProductionStream(DateFilteredStream):
             "idTilroy", "idSource"
         ]
         # Fields that should be strings even if API returns them as numbers
-        string_fields = ["code", "ean"]
+        string_fields = ["code", "ean", "paymentReference", "advanceReference"]
         
         # Check if value is a Decimal (import if needed)
         from decimal import Decimal
@@ -1173,7 +1173,7 @@ class SalesProductionStream(DateFilteredStream):
                     th.Property("idTilroySalePayment", th.CustomType({"type": ["string", "integer"]})),
                     th.Property("paymentType", th.CustomType({"type": ["object", "null"]})),
                     th.Property("amount", th.NumberType),
-                    th.Property("paymentReference", th.CustomType({"type": ["string", "null"]})),
+                    th.Property("paymentReference", th.CustomType({"type": ["string", "number", "null"]})),
                     th.Property("paymentReferenceNegativeAdvance", th.StringType, required=False),
                     th.Property("paymentReferenceReturnOrderAdvance", th.StringType, required=False),
                     th.Property("czamReference", th.StringType, required=False),
@@ -1185,7 +1185,7 @@ class SalesProductionStream(DateFilteredStream):
                     th.Property("idTillBasketLine", th.IntegerType, required=False),
                     th.Property("idTilroySaleLine", th.CustomType({"type": ["string", "integer", "null"]}), required=False),
                     th.Property("advanceSource", th.CustomType({"type": ["object", "null"]}), required=False),
-                    th.Property("advanceReference", th.CustomType({"type": ["string", "null"]}), required=False),
+                    th.Property("advanceReference", th.CustomType({"type": ["string", "number", "null"]}), required=False),
                     th.Property("idCollectMethod", th.IntegerType, required=False),
                     th.Property("idSkuTransform", th.CustomType({"type": ["string", "integer", "null"]}), required=False),
                     th.Property("amountOpen", th.NumberType, required=False),
