@@ -894,24 +894,49 @@ class SalesProductionStream(DateFilteredStream):
                     else:
                         converted[field] = str(converted[field])
             
-            # Final safety pass: recursively find and convert any Decimal in string fields
+            # Final safety pass: recursively find and convert Decimal to string for string fields
+            # List of field names that should be strings (expanded to catch all cases)
+            string_field_names = [
+                "code", "ean", "paymentReference", "advanceReference", "comments",
+                "orderId", "orderLineId", "serialNumberSale", "serialNumberSaleActivator",
+                "promotionName", "reservationReference", "configuratorType", "configuratorCode",
+                "linkedObjectBarcode", "linkedObjectDisplayValue", "linkedObjectReference",
+                "linkedObjectReferenceType", "combinedProductId", "combinedProductCode",
+                "idPaymentRequest", "idInvoicePayment", "usedProductBarcode", "idAssetType",
+                "idAsset", "idLeasing", "dispatchMethodCode", "dispatchMethodExtraData",
+                "userSalesPerson", "idRental", "basedOnSale", "basedOnSaleLine",
+                "orderNumberOriginal", "collectMethodCodeOriginal", "orderNumber",
+                "customerCode", "customerCard", "customerVatNumber", "customerEmail",
+                "emailPickupPoint", "barcode", "idQuotation", "passportId",
+                "activationCode", "externalReference", "internalReference", "idService",
+                "refundPaymentName", "refundPaymentAccount", "refundPaymentText",
+                "externalLoyaltyInfo", "externalLoyaltyReference", "customerPhone",
+                "customerMobile", "customerAddress1", "customerAddress2", "customerAddress3",
+                "customerAddress4", "customerAddress5", "customerHouseNumber", "customerBox",
+                "customerCity", "customerPostalCode", "customerCounty", "customerCountry",
+                "customerDepartment", "deliveryTrackingCode", "activationText"
+            ]
+            
             def fix_decimal_strings(obj):
-                """Recursively fix Decimal values in string fields (code, ean, paymentReference, advanceReference)."""
+                """Recursively fix Decimal values in string fields."""
+                from decimal import Decimal
                 if isinstance(obj, dict):
                     for key, val in obj.items():
-                        if key in ["code", "ean", "paymentReference", "advanceReference"]:
-                            if isinstance(val, Decimal):
-                                if val == val.to_integral_value():
-                                    obj[key] = str(int(val))
-                                else:
-                                    obj[key] = str(val)
-                            elif val is not None and not isinstance(val, str):
+                        if key in string_field_names and isinstance(val, Decimal):
+                            # Convert Decimal to string, removing trailing .0 if integer
+                            if val == val.to_integral_value():
+                                obj[key] = str(int(val))
+                            else:
                                 obj[key] = str(val)
-                        else:
+                        elif key in string_field_names and val is not None and not isinstance(val, str):
+                            # Convert any non-string, non-null value to string
+                            obj[key] = str(val)
+                        elif isinstance(val, (list, dict)):
                             fix_decimal_strings(val)
                 elif isinstance(obj, list):
                     for item in obj:
-                        fix_decimal_strings(item)
+                        if isinstance(item, (list, dict)):
+                            fix_decimal_strings(item)
             
             fix_decimal_strings(converted)
         return converted
@@ -925,7 +950,7 @@ class SalesProductionStream(DateFilteredStream):
             "idTilroy", "idSource"
         ]
         # Fields that should be strings even if API returns them as numbers
-        string_fields = ["code", "ean", "paymentReference", "advanceReference"]
+        string_fields = ["code", "ean", "paymentReference", "advanceReference", "comments"]
         
         # Check if value is a Decimal (import if needed)
         from decimal import Decimal
@@ -1057,7 +1082,7 @@ class SalesProductionStream(DateFilteredStream):
                     th.Property("priceLineDiscount", th.NumberType, required=False),
                     th.Property("returnReason", th.CustomType({"type": ["object", "null"]}), required=False),
                     th.Property("code", th.CustomType({"type": ["string", "number", "null"]})),
-                    th.Property("comments", th.CustomType({"type": ["string", "null"]}), required=False),
+                    th.Property("comments", th.CustomType({"type": ["string", "number", "null"]}), required=False),
                     th.Property("serialNumberSale", th.CustomType({"type": ["string", "null"]}), required=False),
                     th.Property("serialNumberSaleActivator", th.StringType, required=False),
                     th.Property("promotionName", th.StringType, required=False),
