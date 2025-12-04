@@ -877,14 +877,28 @@ class SalesProductionStream(DateFilteredStream):
             return None
 
         # Recursively convert string numbers to floats throughout the record
-        return self._convert_string_numbers(row)
+        # Convert string numbers to floats, but preserve ID fields as strings
+        converted = self._convert_string_numbers(row)
+        # Ensure idTilroySale is always a string (even if API returns it as a number)
+        if isinstance(converted, dict) and "idTilroySale" in converted:
+            if not isinstance(converted["idTilroySale"], str):
+                converted["idTilroySale"] = str(converted["idTilroySale"])
+        return converted
     
     def _convert_string_numbers(self, data: t.Any) -> t.Any:
         """Recursively convert string numbers to floats in nested structures."""
         if isinstance(data, dict):
             result = {}
             for key, value in data.items():
-                result[key] = self._convert_string_numbers(value)
+                # Skip ID fields - they should remain as strings
+                if key in ["idTilroySale", "idTilroySaleLine", "idTilroySalePayment", "idTilroy", "idSource"]:
+                    # Convert to string if it's a number
+                    if isinstance(value, (int, float)) or (hasattr(value, '__class__') and 'Decimal' in str(type(value))):
+                        result[key] = str(value)
+                    else:
+                        result[key] = self._convert_string_numbers(value)
+                else:
+                    result[key] = self._convert_string_numbers(value)
             return result
         elif isinstance(data, list):
             return [self._convert_string_numbers(item) for item in data]
@@ -900,11 +914,14 @@ class SalesProductionStream(DateFilteredStream):
             except (ValueError, TypeError):
                 # Not a number, return as-is
                 return data
+        elif hasattr(data, '__class__') and 'Decimal' in str(type(data)):
+            # Handle Decimal objects - convert to float for numeric fields
+            return float(data)
         else:
             return data
 
     schema = th.PropertiesList(
-        th.Property("idTilroySale", th.StringType),
+        th.Property("idTilroySale", th.CustomType({"type": ["string", "integer"]})),
         th.Property("idTenant", th.StringType),
         th.Property("idSession", th.StringType),
         th.Property("customer", th.CustomType({"type": ["object", "string", "null"]})),
