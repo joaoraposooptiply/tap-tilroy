@@ -894,51 +894,32 @@ class SalesProductionStream(DateFilteredStream):
                     else:
                         converted[field] = str(converted[field])
             
-            # Final safety pass: recursively find and convert Decimal to string for string fields
-            # List of field names that should be strings (expanded to catch all cases)
-            string_field_names = [
-                "code", "ean", "paymentReference", "advanceReference", "comments",
-                "orderId", "orderLineId", "serialNumberSale", "serialNumberSaleActivator",
-                "promotionName", "reservationReference", "configuratorType", "configuratorCode",
-                "linkedObjectBarcode", "linkedObjectDisplayValue", "linkedObjectReference",
-                "linkedObjectReferenceType", "combinedProductId", "combinedProductCode",
-                "idPaymentRequest", "idInvoicePayment", "usedProductBarcode", "idAssetType",
-                "idAsset", "idLeasing", "dispatchMethodCode", "dispatchMethodExtraData",
-                "userSalesPerson", "idRental", "basedOnSale", "basedOnSaleLine",
-                "orderNumberOriginal", "collectMethodCodeOriginal", "orderNumber",
-                "customerCode", "customerCard", "customerVatNumber", "customerEmail",
-                "emailPickupPoint", "barcode", "idQuotation", "passportId",
-                "activationCode", "externalReference", "internalReference", "idService",
-                "refundPaymentName", "refundPaymentAccount", "refundPaymentText",
-                "externalLoyaltyInfo", "externalLoyaltyReference", "customerPhone",
-                "customerMobile", "customerAddress1", "customerAddress2", "customerAddress3",
-                "customerAddress4", "customerAddress5", "customerHouseNumber", "customerBox",
-                "customerCity", "customerPostalCode", "customerCounty", "customerCountry",
-                "customerDepartment", "deliveryTrackingCode", "activationText"
-            ]
-            
-            def fix_decimal_strings(obj):
-                """Recursively fix Decimal values in string fields."""
+            # Final safety pass: Convert ALL Decimal values to strings throughout the entire record
+            # The API returns Decimals for many string fields, so we convert all of them
+            def convert_all_decimals_to_strings(obj):
+                """Recursively convert ALL Decimal values to strings throughout the record."""
                 from decimal import Decimal
                 if isinstance(obj, dict):
                     for key, val in obj.items():
-                        if key in string_field_names and isinstance(val, Decimal):
+                        if isinstance(val, Decimal):
                             # Convert Decimal to string, removing trailing .0 if integer
                             if val == val.to_integral_value():
                                 obj[key] = str(int(val))
                             else:
                                 obj[key] = str(val)
-                        elif key in string_field_names and val is not None and not isinstance(val, str):
-                            # Convert any non-string, non-null value to string
-                            obj[key] = str(val)
                         elif isinstance(val, (list, dict)):
-                            fix_decimal_strings(val)
+                            convert_all_decimals_to_strings(val)
                 elif isinstance(obj, list):
-                    for item in obj:
-                        if isinstance(item, (list, dict)):
-                            fix_decimal_strings(item)
+                    for i, item in enumerate(obj):
+                        if isinstance(item, Decimal):
+                            if item == item.to_integral_value():
+                                obj[i] = str(int(item))
+                            else:
+                                obj[i] = str(item)
+                        elif isinstance(item, (list, dict)):
+                            convert_all_decimals_to_strings(item)
             
-            fix_decimal_strings(converted)
+            convert_all_decimals_to_strings(converted)
         return converted
     
     def _convert_string_numbers(self, data: t.Any) -> t.Any:
@@ -1050,7 +1031,7 @@ class SalesProductionStream(DateFilteredStream):
                     th.Property("idTilroySaleLine", th.CustomType({"type": ["string", "integer"]})),
                     th.Property("type", th.StringType),
                     th.Property("sku", th.CustomType({"type": ["object", "null"]})),
-                    th.Property("description", th.StringType),
+                    th.Property("description", th.CustomType({"type": ["string", "number", "null"]})),
                     th.Property("quantity", th.IntegerType),
                     th.Property("quantityReturned", th.IntegerType),
                     th.Property("quantityNet", th.IntegerType),
@@ -1093,9 +1074,9 @@ class SalesProductionStream(DateFilteredStream):
                     th.Property("collectMethodCodeOriginal", th.CustomType({"type": ["string", "null"]}), required=False),
                     th.Property("orderNumberOriginal", th.StringType, required=False),
                     th.Property("idTillBasketLine", th.IntegerType, required=False),
-                    th.Property("webDescription", th.StringType),
-                    th.Property("colour", th.StringType),
-                    th.Property("size", th.StringType),
+                    th.Property("webDescription", th.CustomType({"type": ["string", "number", "null"]})),
+                    th.Property("colour", th.CustomType({"type": ["string", "number", "null"]})),
+                    th.Property("size", th.CustomType({"type": ["string", "number", "null"]})),
                     th.Property("ppPriceBundle", th.NumberType, required=False),
                     th.Property("ppPriceBuyAndGet", th.NumberType, required=False),
                     th.Property("ppPriceExceptional", th.NumberType, required=False),
