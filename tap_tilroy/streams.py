@@ -858,7 +858,8 @@ class SalesProductionStream(DateFilteredStream):
     def post_process(self, row: dict, context: t.Optional[dict] = None) -> t.Optional[dict]:
         """
         Post-process each record to handle potential API errors, ensure
-        the replication key is present, and convert string numbers to floats.
+        the replication key is present, and convert Decimals to appropriate types.
+        Arrays are preserved as arrays (not flattened).
         """
         if not row:
             return None
@@ -876,159 +877,63 @@ class SalesProductionStream(DateFilteredStream):
             self.logger.warning(f"[{self.name}] Skipping record without a '{self.replication_key}': {row}")
             return None
 
-        # FIRST: Convert ALL Decimal values to strings BEFORE any other processing
+        # Convert ALL Decimal values to appropriate types (strings for IDs, numbers for numeric fields)
         # This prevents Decimals from causing validation errors
+        # Arrays are preserved as arrays - they are NOT flattened
         from decimal import Decimal
-        import copy
         
-        def convert_all_decimals_to_strings(obj):
-            """Recursively convert ALL Decimal values to strings throughout the record."""
+        def convert_decimals_recursive(obj):
+            """Recursively convert Decimal values, preserving array structure."""
             if isinstance(obj, dict):
+                result = {}
                 for key, val in obj.items():
                     if isinstance(val, Decimal):
-                        # Convert Decimal to string, removing trailing .0 if integer
-                        if val == val.to_integral_value():
-                            obj[key] = str(int(val))
+                        # ID fields should be strings
+                        if key in ["idTilroySale", "idTenant", "idSession", "idSourceCustomer", 
+                                  "idTilroySaleLine", "idTilroySalePayment", "idTilroy", "idSource"]:
+                            if val == val.to_integral_value():
+                                result[key] = str(int(val))
+                            else:
+                                result[key] = str(val)
+                        # String fields that might be Decimals
+                        elif key in ["code", "ean", "paymentReference", "advanceReference", 
+                                    "comments", "description", "webDescription", "colour", "size",
+                                    "serialNumberSale"]:
+                            if val == val.to_integral_value():
+                                result[key] = str(int(val))
+                            else:
+                                result[key] = str(val)
                         else:
-                            obj[key] = str(val)
-                    elif isinstance(val, (list, dict)):
-                        convert_all_decimals_to_strings(val)
+                            # Numeric fields - convert to float
+                            result[key] = float(val)
+                    elif isinstance(val, list):
+                        # Preserve arrays - recursively process items but keep as list
+                        result[key] = [convert_decimals_recursive(item) for item in val]
+                    elif isinstance(val, dict):
+                        result[key] = convert_decimals_recursive(val)
+                    else:
+                        result[key] = val
+                return result
             elif isinstance(obj, list):
-                for i, item in enumerate(obj):
-                    if isinstance(item, Decimal):
-                        if item == item.to_integral_value():
-                            obj[i] = str(int(item))
-                        else:
-                            obj[i] = str(item)
-                    elif isinstance(item, (list, dict)):
-                        convert_all_decimals_to_strings(item)
+                # Preserve array structure
+                return [convert_decimals_recursive(item) for item in obj]
+            elif isinstance(obj, Decimal):
+                # Standalone Decimal - convert to float
+                return float(obj)
+            else:
+                return obj
         
-        # Make a deep copy to avoid modifying the original
-        row_copy = copy.deepcopy(row)
-        # Convert all Decimals FIRST, before any other processing
-        convert_all_decimals_to_strings(row_copy)
+        # Process the row, preserving arrays
+        processed = convert_decimals_recursive(row)
         
-        # NOW: Recursively convert string numbers to floats throughout the record
-        # BUT: Don't convert strings that look like numbers if they're in fields that should be strings
-        # Since we've updated the schema to accept both string and number, we can be more lenient
-        converted = self._convert_string_numbers(row_copy)
-        
-        # Ensure top-level ID fields are always strings (even if API returns them as numbers/Decimals)
-        if isinstance(converted, dict):
+        # Ensure top-level ID fields are strings
+        if isinstance(processed, dict):
             id_fields = ["idTilroySale", "idTenant", "idSession", "idSourceCustomer"]
             for field in id_fields:
-                if field in converted and not isinstance(converted[field], str):
-                    converted[field] = str(converted[field])
-            
-            # FINAL safety pass: Convert any remaining Decimals to strings
-            # This catches any Decimals that might have been created during processing
-            def final_decimal_check(obj):
-                """Final pass to convert any remaining Decimals to strings."""
-                if isinstance(obj, dict):
-                    for key, val in obj.items():
-                        if isinstance(val, Decimal):
-                            if val == val.to_integral_value():
-                                obj[key] = str(int(val))
-                            else:
-                                obj[key] = str(val)
-                        elif isinstance(val, (list, dict)):
-                            final_decimal_check(val)
-                elif isinstance(obj, list):
-                    for i, item in enumerate(obj):
-                        if isinstance(item, Decimal):
-                            if item == item.to_integral_value():
-                                obj[i] = str(int(item))
-                            else:
-                                obj[i] = str(item)
-                        elif isinstance(item, (list, dict)):
-                            final_decimal_check(item)
-            
-            final_decimal_check(converted)
+                if field in processed and processed[field] is not None:
+                    processed[field] = str(processed[field])
         
-        return converted
-    
-    def _convert_string_numbers(self, data: t.Any) -> t.Any:
-        """Recursively convert string numbers to floats in nested structures, preserving ID fields as strings."""
-        # List of ID field names and other fields that should always remain as strings
-        id_field_names = [
-            "idTilroySale", "idTenant", "idSession", "idSourceCustomer",
-            "idTilroySaleLine", "idTilroySalePayment", 
-            "idTilroy", "idSource"
-        ]
-        # Fields that should be strings even if API returns them as numbers
-        string_fields = ["code", "ean", "paymentReference", "advanceReference", "comments"]
-        
-        # Check if value is a Decimal (import if needed)
-        from decimal import Decimal
-        
-        def is_decimal(value):
-            return isinstance(value, Decimal) or (hasattr(value, '__class__') and 'Decimal' in str(type(value)))
-        
-        def is_numeric(value):
-            return isinstance(value, (int, float)) or is_decimal(value)
-        
-        def convert_to_string(value):
-            """Convert a numeric value to string, handling Decimal specially."""
-            if is_decimal(value):
-                if isinstance(value, Decimal):
-                    decimal_value = value
-                else:
-                    decimal_value = Decimal(str(value))
-                if decimal_value == decimal_value.to_integral_value():
-                    return str(int(decimal_value))
-                else:
-                    return str(decimal_value)
-            elif isinstance(value, float) and value.is_integer():
-                return str(int(value))
-            elif isinstance(value, int):
-                return str(value)
-            else:
-                return str(value)
-        
-        if isinstance(data, dict):
-            result = {}
-            for key, value in data.items():
-                # ID fields and string fields should always be strings
-                if key in id_field_names or key in string_fields:
-                    # Convert to string if it's a number or Decimal
-                    if value is None:
-                        result[key] = None
-                    elif isinstance(value, Decimal):
-                        # Explicitly handle Decimal - this is critical for code/ean fields
-                        if value == value.to_integral_value():
-                            result[key] = str(int(value))
-                        else:
-                            result[key] = str(value)
-                    elif is_numeric(value):
-                        result[key] = convert_to_string(value)
-                    elif isinstance(value, str):
-                        result[key] = value
-                    else:
-                        # Recursively process nested structures
-                        result[key] = self._convert_string_numbers(value)
-                else:
-                    result[key] = self._convert_string_numbers(value)
-            return result
-        elif isinstance(data, list):
-            return [self._convert_string_numbers(item) for item in data]
-        elif isinstance(data, str):
-            # Handle NA values
-            if data.upper() in ['NA', 'N/A', 'NULL', 'NONE', '']:
-                return None
-            # Try to convert to float if it's a valid numeric string
-            try:
-                # Use float() which handles decimals, negatives, scientific notation, etc.
-                # This will raise ValueError if it's not a valid number
-                return float(data)
-            except (ValueError, TypeError):
-                # Not a number, return as-is
-                return data
-        elif is_decimal(data):
-            # Handle Decimal objects - convert to float for numeric fields
-            # But we should have caught ID fields above, so this is for numeric fields
-            return float(data)
-        else:
-            return data
+        return processed
 
     schema = th.PropertiesList(
         th.Property("idTilroySale", th.CustomType({"type": ["string", "integer"]})),
