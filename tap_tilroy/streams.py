@@ -916,6 +916,7 @@ class SalesProductionStream(DateFilteredStream):
             "descriptions", "icons", "insurances", "shipment", "taxes",
             "paymentType", "customer", "shop", "till", "vatTypeCalculation",
             "tenantCurrency", "supplierCurrency", "discount", "legalEntity",
+            "orderNumber",
         }
         
         def is_numeric_string(s):
@@ -934,17 +935,8 @@ class SalesProductionStream(DateFilteredStream):
                 result = {}
                 for key, val in obj.items():
                     if isinstance(val, Decimal):
-                        # ID fields should be strings
-                        if key in ["idTilroySale", "idTenant", "idSession", "idSourceCustomer", 
-                                  "idTilroySaleLine", "idTilroySalePayment", "idTilroy", "idSource"]:
-                            if val == val.to_integral_value():
-                                result[key] = str(int(val))
-                            else:
-                                result[key] = str(val)
-                        # String fields that might be Decimals
-                        elif key in ["code", "ean", "paymentReference", "advanceReference", 
-                                    "comments", "description", "webDescription", "colour", "size",
-                                    "serialNumberSale"]:
+                        # Fields in string_fields should be converted to strings
+                        if key in string_fields:
                             if val == val.to_integral_value():
                                 result[key] = str(int(val))
                             else:
