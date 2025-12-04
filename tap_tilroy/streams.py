@@ -882,17 +882,40 @@ class SalesProductionStream(DateFilteredStream):
         # Arrays are preserved as arrays - they are NOT flattened
         from decimal import Decimal
         
-        # Define numeric fields that should be converted from strings to numbers
-        # These field names can appear at any nesting level
-        numeric_fields = {
-            "totalAmountStandard", "totalAmountSell", "totalAmountDiscount", 
-            "totalAmountSellRounded", "totalAmountSellRoundedPart", 
-            "totalAmountSellNotRoundedPart", "totalAmountOutstanding",
-            "costPrice", "sellPrice", "standardPrice", "promoPrice", "rrp", 
-            "retailPrice", "discount", "lineTotalCost", "lineTotalStandard", 
-            "lineTotalSell", "lineTotalDiscount", "lineTotalVatExcl", 
-            "lineTotalVat", "maxDiscount", "depositValue", "vatPercentage",
-            "discountTransaction", "priceTransactionDiscount", "priceLineDiscount"
+        # Define fields that should remain as strings (even if they look like numbers)
+        # These are typically IDs, codes, references, etc.
+        string_fields = {
+            "idTilroySale", "idTenant", "idSession", "idSourceCustomer", 
+            "idTilroySaleLine", "idTilroySalePayment", "idTilroy", "idSource",
+            "code", "ean", "paymentReference", "advanceReference", 
+            "comments", "description", "webDescription", "colour", "size",
+            "serialNumberSale", "serialNumberSaleActivator", "promotionName",
+            "orderId", "orderLineId", "orderNumberOriginal", "orderDateOriginal",
+            "collectMethodCodeOriginal", "paymentReferenceNegativeAdvance",
+            "paymentReferenceReturnOrderAdvance", "czamReference", "czamTicket",
+            "merchantInfo", "linkedObjectBarcode", "linkedObjectDisplayValue",
+            "linkedObjectReference", "linkedObjectReferenceType", "picture",
+            "intrastatCode", "combinedProductCode", "usedProductBarcode",
+            "dispatchMethodCode", "dispatchMethodExtraData", "userSalesPerson",
+            "salesOrigin", "idSourceSku", "_id", "timestamp", "reservationReference",
+            "configuratorCode", "basedOnSale", "basedOnSaleLine", "idRental",
+            "ppBundleDealID", "ppActionID", "ppBuyAndGetID", "ppCopyFrom",
+            "ppDiscountReasonID", "ppExceptionalPriceID", "ppLineDiscountID",
+            "ppReturnIncentiveID", "ppSetID", "ppTriggerID", "idPaymentRequest",
+            "idInvoicePayment", "idAssetType", "idAsset", "idLeasing",
+            "idSourceDiscountReason", "idSourceReturnReason", "idSourcePaymentType",
+            "idSourceSkuTransform", "idCollectMethod", "idTillBasketLine",
+            "idTillBasketLineOrig", "idSaleLineReturned", "idRepair",
+            "idTransactionLine", "idVat", "idUserSalesPerson", "idDispatchMethod",
+            "idPaymentRequest", "idInvoicePayment", "combinedProductId",
+            "ppCustomerGroupID", "ppCustomerSiteID", "ppDeliveryID",
+            "ppDeliveryMethodID", "ppDeliveryMultipleID", "ppDeliveryTimeID",
+            "ppLanguageID", "type", "vatKind", "deliveryPromise", "warrantyDate",
+            "deliveryDate", "wac", "collectMethod", "order", "collectShop",
+            "discountReason", "returnReason", "sku", "advanceSource",
+            "descriptions", "icons", "insurances", "shipment", "taxes",
+            "paymentType", "customer", "shop", "till", "vatTypeCalculation",
+            "tenantCurrency", "supplierCurrency", "discount", "legalEntity",
         }
         
         def is_numeric_string(s):
@@ -929,8 +952,9 @@ class SalesProductionStream(DateFilteredStream):
                         else:
                             # Numeric fields - convert to float
                             result[key] = float(val)
-                    elif isinstance(val, str) and is_numeric_string(val) and key in numeric_fields:
-                        # Convert string numbers to float for numeric fields (works at any nesting level)
+                    elif isinstance(val, str) and is_numeric_string(val) and key not in string_fields:
+                        # Convert string numbers to float for any field that's not explicitly a string field
+                        # This is more robust and handles all NumberType fields automatically
                         result[key] = float(val)
                     elif isinstance(val, list):
                         # Preserve arrays - recursively process items but keep as list
