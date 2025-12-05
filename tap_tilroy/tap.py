@@ -43,10 +43,9 @@ class TapTilroy(Tap):
         super().__init__(*args, **kwargs)
 
         # The API returns many fields not defined in the schema, causing excessive
-        # warnings. This silences warnings for the 'sales', 'sales_production', and 'products' streams
+        # warnings. This silences warnings for the 'sales' and 'products' streams
         # by setting their logger level to ERROR.
         logging.getLogger("tap-tilroy.sales").setLevel(logging.ERROR)
-        logging.getLogger("tap-tilroy.sales_production").setLevel(logging.ERROR)
         logging.getLogger("tap-tilroy.products").setLevel(logging.ERROR)
 
     # TODO: Update this section with the actual config values you expect:
