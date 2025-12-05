@@ -754,6 +754,12 @@ class SalesProductionStream(DateFilteredStream):
         # Remove the 'page' parameter that DateFilteredStream adds (we use lastId instead)
         params.pop("page", None)
         
+        # Add dateTo parameter set to current date (required for dateFrom to work)
+        # This sets the range from replication key (bookmark) to now (job start time)
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        params["dateTo"] = current_date
+        self.logger.info(f"📅 [{self.name}] Added dateTo parameter: {current_date}")
+        
         # Add lastId if we have one (from previous response for pagination within same date)
         if next_page_token:
             params["lastId"] = next_page_token
