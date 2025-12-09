@@ -1357,6 +1357,10 @@ class PricesStream(TilroyStream):
         
         self.logger.info(f"✅ [{self.name}] Completed processing {total_skus} SKU IDs")
     
+    def post_process(self, row: dict, context: t.Optional[dict] = None) -> t.Optional[dict]:
+        """Skip base class post_process - our records are already properly formatted."""
+        return row
+    
     def _flatten_price_record(self, sku: dict, price: dict, shop: t.Optional[dict], country: t.Optional[dict], tenant_id: t.Optional[str]) -> dict:
         """Flatten a price record to create a single record per price entry."""
         if not sku or not price:
