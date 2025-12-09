@@ -1314,11 +1314,9 @@ class PricesStream(TilroyStream):
                 headers = self.authenticator.auth_headers if self.authenticator else {}
                 headers["Content-Type"] = "application/json"
                 
-                # Add API key headers from config
-                if self.config.get("tilroy_api_key"):
-                    headers["Tilroy-Api-Key"] = self.config["tilroy_api_key"]
-                if self.config.get("api_key"):
-                    headers["x-api-key"] = self.config["api_key"]
+                # Add API key headers from config (same as client.py get_headers)
+                headers["Tilroy-Api-Key"] = self.config["tilroy_api_key"]
+                headers["x-api-key"] = self.config["x_api_key"]
                 
                 # Log progress every 100 SKUs
                 if idx % 100 == 0:
