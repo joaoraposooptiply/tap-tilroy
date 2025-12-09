@@ -1252,11 +1252,10 @@ class SalesStream(DateFilteredStream):
 
 
 class PricesStream(TilroyStream):
-    """Stream for Tilroy prices that collects SKU IDs from products and batches API calls."""
+    """Stream for Tilroy prices that collects SKU IDs from products and makes individual API calls per SKU."""
     
     name = "prices"
-    path = "/priceapi/production/prices"
-    # parent_stream_type = ProductsStream  # Declare parent stream
+    path = "/priceapi/production/price/rules"  # Base path, SKU ID is appended
     primary_keys: t.ClassVar[list[str]] = ["sku_tilroy_id", "price_tilroy_id", "type"]
     replication_key = "date_created"
     replication_method = "INCREMENTAL"
@@ -1265,13 +1264,12 @@ class PricesStream(TilroyStream):
     
     # Store collected SKU IDs
     _sku_ids: list[str] = []
-    _batch_size = 100  # API limit
-    _current_start_idx = 0
+    _current_sku_idx = 0
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._sku_ids = []
-        self._current_start_idx = 0
+        self._current_sku_idx = 0
         self.logger.info(f"🔧 [{self.name}] PricesStream initialized")
     
     def _collect_sku_ids_from_products_stream(self) -> None:
@@ -1290,79 +1288,100 @@ class PricesStream(TilroyStream):
         except Exception as e:
             self.logger.error(f"❌ [{self.name}] Error getting SKU IDs from ProductsStream: {str(e)}")
             self._sku_ids = []
-    
-    def get_url_params(self, context: t.Optional[dict], next_page_token: t.Optional[t.Any] = None) -> dict:
-        """Get URL parameters with SKU IDs for the current chunk."""
-        self.logger.info(f"🔧 [{self.name}] get_url_params called")
-        
-        # If we don't have SKU IDs yet, try to collect them
-        if not self._sku_ids:
-            self.logger.info(f"📥 [{self.name}] No SKU IDs, collecting from ProductsStream...")
-            self._collect_sku_ids_from_products_stream()
-        
-        # If still no SKU IDs, return empty params to skip this stream
-        if not self._sku_ids:
-            self.logger.warning(f"⚠️ [{self.name}] No SKU IDs collected, skipping prices stream")
-            return {}
-        
-        # Get current chunk of SKU IDs (max 100)
-        start_idx = getattr(self, '_current_start_idx', 0)
-        end_idx = min(start_idx + self._batch_size, len(self._sku_ids))
-        chunk_sku_ids = self._sku_ids[start_idx:end_idx]
-        
-        if not chunk_sku_ids:
-            self.logger.info(f"🏁 [{self.name}] No more SKU IDs to process")
-            return {}
-        
-        # Build parameters
-        sku_ids_param = ",".join(chunk_sku_ids)
-        params = {
-            "skuIds": sku_ids_param,
-            "shopNumber": str(self.config.get("prices_shop_number")),
-            "priceRange": "retail"
-        }
-        
-        self.logger.info(f"🔗 [{self.name}] Processing {len(chunk_sku_ids)} SKU IDs (indices {start_idx}-{end_idx-1})")
-        self.logger.info(f"🌐 [{self.name}] URL params: {params}")
-        
-        # Update start index for next call
-        self._current_start_idx = end_idx
-        
-        return params
 
     def request_records(self, context: t.Optional[dict]) -> t.Iterator[dict]:
-        """Override to handle price flattening properly."""
-        # Use parent's request_records but handle flattening
-        for record in super().request_records(context):
-            if "prices" in record and isinstance(record["prices"], list):
-                # Flatten each price into a separate record
-                for price in record["prices"]:
-                    flattened_record = self._flatten_price_record(record["sku"], price)
-                    if flattened_record:
-                        yield flattened_record
-            else:
-                # Skip records without prices array
+        """Make individual API calls per SKU ID and flatten price records."""
+        import http.client
+        import json
+        from urllib.parse import urlparse
+        
+        # Collect SKU IDs if not already done
+        if not self._sku_ids:
+            self._collect_sku_ids_from_products_stream()
+        
+        if not self._sku_ids:
+            self.logger.warning(f"⚠️ [{self.name}] No SKU IDs to process")
+            return
+        
+        total_skus = len(self._sku_ids)
+        self.logger.info(f"🚀 [{self.name}] Starting to process {total_skus} SKU IDs")
+        
+        # Process each SKU ID individually
+        for idx, sku_id in enumerate(self._sku_ids):
+            try:
+                # Build URL for this SKU
+                url = f"{self.url_base}{self.path}/{sku_id}"
+                headers = self.authenticator.auth_headers if self.authenticator else {}
+                headers["Content-Type"] = "application/json"
+                
+                # Add API key headers from config
+                if self.config.get("tilroy_api_key"):
+                    headers["Tilroy-Api-Key"] = self.config["tilroy_api_key"]
+                if self.config.get("api_key"):
+                    headers["x-api-key"] = self.config["api_key"]
+                
+                # Log progress every 100 SKUs
+                if idx % 100 == 0:
+                    self.logger.info(f"📊 [{self.name}] Progress: {idx}/{total_skus} SKUs processed")
+                
+                # Parse URL and make request
+                parsed = urlparse(url)
+                conn = http.client.HTTPSConnection(parsed.netloc)
+                conn.request("GET", parsed.path, headers=headers)
+                response = conn.getresponse()
+                
+                if response.status != 200:
+                    self.logger.warning(f"⚠️ [{self.name}] SKU {sku_id}: HTTP {response.status}")
+                    conn.close()
+                    continue
+                
+                data = json.loads(response.read().decode("utf-8"))
+                conn.close()
+                
+                # Process the response - it's an array of price rule objects
+                if isinstance(data, list):
+                    for price_rule in data:
+                        sku = price_rule.get("sku", {})
+                        shop = price_rule.get("shop")
+                        country = price_rule.get("country")
+                        tenant_id = price_rule.get("tenantId")
+                        prices = price_rule.get("prices", [])
+                        
+                        # Flatten each price into a separate record
+                        for price in prices:
+                            flattened = self._flatten_price_record(sku, price, shop, country, tenant_id)
+                            if flattened:
+                                yield flattened
+                
+            except Exception as e:
+                self.logger.error(f"❌ [{self.name}] Error processing SKU {sku_id}: {str(e)}")
                 continue
+        
+        self.logger.info(f"✅ [{self.name}] Completed processing {total_skus} SKU IDs")
     
-    def _flatten_price_record(self, sku: dict, price: dict) -> dict:
-        """Flatten a price record to create a single record per price type."""
+    def _flatten_price_record(self, sku: dict, price: dict, shop: t.Optional[dict], country: t.Optional[dict], tenant_id: t.Optional[str]) -> dict:
+        """Flatten a price record to create a single record per price entry."""
         if not sku or not price:
             return None
         
         record = {
             "sku_tilroy_id": sku.get("tilroyId"),
             "sku_source_id": sku.get("sourceId"),
-            "price_tilroy_id": str(price.get("priceTilroyId", "")),
-            "price_source_id": price.get("priceSourceId"),
+            "price_tilroy_id": str(price.get("tilroyId", "")),
+            "price_source_id": price.get("sourceId"),
             "price": price.get("price"),
             "type": price.get("type"),
             "quantity": price.get("quantity", 1),
-            "run_tilroy_id": price.get("run", {}).get("tilroyId") if price.get("run") else None,
-            "run_source_id": price.get("run", {}).get("sourceId") if price.get("run") else None,
+            "run": price.get("run"),
             "label_type": price.get("labelType"),
             "end_date": price.get("endDate"),
             "start_date": price.get("startDate"),
             "date_created": price.get("dateCreated"),
+            "tenant_id": tenant_id,
+            "shop_tilroy_id": shop.get("tilroyId") if shop else None,
+            "shop_number": shop.get("number") if shop else None,
+            "country_tilroy_id": country.get("tilroyId") if country else None,
+            "country_code": country.get("code") if country else None,
         }
         
         # Ensure date_created is not None (required for replication key)
@@ -1370,8 +1389,6 @@ class PricesStream(TilroyStream):
             record["date_created"] = datetime.utcnow().isoformat()
         
         return record
-    
-
 
     schema = th.PropertiesList(
         th.Property("sku_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
@@ -1381,12 +1398,16 @@ class PricesStream(TilroyStream):
         th.Property("price", th.NumberType),
         th.Property("type", th.CustomType({"type": ["string", "number", "null"]})),  # "standard" or "promo"
         th.Property("quantity", th.IntegerType),
-        th.Property("run_tilroy_id", th.CustomType({"type": ["string", "number", "null"]}), required=False),
-        th.Property("run_source_id", th.CustomType({"type": ["string", "number", "null"]}), required=False),
+        th.Property("run", th.CustomType({"type": ["string", "number", "null"]}), required=False),
         th.Property("label_type", th.CustomType({"type": ["string", "number", "null"]}), required=False),
         th.Property("end_date", th.DateTimeType, required=False),
         th.Property("start_date", th.DateTimeType, required=False),
         th.Property("date_created", th.DateTimeType),
+        th.Property("tenant_id", th.CustomType({"type": ["string", "number", "null"]}), required=False),
+        th.Property("shop_tilroy_id", th.CustomType({"type": ["string", "number", "null"]}), required=False),
+        th.Property("shop_number", th.CustomType({"type": ["string", "number", "null"]}), required=False),
+        th.Property("country_tilroy_id", th.CustomType({"type": ["string", "number", "null"]}), required=False),
+        th.Property("country_code", th.CustomType({"type": ["string", "number", "null"]}), required=False),
     ).to_dict()
 
 
