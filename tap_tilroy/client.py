@@ -161,12 +161,13 @@ class TilroyStream(RESTStream):
                     row[key] = None
                     continue
                 
-                # Convert string numbers to float
+                # Convert string numbers to float if the schema expects a number
                 field_types = self.schema.get("properties", {}).get(key, {}).get("type")
                 if field_types and "number" in field_types:
                     try:
                         row[key] = float(value)
                     except ValueError:
-                        self.logger.debug(f"Parsing {key}={value} failed")
-                        raise ValueError(f"Parsing {key}={value} failed")
+                        # If conversion fails, keep the original string value
+                        # This is valid when schema allows both string and number types
+                        self.logger.debug(f"Keeping {key}={value} as string (not a valid number)")
         return row
