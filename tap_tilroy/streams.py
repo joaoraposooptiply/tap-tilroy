@@ -1373,29 +1373,16 @@ class PricesStream(DateFilteredStream):
                             yield processed_record
                 
                 # Extract lastId from the last record for next iteration
+                # The lastId is the top-level tilroyId of the price rule (e.g., "sku32725560_store7570")
                 last_record = records[-1]
-                if isinstance(last_record, dict):
-                    # The lastId should be from the price rule's prices array
-                    # Try to get it from the nested structure
-                    prices = last_record.get("prices", [])
-                    if prices and isinstance(prices, list) and len(prices) > 0:
-                        last_price = prices[-1]
-                        if isinstance(last_price, dict) and "tilroyId" in last_price:
-                            last_id = str(last_price["tilroyId"])
-                            self.logger.info(f"📌 [{self.name}] Extracted lastId from last price: {last_id}")
-                        else:
-                            self.logger.warning(f"⚠️ [{self.name}] Could not find tilroyId in last price")
-                            if len(records) < self.default_count:
-                                break
-                            self.logger.error(f"❌ [{self.name}] Cannot continue pagination without lastId")
-                            break
-                    else:
-                        self.logger.warning(f"⚠️ [{self.name}] No prices in last record")
-                        if len(records) < self.default_count:
-                            break
-                        break
+                if isinstance(last_record, dict) and "tilroyId" in last_record:
+                    last_id = str(last_record["tilroyId"])
+                    self.logger.info(f"📌 [{self.name}] Extracted lastId from last record: {last_id}")
                 else:
-                    # No records, we're done
+                    self.logger.warning(f"⚠️ [{self.name}] Could not find tilroyId in last record")
+                    if len(records) < self.default_count:
+                        break
+                    self.logger.error(f"❌ [{self.name}] Cannot continue pagination without lastId")
                     break
                     
                 # If we got fewer records than count, we've reached the end
