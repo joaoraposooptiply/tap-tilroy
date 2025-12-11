@@ -1400,7 +1400,7 @@ class PricesStream(TilroyStream):
         th.Property("price", th.NumberType),
         th.Property("type", th.CustomType({"type": ["string", "number", "null"]})),  # "standard" or "promo"
         th.Property("quantity", th.IntegerType),
-        th.Property("run", th.CustomType({"type": ["string", "number", "null"]}), required=False),
+        th.Property("run", th.CustomType({"type": ["object", "string", "number", "null"]}), required=False),
         th.Property("label_type", th.CustomType({"type": ["string", "number", "null"]}), required=False),
         th.Property("end_date", th.DateTimeType, required=False),
         th.Property("start_date", th.DateTimeType, required=False),
