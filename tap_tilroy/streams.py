@@ -1251,146 +1251,214 @@ class SalesStream(DateFilteredStream):
     ).to_dict()
 
 
-class PricesStream(TilroyStream):
-    """Stream for Tilroy prices that collects SKU IDs from products and makes individual API calls per SKU."""
+class PricesStream(DateFilteredStream):
+    """Stream for Tilroy prices using the paginated /price/rules endpoint with lastId pagination."""
     
     name = "prices"
-    path = "/priceapi/production/price/rules"  # Base path, SKU ID is appended
+    path = "/priceapi/production/price/rules"
     primary_keys: t.ClassVar[list[str]] = ["sku_tilroy_id", "price_tilroy_id", "type"]
-    replication_key = "date_created"
+    replication_key = "date_modified"
     replication_method = "INCREMENTAL"
     records_jsonpath = "$[*]"
     next_page_token_jsonpath = None
-    
-    # Store collected SKU IDs
-    _sku_ids: list[str] = []
-    _current_sku_idx = 0
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._sku_ids = []
-        self._current_sku_idx = 0
-        self.logger.info(f"🔧 [{self.name}] PricesStream initialized")
-    
-    def _collect_sku_ids_from_products_stream(self) -> None:
-        """Get SKU IDs that were collected by the ProductsStream."""
-        self.logger.info(f"🔄 [{self.name}] Getting SKU IDs from ProductsStream...")
+    default_count = 100
+
+    def get_url_params(
+        self,
+        context: t.Optional[dict],
+        next_page_token: t.Optional[t.Any] = None,
+    ) -> dict[str, t.Any]:
+        """Get URL query parameters with dateModified and lastId-based pagination.
         
-        try:
-            # Get SKU IDs collected by ProductsStream
-            self._sku_ids = ProductsStream.get_collected_sku_ids()
+        Args:
+            context: Stream partition or context dictionary.
+            next_page_token: The lastId from the previous response (if any).
             
-            if not self._sku_ids:
-                self.logger.warning(f"⚠️ [{self.name}] No SKU IDs found from ProductsStream. Make sure ProductsStream runs before PricesStream.")
-            else:
-                self.logger.info(f"📦 [{self.name}] Retrieved {len(self._sku_ids)} SKU IDs from ProductsStream")
-            
-        except Exception as e:
-            self.logger.error(f"❌ [{self.name}] Error getting SKU IDs from ProductsStream: {str(e)}")
-            self._sku_ids = []
+        Returns:
+            Dictionary of URL query parameters.
+        """
+        params = {}
+        
+        # Get the start date from the bookmark or use config
+        start_date = self.get_starting_timestamp(context)
+        if not start_date:
+            # Get start date from config
+            config_start_date = self.config["start_date"]
+            # Extract just the date part from ISO format
+            date_part = config_start_date.split('T')[0]
+            start_date = datetime.strptime(date_part, "%Y-%m-%d")
+        else:
+            # If we have a bookmark, go back 1 day to ensure we don't miss any records
+            start_date = start_date.date()
+            start_date = datetime.combine(start_date - timedelta(days=1), datetime.min.time())
+        
+        # Use dateModified for incremental sync (filters records modified on or after this date)
+        params["dateModified"] = start_date.strftime("%Y-%m-%dT%H:%M:%S")
+        self.logger.info(f"📅 [{self.name}] Filtering by dateModified >= {params['dateModified']}")
+        
+        # Add lastId if we have one (from previous response for pagination)
+        # Note: lastId cannot be used together with page parameter
+        if next_page_token:
+            params["lastId"] = next_page_token
+            self.logger.info(f"📄 [{self.name}] Using lastId for pagination: {next_page_token}")
+        else:
+            self.logger.info(f"📄 [{self.name}] Starting pagination without lastId")
+        
+        # Set count parameter
+        params["count"] = self.default_count
+        
+        return params
 
     def request_records(self, context: t.Optional[dict]) -> t.Iterator[dict]:
-        """Make individual API calls per SKU ID and flatten price records."""
-        import http.client
-        import json
-        from urllib.parse import urlparse
+        """Request records using dateModifiedFrom and lastId-based pagination.
         
-        # Collect SKU IDs if not already done
-        if not self._sku_ids:
-            self._collect_sku_ids_from_products_stream()
+        Args:
+            context: Stream partition or context dictionary.
+            
+        Yields:
+            Records from the stream.
+        """
+        from singer_sdk.helpers.jsonpath import extract_jsonpath
         
-        if not self._sku_ids:
-            self.logger.warning(f"⚠️ [{self.name}] No SKU IDs to process")
+        last_id = None  # Start without lastId
+        
+        while True:
+            # Build URL parameters
+            params = self.get_url_params(context, last_id)
+            url = f"{self.url_base}{self.path}"
+            headers = self.get_headers(context)
+            
+            # Build query string
+            query_string = "&".join([f"{k}={v}" for k, v in params.items()])
+            complete_url = f"{url}?{query_string}"
+            
+            self.logger.info(f"🌐 [{self.name}] Complete Request URL: {complete_url}")
+            self.logger.info(f"📋 [{self.name}] Request params: {params}")
+            
+            try:
+                # Make the request
+                conn = http.client.HTTPSConnection("api.tilroy.com")
+                conn.request("GET", f"{self.path}?{query_string}", "", headers)
+                response = conn.getresponse()
+                data = response.read().decode("utf-8")
+                
+                # Check for errors
+                if response.status != 200:
+                    self.logger.error(f"❌ [{self.name}] API returned status {response.status}: {data[:500]}")
+                    break
+                
+                # Parse the response
+                data_json = json.loads(data)
+                
+                # Check if the response is an error object
+                if isinstance(data_json, dict) and "code" in data_json and "message" in data_json:
+                    self.logger.error(f"❌ [{self.name}] API returned error: {data_json.get('message', 'Unknown error')}")
+                    break
+                
+                # Extract records using jsonpath
+                records = list(extract_jsonpath(self.records_jsonpath, data_json))
+                self.logger.info(f"🔍 [{self.name}] Found {len(records)} records")
+                
+                if not records:
+                    # No records returned, we've reached the end
+                    self.logger.info(f"🏁 [{self.name}] No more records, pagination complete")
+                    break
+                
+                # Process each price rule and flatten
+                for price_rule in records:
+                    flattened_records = self._flatten_price_rule(price_rule)
+                    for flattened in flattened_records:
+                        processed_record = self.post_process(flattened, context)
+                        if processed_record:
+                            yield processed_record
+                
+                # Extract lastId from the last record for next iteration
+                last_record = records[-1]
+                if isinstance(last_record, dict):
+                    # The lastId should be from the price rule's prices array
+                    # Try to get it from the nested structure
+                    prices = last_record.get("prices", [])
+                    if prices and isinstance(prices, list) and len(prices) > 0:
+                        last_price = prices[-1]
+                        if isinstance(last_price, dict) and "tilroyId" in last_price:
+                            last_id = str(last_price["tilroyId"])
+                            self.logger.info(f"📌 [{self.name}] Extracted lastId from last price: {last_id}")
+                        else:
+                            self.logger.warning(f"⚠️ [{self.name}] Could not find tilroyId in last price")
+                            if len(records) < self.default_count:
+                                break
+                            self.logger.error(f"❌ [{self.name}] Cannot continue pagination without lastId")
+                            break
+                    else:
+                        self.logger.warning(f"⚠️ [{self.name}] No prices in last record")
+                        if len(records) < self.default_count:
+                            break
+                        break
+                else:
+                    # No records, we're done
+                    break
+                    
+                # If we got fewer records than count, we've reached the end
+                if len(records) < self.default_count:
+                    self.logger.info(f"🏁 [{self.name}] Received fewer records than count ({len(records)} < {self.default_count}), pagination complete")
+                    break
+                    
+            except Exception as e:
+                self.logger.error(f"❌ [{self.name}] Error fetching records: {str(e)}")
+                raise
+    
+    def _flatten_price_rule(self, price_rule: dict) -> t.Iterator[dict]:
+        """Flatten a price rule record to create separate records per price entry."""
+        if not price_rule:
             return
         
-        total_skus = len(self._sku_ids)
-        self.logger.info(f"🚀 [{self.name}] Starting to process {total_skus} SKU IDs")
+        sku = price_rule.get("sku", {})
+        shop = price_rule.get("shop")
+        country = price_rule.get("country")
+        tenant_id = price_rule.get("tenantId")
+        prices = price_rule.get("prices", [])
         
-        # Process each SKU ID individually
-        for idx, sku_id in enumerate(self._sku_ids):
-            try:
-                # Build URL for this SKU
-                url = f"{self.url_base}{self.path}/{sku_id}"
-                headers = self.authenticator.auth_headers if self.authenticator else {}
-                headers["Content-Type"] = "application/json"
-                
-                # Add API key headers from config (same as client.py get_headers)
-                headers["Tilroy-Api-Key"] = self.config["tilroy_api_key"]
-                headers["x-api-key"] = self.config["x_api_key"]
-                
-                # Log progress every 100 SKUs
-                if idx % 100 == 0:
-                    self.logger.info(f"📊 [{self.name}] Progress: {idx}/{total_skus} SKUs processed")
-                
-                # Parse URL and make request
-                parsed = urlparse(url)
-                conn = http.client.HTTPSConnection(parsed.netloc)
-                conn.request("GET", parsed.path, headers=headers)
-                response = conn.getresponse()
-                
-                if response.status != 200:
-                    self.logger.warning(f"⚠️ [{self.name}] SKU {sku_id}: HTTP {response.status}")
-                    conn.close()
-                    continue
-                
-                data = json.loads(response.read().decode("utf-8"))
-                conn.close()
-                
-                # Process the response - it's an array of price rule objects
-                if isinstance(data, list):
-                    for price_rule in data:
-                        sku = price_rule.get("sku", {})
-                        shop = price_rule.get("shop")
-                        country = price_rule.get("country")
-                        tenant_id = price_rule.get("tenantId")
-                        prices = price_rule.get("prices", [])
-                        
-                        # Flatten each price into a separate record
-                        for price in prices:
-                            flattened = self._flatten_price_record(sku, price, shop, country, tenant_id)
-                            if flattened:
-                                yield flattened
-                
-            except Exception as e:
-                self.logger.error(f"❌ [{self.name}] Error processing SKU {sku_id}: {str(e)}")
-                continue
+        if not prices:
+            return
         
-        self.logger.info(f"✅ [{self.name}] Completed processing {total_skus} SKU IDs")
+        for price in prices:
+            record = {
+                "sku_tilroy_id": sku.get("tilroyId") if sku else None,
+                "sku_source_id": sku.get("sourceId") if sku else None,
+                "price_tilroy_id": str(price.get("tilroyId", "")),
+                "price_source_id": price.get("sourceId"),
+                "price": price.get("price"),
+                "type": price.get("type"),
+                "quantity": price.get("quantity", 1),
+                "run": price.get("run"),
+                "label_type": price.get("labelType"),
+                "end_date": price.get("endDate"),
+                "start_date": price.get("startDate"),
+                "date_created": price.get("dateCreated"),
+                "date_modified": price.get("dateModified"),
+                "tenant_id": tenant_id,
+                "shop_tilroy_id": shop.get("tilroyId") if shop else None,
+                "shop_number": shop.get("number") if shop else None,
+                "country_tilroy_id": country.get("tilroyId") if country else None,
+                "country_code": country.get("code") if country else None,
+            }
+            
+            # Ensure date_modified is not None (required for replication key)
+            if not record["date_modified"]:
+                record["date_modified"] = record.get("date_created") or datetime.utcnow().isoformat()
+            
+            yield record
     
     def post_process(self, row: dict, context: t.Optional[dict] = None) -> t.Optional[dict]:
-        """Skip base class post_process - our records are already properly formatted."""
-        return row
-    
-    def _flatten_price_record(self, sku: dict, price: dict, shop: t.Optional[dict], country: t.Optional[dict], tenant_id: t.Optional[str]) -> dict:
-        """Flatten a price record to create a single record per price entry."""
-        if not sku or not price:
+        """Post-process to validate record has required fields."""
+        if not row:
             return None
         
-        record = {
-            "sku_tilroy_id": sku.get("tilroyId"),
-            "sku_source_id": sku.get("sourceId"),
-            "price_tilroy_id": str(price.get("tilroyId", "")),
-            "price_source_id": price.get("sourceId"),
-            "price": price.get("price"),
-            "type": price.get("type"),
-            "quantity": price.get("quantity", 1),
-            "run": price.get("run"),
-            "label_type": price.get("labelType"),
-            "end_date": price.get("endDate"),
-            "start_date": price.get("startDate"),
-            "date_created": price.get("dateCreated"),
-            "tenant_id": tenant_id,
-            "shop_tilroy_id": shop.get("tilroyId") if shop else None,
-            "shop_number": shop.get("number") if shop else None,
-            "country_tilroy_id": country.get("tilroyId") if country else None,
-            "country_code": country.get("code") if country else None,
-        }
+        # Ensure replication key is present
+        if not row.get("date_modified"):
+            row["date_modified"] = datetime.utcnow().isoformat()
         
-        # Ensure date_created is not None (required for replication key)
-        if not record["date_created"]:
-            record["date_created"] = datetime.utcnow().isoformat()
-        
-        return record
+        return row
 
     schema = th.PropertiesList(
         th.Property("sku_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
@@ -1404,7 +1472,8 @@ class PricesStream(TilroyStream):
         th.Property("label_type", th.CustomType({"type": ["string", "number", "null"]}), required=False),
         th.Property("end_date", th.DateTimeType, required=False),
         th.Property("start_date", th.DateTimeType, required=False),
-        th.Property("date_created", th.DateTimeType),
+        th.Property("date_created", th.DateTimeType, required=False),
+        th.Property("date_modified", th.DateTimeType),  # Replication key
         th.Property("tenant_id", th.CustomType({"type": ["string", "number", "null"]}), required=False),
         th.Property("shop_tilroy_id", th.CustomType({"type": ["string", "number", "null"]}), required=False),
         th.Property("shop_number", th.CustomType({"type": ["string", "number", "null"]}), required=False),
