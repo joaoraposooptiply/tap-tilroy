@@ -1279,18 +1279,51 @@ class PricesStream(DateFilteredStream):
         """
         params = {}
         
-        # Get the start date from the bookmark or use config
-        start_date = self.get_starting_timestamp(context)
+        # Try to get start date from bookmark first (manual state check like other streams)
+        start_date = None
+        state = self.tap_state or {}
+        
+        # Handle both Singer state formats
+        if "value" in state:
+            # Singer state format: {"value": {"bookmarks": {...}}}
+            bookmarks = state.get("value", {}).get("bookmarks", {})
+        else:
+            # Direct format: {"bookmarks": {...}}
+            bookmarks = state.get("bookmarks", {})
+        
+        stream_state = bookmarks.get(self.name, {})
+        bookmark_value = stream_state.get("replication_key_value")
+        
+        self.logger.info(f"🔍 [{self.name}] State check: tap_state keys={list(state.keys())}, stream_state={stream_state}")
+        
+        if bookmark_value:
+            # Parse the bookmark value
+            try:
+                if isinstance(bookmark_value, str):
+                    # Handle ISO format with timezone
+                    bookmark_value = bookmark_value.replace("Z", "+00:00")
+                    start_date = datetime.fromisoformat(bookmark_value)
+                    # Go back 1 day to ensure we don't miss any records
+                    start_date = start_date - timedelta(days=1)
+                    self.logger.info(f"📖 [{self.name}] Using bookmark: {bookmark_value} (adjusted to {start_date})")
+            except Exception as e:
+                self.logger.warning(f"⚠️ [{self.name}] Could not parse bookmark value '{bookmark_value}': {e}")
+                start_date = None
+        
+        # Fall back to SDK method if manual check didn't work
         if not start_date:
-            # Get start date from config
+            start_date = self.get_starting_timestamp(context)
+            if start_date:
+                self.logger.info(f"📖 [{self.name}] Using SDK get_starting_timestamp: {start_date}")
+                start_date = start_date - timedelta(days=1)
+        
+        # Final fallback to config start_date
+        if not start_date:
             config_start_date = self.config["start_date"]
+            self.logger.info(f"📖 [{self.name}] Falling back to config start_date: {config_start_date}")
             # Extract just the date part from ISO format
             date_part = config_start_date.split('T')[0]
             start_date = datetime.strptime(date_part, "%Y-%m-%d")
-        else:
-            # If we have a bookmark, go back 1 day to ensure we don't miss any records
-            start_date = start_date.date()
-            start_date = datetime.combine(start_date - timedelta(days=1), datetime.min.time())
         
         # Use dateModified for incremental sync (filters records modified on or after this date)
         params["dateModified"] = start_date.strftime("%Y-%m-%dT%H:%M:%S")
