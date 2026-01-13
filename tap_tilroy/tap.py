@@ -3,24 +3,25 @@
 from __future__ import annotations
 
 import logging
+import typing as t
 
 from singer_sdk import Tap
-from singer_sdk import typing as th  # JSON schema typing helpers
+from singer_sdk import typing as th
+from singer_sdk.streams import Stream
+
 from tap_tilroy.streams import (
-    ShopsStream,
+    PricesStream,
     ProductsStream,
     PurchaseOrdersStream,
-    StockChangesStream,
     SalesStream,
+    ShopsStream,
+    StockChangesStream,
+    StockStream,
     SuppliersStream,
-    PricesStream,
-    StockStream
 )
 
-# TODO: Import your custom stream types here:
-from tap_tilroy import streams
-
-STREAM_TYPES = [
+# Stream types in default order
+STREAM_TYPES: list[type[Stream]] = [
     ProductsStream,
     ShopsStream,
     PurchaseOrdersStream,
@@ -28,128 +29,193 @@ STREAM_TYPES = [
     SalesStream,
     SuppliersStream,
     PricesStream,
-    StockStream
+    StockStream,
 ]
 
+
 class TapTilroy(Tap):
-    """Tilroy tap class."""
+    """Tilroy tap for extracting data from the Tilroy API.
+
+    This tap supports the following streams:
+    - products: Product catalog with SKU information
+    - shops: Store/location data
+    - purchase_orders: Purchase order history
+    - stock_changes: Inventory movement history
+    - sales: Sales transactions
+    - suppliers: Supplier master data
+    - prices: Price rules per SKU
+    - stock: Current stock levels (depends on products for SKU IDs)
+    """
 
     name = "tap-tilroy"
 
-    def __init__(self, *args, **kwargs):
-        """Initialize the tap and suppress schema warnings for specific streams."""
-        super().__init__(*args, **kwargs)
-
-        # The API returns many fields not defined in the schema, causing excessive
-        # warnings. This silences warnings for the 'sales' and 'products' streams
-        # by setting their logger level to ERROR.
-        logging.getLogger("tap-tilroy.sales").setLevel(logging.ERROR)
-        logging.getLogger("tap-tilroy.products").setLevel(logging.ERROR)
-
-    # TODO: Update this section with the actual config values you expect:
     config_jsonschema = th.PropertiesList(
         th.Property(
             "tilroy_api_key",
             th.StringType,
             required=True,
-            secret=True,  # Flag config as protected.
-            description="The token to authenticate against the Tilroy API service",
+            secret=True,
+            description="The Tilroy API key for authentication",
         ),
         th.Property(
             "x_api_key",
             th.StringType,
             required=True,
-            secret=True,  # Flag config as protected.
-            description="The AWS API key for authentication",
+            secret=True,
+            description="The AWS API Gateway key for authentication",
         ),
         th.Property(
             "api_url",
             th.StringType,
             required=True,
-            description="The URL for the Tilroy API service",
+            description="The base URL for the Tilroy API (e.g., https://api.tilroy.com)",
+        ),
+        th.Property(
+            "start_date",
+            th.DateTimeType,
+            description="The earliest date to sync data from (ISO 8601 format)",
         ),
         th.Property(
             "prices_shop_number",
             th.IntegerType,
-            required=True,
-            description="The shop number for the Tilroy API service",
+            description="Shop number filter for prices (optional)",
         ),
     ).to_dict()
 
-    def discover_streams(self) -> list[streams.TilroyStream]:
-        """Return a list of discovered streams.
+    def __init__(
+        self,
+        config: dict | None = None,
+        catalog: dict | None = None,
+        state: dict | None = None,
+        parse_env_config: bool = False,
+        validate_config: bool = True,
+    ) -> None:
+        """Initialize the tap.
+
+        Suppresses excessive schema warnings for streams that return
+        many undocumented fields.
+        """
+        super().__init__(
+            config=config,
+            catalog=catalog,
+            state=state,
+            parse_env_config=parse_env_config,
+            validate_config=validate_config,
+        )
+
+        # Suppress schema mismatch warnings for verbose streams
+        for stream_name in ("sales", "products"):
+            logging.getLogger(f"tap-tilroy.{stream_name}").setLevel(logging.ERROR)
+
+    def discover_streams(self) -> list[Stream]:
+        """Return list of discovered streams.
 
         Returns:
-            A list of discovered streams.
+            List of stream instances.
         """
-        return [stream(self) for stream in STREAM_TYPES]
-    
+        return [stream_class(self) for stream_class in STREAM_TYPES]
+
     def sync_all(self) -> None:
-        """
-        Sync all streams in a custom order, ensuring backward compatibility.
+        """Sync all streams with dependency ordering.
 
-        This method overrides the default singer-sdk Tap.sync_all() to enforce a
-        specific execution order: ProductsStream must run to completion before
-        PricesStream begins.
-
-        To maintain backward compatibility with the SDK, this implementation
-        integrates the essential setup and teardown procedures from the base
-        class, such as state management, progress markers, and cost logging.
+        Ensures ProductsStream runs first to collect SKU IDs that
+        StockStream depends on.
         """
-        # 1. Perform setup from the base class
         self._reset_state_progress_markers()
         self._set_compatible_replication_methods()
-        # State is handled by the base class automatically
 
-        # 2. Define the custom execution order
+        # Get streams with dependencies
         products_stream = self.streams.get("products")
-        prices_stream = self.streams.get("prices")
         stock_stream = self.streams.get("stock")
-        other_streams = [
-            s
-            for s in self.streams.values()
-            if s not in [products_stream, prices_stream, stock_stream]
-        ]
+        prices_stream = self.streams.get("prices")
 
-        ordered_streams = []
-        if products_stream:
-            ordered_streams.append(products_stream)
-        ordered_streams.extend(other_streams)
-        if prices_stream:
-            ordered_streams.append(prices_stream)
-        if stock_stream:
-            ordered_streams.append(stock_stream)
+        # Build ordered list: products first, dependent streams last
+        ordered_streams = self._build_stream_order(
+            products_stream=products_stream,
+            stock_stream=stock_stream,
+            prices_stream=prices_stream,
+        )
 
-        # 3. Execute streams in the custom order
+        # Clear SKU collection before starting
         if products_stream:
             products_stream.clear_collected_sku_ids()
 
+        # Execute streams in order
         for stream in ordered_streams:
-            if not stream.selected and not stream.has_selected_descendents:
-                self.logger.info("Skipping deselected stream '%s'.", stream.name)
-                continue
+            self._sync_stream(stream, products_stream)
 
-            # For general backward compatibility, skip any streams that are SDK-style
-            # child streams, since they will be invoked by their parents.
-            if stream.parent_stream_type:
-                self.logger.debug(
-                    "Child stream '%s' is expected to be called by its parent. "
-                    "Skipping direct invocation in custom sync_all.",
-                    stream.name,
-                )
-                continue
-
-            stream.sync()
-            stream.finalize_state_progress_markers()
-
-            if stream is products_stream:
-                # Custom logic: finalize SKU collection after Products stream
-                products_stream.finalize_child_contexts()
-
-        # 4. Perform finalization from the base class
-        # This final loop ensures all streams log their costs.
+        # Log sync costs
         for stream in self.streams.values():
             stream.log_sync_costs()
+
+    def _build_stream_order(
+        self,
+        products_stream: Stream | None,
+        stock_stream: Stream | None,
+        prices_stream: Stream | None,
+    ) -> list[Stream]:
+        """Build ordered list of streams respecting dependencies.
+
+        Args:
+            products_stream: The products stream (runs first).
+            stock_stream: The stock stream (runs after products).
+            prices_stream: The prices stream (runs after products).
+
+        Returns:
+            Ordered list of streams.
+        """
+        dependent_streams = {products_stream, stock_stream, prices_stream}
+        other_streams = [
+            s for s in self.streams.values() if s not in dependent_streams
+        ]
+
+        ordered = []
+
+        # Products must run first
+        if products_stream:
+            ordered.append(products_stream)
+
+        # Other streams can run in any order
+        ordered.extend(other_streams)
+
+        # Dependent streams run last
+        if prices_stream:
+            ordered.append(prices_stream)
+        if stock_stream:
+            ordered.append(stock_stream)
+
+        return ordered
+
+    def _sync_stream(
+        self,
+        stream: Stream,
+        products_stream: Stream | None,
+    ) -> None:
+        """Sync a single stream with proper handling.
+
+        Args:
+            stream: The stream to sync.
+            products_stream: The products stream for finalization.
+        """
+        # Skip deselected streams
+        if not stream.selected and not stream.has_selected_descendents:
+            self.logger.info(f"Skipping deselected stream '{stream.name}'")
+            return
+
+        # Skip child streams (they're invoked by parents)
+        if stream.parent_stream_type:
+            self.logger.debug(
+                f"Skipping child stream '{stream.name}' (called by parent)"
+            )
+            return
+
+        # Execute sync
+        stream.sync()
+        stream.finalize_state_progress_markers()
+
+        # Finalize SKU collection after products stream
+        if stream is products_stream and hasattr(products_stream, "finalize_child_contexts"):
+            products_stream.finalize_child_contexts()
 
 
 if __name__ == "__main__":
