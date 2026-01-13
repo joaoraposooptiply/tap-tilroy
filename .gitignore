@@ -1,5 +1,8 @@
 
 # ==================================
+# Agent documentation (local only)
+.agent_docs/
+
 *~
 ._*
 \#*\#
