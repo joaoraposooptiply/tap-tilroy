@@ -18,6 +18,7 @@ from tap_tilroy.streams import (
     StockChangesStream,
     StockStream,
     SuppliersStream,
+    TransfersStream,
 )
 
 # Stream types in default order
@@ -30,6 +31,7 @@ STREAM_TYPES: list[type[Stream]] = [
     SuppliersStream,
     PricesStream,
     StockStream,
+    TransfersStream,
 ]
 
 
@@ -45,6 +47,7 @@ class TapTilroy(Tap):
     - suppliers: Supplier master data
     - prices: Price rules per SKU
     - stock: Current stock levels (depends on products for SKU IDs)
+    - transfers: Stock movements between shops (inter-store transfers)
     """
 
     name = "tap-tilroy"
