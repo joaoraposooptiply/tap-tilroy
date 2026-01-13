@@ -8,7 +8,7 @@ from decimal import Decimal
 
 from singer_sdk import typing as th
 
-from tap_tilroy.client import LastIdPaginatedStream
+from tap_tilroy.client import DateFilteredStream
 
 if t.TYPE_CHECKING:
     from singer_sdk.helpers.types import Context
@@ -93,24 +93,20 @@ def _convert_types_recursive(obj: t.Any, string_fields: frozenset = STRING_FIELD
     return obj
 
 
-class SalesStream(LastIdPaginatedStream):
+class SalesStream(DateFilteredStream):
     """Stream for Tilroy sales transactions.
 
-    Uses lastId-based pagination for efficient incremental syncs.
-    The Sales API requires dateFrom and dateTo parameters.
+    Uses /export/sales endpoint which supports date filtering without
+    requiring customer filters. Uses page-based pagination.
     """
 
     name = "sales"
-    path = "/saleapi/production/sales"
+    path = "/saleapi/production/export/sales"
     primary_keys: t.ClassVar[list[str]] = ["idTilroySale"]
     replication_key = "saleDate"
     replication_method = "INCREMENTAL"
     records_jsonpath = "$[*]"
     default_count = 100
-
-    # lastId pagination configuration
-    last_id_field = "idTilroySale"
-    last_id_param = "lastId"
 
     # Sales schema - comprehensive but with flexible types
     schema = th.PropertiesList(
@@ -219,20 +215,17 @@ class SalesStream(LastIdPaginatedStream):
     def get_url_params(
         self,
         context: Context | None,
-        next_page_token: str | None,
+        next_page_token: int | None,
     ) -> dict[str, t.Any]:
-        """Return URL parameters for Sales API.
+        """Return URL parameters for Sales Export API.
 
-        Sales API requires dateFrom and dateTo parameters.
+        Uses dateFrom for filtering (required by the export endpoint).
         """
         params = {
             "count": self.default_count,
+            "page": next_page_token or 1,
             "dateFrom": self._get_start_date(context).strftime("%Y-%m-%d"),
-            "dateTo": datetime.now().strftime("%Y-%m-%d"),
         }
-
-        if next_page_token:
-            params["lastId"] = next_page_token
 
         return params
 
