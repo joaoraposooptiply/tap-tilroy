@@ -129,6 +129,7 @@ class TilroyStream(RESTStream[int]):
     _integer_fields: frozenset = frozenset({
         "tilroyId", "sourceId", "number", "tilroy_id", "source_id",
         "legalEntityId", "tenantId", "shopNumber", "shop_number",
+        "idTilroy", "idTenant", "idSource",  # Transfer API field names
     })
 
     def post_process(
