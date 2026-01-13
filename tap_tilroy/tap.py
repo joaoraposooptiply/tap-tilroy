@@ -82,26 +82,13 @@ class TapTilroy(Tap):
         ),
     ).to_dict()
 
-    def __init__(
-        self,
-        config: dict | None = None,
-        catalog: dict | None = None,
-        state: dict | None = None,
-        parse_env_config: bool = False,
-        validate_config: bool = True,
-    ) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         """Initialize the tap.
 
         Suppresses excessive schema warnings for streams that return
         many undocumented fields.
         """
-        super().__init__(
-            config=config,
-            catalog=catalog,
-            state=state,
-            parse_env_config=parse_env_config,
-            validate_config=validate_config,
-        )
+        super().__init__(*args, **kwargs)
 
         # Suppress schema mismatch warnings for verbose streams
         for stream_name in ("sales", "products"):
