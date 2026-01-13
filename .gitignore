@@ -1,333 +1,239 @@
-# ==================================
-# ENVIRONMENT & SECRETS
-# ==================================
-.env
-.env.local
-.env.*.local
-.venv/
-venv/
-env/
-ENV/
-
-# Meltano environment files
-.meltano/
-meltano.yml.bak
-run/
-logs/
-.secrets/
 
 # ==================================
-# PYTHON
-# ==================================
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
-
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# PyInstaller
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-cover/
-
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# Flask stuff:
-instance/
-.webassets-cache
-
-# Scrapy stuff:
-.scrapy
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-.pybuilder/
-target/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# IPython
-profile_default/
-ipython_config.py
-
-# pyenv
-.python-version
-
-# pipenv
-Pipfile.lock
-
-# poetry
-#poetry.lock  # Keep this for reproducible builds
-
-# pdm
-.pdm.toml
-
-# PEP 582
-__pypackages__/
-
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
-
-# SageMath parsed files
-*.sage.py
-
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# pytype static type analyzer
-.pytype/
-
-# Cython debug symbols
-cython_debug/
-
-# ==================================
-# SINGER TAP SPECIFIC
-# ==================================
-# Singer state files
-state.json
-*.state.json
-state/
-
-# Singer catalog files (generated)
-catalog.json
-*.catalog.json
-
-# Singer output
-output/
-*.jsonl
-
-# Tap configuration (may contain secrets)
-config.json
-tap_config.json
-*_config.json
-
-# ==================================
-# MELTANO SPECIFIC
-# ==================================
-# Meltano system files
-.meltano/
-meltano.yml.bak
-
-# Meltano runs and logs
-run/
-logs/
-output/
-extract/
-load/
-transform/
-
-# Meltano plugins
-plugins/
-
-# Meltano environments
-environments/*/
-
-# ==================================
-# UV PACKAGE MANAGER
-# ==================================
-.uv/
-uv.lock
-
-# ==================================
-# IDE / EDITOR
-# ==================================
-# VSCode
-.vscode/
-*.code-workspace
-
-# PyCharm
-.idea/
-*.iml
-*.ipr
-*.iws
-
-# Sublime Text
-*.sublime-project
-*.sublime-workspace
-
-# Vim
-*.swp
-*.swo
 *~
-
-# Emacs
-*~
-\#*\#
-/.emacs.desktop
-/.emacs.desktop.lock
-*.elc
-auto-save-list
-tramp
-
-# Atom
-.atom/
-
-# ==================================
-# OS SPECIFIC
-# ==================================
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-Icon
 ._*
-.DocumentRevisions-V100
-.fseventsd
-.Spotlight-V100
-.TemporaryItems
-.Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
+\#*\#
+*$py.class
+$RECYCLE.BIN/
+.apdisk
 .AppleDB
 .AppleDesktop
-Network Trash Folder
-Temporary Items
-.apdisk
-
-# Windows
-Thumbs.db
-Thumbs.db:encryptable
+.AppleDouble
+.atom/
+# Atom
+auto-save-list
+*.backup
+*.bak
+.bandit
+build/
+# Byte-compiled / optimized / DLL files
+*.cab
+*.cache
+.cache
+*.catalog.json
+catalog.json
+celerybeat.pid
+celerybeat-schedule
+# Celery stuff
+# C extensions
+*.code-workspace
+.com.apple.timemachine.donotpresent
+*_config.json
+config.json
+*.cover
+cover/
+.coverage
+.coverage.*
+coverage.xml
+# *.csv
+cython_debug/
+# Cython debug symbols
+# DATA FILES (Be careful with these)
+db.sqlite3
+db.sqlite3-journal
+[Dd]esktop.ini
+develop-eggs/
+.directory
+dist/
+# Distribution / packaging
+# Django stuff:
+.dmypy.json
+dmypy.json
+docs/_build/
+docs/build/
+# DOCUMENTATION BUILD
+.DocumentRevisions-V100
+downloads/
+.DS_Store
+*.egg
+*.egg-info/
+.eggs/
+eggs/
 ehthumbs.db
 ehthumbs_vista.db
-*.stackdump
-[Dd]esktop.ini
-$RECYCLE.BIN/
-*.cab
+*.elc
+# Emacs
+/.emacs.desktop
+/.emacs.desktop.lock
+.env
+env/
+ENV/
+env.bak/
+environments/*/
+# Environments
+# ENVIRONMENT & SECRETS
+.env.*.local
+.env.local
+extract/
+# Flask stuff:
+.fseventsd
+.fuse_hidden*
+htmlcov/
+.hypothesis/
+Icon
+.idea/
+# IDE / EDITOR
+*.iml
+.installed.cfg
+# Installer logs
+instance/
+*.ipr
+.ipynb_checkpoints
+# IPython
+ipython_config.py
+*.iws
+# *.json
+*.jsonl
+# Jupyter Notebook
+lib/
+lib64/
+# Linux
+*.lnk
+load/
+local_settings.py
+*.log
+logs/
+.LSOverride
+# macOS
+*.manifest
+MANIFEST
+.meltano/
+# Meltano environment files
+# Meltano environments
+# Meltano plugins
+# Meltano runs and logs
+# MELTANO SPECIFIC
+# Meltano system files
+meltano.yml.bak
+# mkdocs documentation
+*.mo
 *.msi
 *.msix
 *.msm
 *.msp
-*.lnk
-
-# Linux
-*~
-.fuse_hidden*
-.directory
-.Trash-*
+# mypy
+.mypy_cache/
+Network Trash Folder
 .nfs*
-
-# ==================================
-# TEMPORARY FILES
-# ==================================
-*.tmp
-*.temp
-*.bak
-*.backup
-*.orig
-*.log
-*.cache
-
-# ==================================
-# TESTING & CI
-# ==================================
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
+nosetests.xml
 .nox/
-
-# ==================================
-# DATA FILES (Be careful with these)
-# ==================================
-# Uncomment if you don't want to track data files
-# *.csv
-# *.json
+*.orig
+# OS SPECIFIC
+output/
 # *.parquet
-# *.xlsx
-
-# Sample/test data that might contain sensitive info
-sample_data/
-test_data/
-*_sample.*
-*_test_data.*
-
-# ==================================
-# DOCUMENTATION BUILD
-# ==================================
-docs/_build/
-docs/build/
-site/
-
-# ==================================
-# SECURITY SCANNING
-# ==================================
-.bandit
+parts/
+# pdm
+.pdm.toml
+# PEP 582
+pip-delete-this-directory.txt
+# pipenv
+Pipfile.lock
+pip-log.txt
+plugins/
+# poetry
+#poetry.lock  # Keep this for reproducible builds
+*.pot
+profile_default/
+.pybuilder/
+# PyBuilder
+__pycache__/
+# PyCharm
+*.py[cod]
+*.py,cover
+# pyenv
+# PyInstaller
+__pypackages__/
+.pyre/
+# Pyre type checker
+.pytest_cache/
+.Python
+# PYTHON
+.python-version
+.pytype/
+# pytype static type analyzer
+.ropeproject
+# Rope project settings
+run/
 .safety
+# SageMath parsed files
+*.sage.py
+*_sample.*
+sample_data/
+# Sample/test data that might contain sensitive info
+.scrapy
+# Scrapy stuff:
+sdist/
+.secrets/
 security-report.json 
-.tests/
+# SECURITY SCANNING
+share/python-wheels/
+# Singer catalog files (generated)
+# Singer output
+# Singer state files
+# SINGER TAP SPECIFIC
+/site
+site/
+*.so
+*.spec
+# Sphinx documentation
+.Spotlight-V100
+.spyderproject
+# Spyder project settings
+.spyproject
+*.stackdump
+state/
+*.state.json
+state.json
+*.sublime-project
+# Sublime Text
+*.sublime-workspace
+*.swo
+*.swp
+tap_config.json
+# Tap configuration (may contain secrets)
+target/
+*.temp
+# TEMPORARY FILES
+.TemporaryItems
+Temporary Items
+*_test_data.*
+test_data/
+# TESTING & CI
+.tests/testconfig.json
+Thumbs.db
+Thumbs.db:encryptable
+*.tmp
+.tox/
+tramp
+transform/
+# Translations
+.Trash-*
+.Trashes
+# Uncomment if you don't want to track data files
+# Unit test / coverage reports
+.uv/
+uv.lock
+# UV PACKAGE MANAGER
+var/
+.venv
+.venv/
+venv/
+venv.bak/
+# Vim
+.VolumeIcon.icns
+.vscode/
+# VSCode
+.webassets-cache
+wheels/
+# Windows
+# *.xlsx
