@@ -1,13 +1,14 @@
 # Stream Documentation
 
-## All Streams (9 total)
+## All Streams (10 total)
 
 | Stream | Endpoint | Base Class | Replication Key | Notes |
 |--------|----------|------------|-----------------|-------|
 | `products` | `/product-bulk/production/products` or `/product/production/export/skus` | `DynamicRoutingStream` | `dateModified` | Switches bulk/incremental |
 | `shops` | `/shop/production/shops` | `TilroyStream` | - (full table) | Non-paginated, single request |
 | `purchase_orders` | `/purchaseorder/production/purchaseorders` or `/purchaseorder/production/export/purchaseorders` | `DynamicRoutingStream` | `orderDate` | Switches bulk/incremental |
-| `stock_changes` | `/stock/production/export/stockchanges` | `DateFilteredStream` | `dateChanged` | Page-based pagination |
+| `stock_changes` | `/stockapi/production/stockchanges` | `DateFilteredStream` | `dateUpdated` | Page-based pagination, requires dateFrom+dateTo |
+| `stock_deltas` | `/stockapi/production/export/stockdeltas` | `DateFilteredStream` | `dateExported` | Transfer/correction events with qtyDelta fields |
 | `sales` | `/saleapi/production/export/sales` | `DateFilteredStream` | `saleDate` | Uses /export endpoint |
 | `suppliers` | `/supplier/production/suppliers` | `TilroyStream` | - (full table) | Simple full sync |
 | `prices` | `/price/production/price/rules` | `LastIdPaginatedStream` | `date_modified` | Cursor pagination |
@@ -34,6 +35,13 @@
 - **Pagination**: Uses `lastId` cursor, NOT page numbers
 - **Start**: Must send `lastId=""` (empty string) for first page
 - **Flattens**: Price rules into individual records per SKU
+
+### StockDeltasStream
+- **Endpoint**: `/export/stockdeltas` - Returns actual stock change events
+- **Purpose**: Captures transfer movements, corrections, and other delta events
+- **Key fields**: `qtyDelta`, `qtyTransferredDelta`, `qtyReservedDelta`, `modificationType`
+- **Param**: Uses `dateExportedSince` (ISO datetime format)
+- **Use case**: Track when transfers affect stock levels
 
 ### StockStream
 - **Dependency**: Requires ProductsStream to run first

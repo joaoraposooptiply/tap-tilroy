@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import typing as t
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import requests
 from singer_sdk import typing as th
@@ -13,6 +13,102 @@ from tap_tilroy.client import DateFilteredStream, TilroyStream
 
 if t.TYPE_CHECKING:
     from singer_sdk.helpers.types import Context
+
+
+class StockDeltasStream(DateFilteredStream):
+    """Stream for Tilroy stock deltas (export endpoint).
+
+    Uses /export/stockdeltas endpoint which returns actual inventory change events
+    with delta values (qtyDelta, qtyTransferredDelta, etc.) for tracking movements
+    like transfers, sales, corrections, etc.
+
+    This is the endpoint that captures transfer-related stock movements.
+    Requires dateExportedSince parameter for filtering.
+    """
+
+    name = "stock_deltas"
+    path = "/stockapi/production/export/stockdeltas"
+    primary_keys: t.ClassVar[list[str]] = ["tilroyId"]
+    replication_key = "dateExported"
+    replication_method = "INCREMENTAL"
+    records_jsonpath = "$[*]"
+    default_count = 100
+
+    schema = th.PropertiesList(
+        th.Property("tilroyId", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("timestamp", th.DateTimeType),
+        th.Property("sourceId", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("modificationType", th.CustomType({"type": ["string", "null"]})),
+        th.Property("reason", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("shop", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("product", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("colour", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("size", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("sku", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("qtyDelta", th.IntegerType),
+        th.Property("qtyTransferredDelta", th.IntegerType),
+        th.Property("qtyReservedDelta", th.IntegerType),
+        th.Property("cause", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("dateExported", th.DateTimeType),
+    ).to_dict()
+
+    def get_url_params(
+        self,
+        context: Context | None,
+        next_page_token: int | None,
+    ) -> dict[str, t.Any]:
+        """Return URL parameters with dateExportedSince for the export endpoint.
+
+        The /export/stockdeltas endpoint requires dateExportedSince in ISO datetime format.
+        """
+        params = {
+            "count": self.default_count,
+            "page": next_page_token or 1,
+        }
+
+        # Get start date from bookmark or config
+        start_date = self._get_start_date(context)
+
+        # Format as ISO datetime for this endpoint
+        params["dateExportedSince"] = start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        self.logger.info(
+            f"[{self.name}] Fetching stock deltas since: {params['dateExportedSince']}"
+        )
+
+        return params
+
+    def _get_start_date(self, context: Context | None) -> datetime:
+        """Determine the start date for filtering."""
+        # Try to get from bookmark
+        bookmark_date = self.get_starting_timestamp(context)
+
+        if bookmark_date:
+            # Go back 1 day to avoid missing records at boundary
+            if hasattr(bookmark_date, "date"):
+                date_only = bookmark_date.date()
+            else:
+                date_only = bookmark_date
+            return datetime.combine(date_only - timedelta(days=1), datetime.min.time())
+
+        # Fall back to config start_date
+        config_start = self.config.get("start_date", "2010-01-01T00:00:00Z")
+        try:
+            return datetime.fromisoformat(config_start.replace("Z", "+00:00")).replace(tzinfo=None)
+        except ValueError:
+            date_part = config_start.split("T")[0]
+            return datetime.strptime(date_part, "%Y-%m-%d")
+
+    def post_process(
+        self,
+        row: dict,
+        context: Context | None = None,
+    ) -> dict | None:
+        """Post-process stock delta record."""
+        row = super().post_process(row, context)
+        if row:
+            row = self._stringify_nested_objects(row)
+        return row
 
 
 class StockChangesStream(DateFilteredStream):

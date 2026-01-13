@@ -16,6 +16,7 @@ from tap_tilroy.streams import (
     SalesStream,
     ShopsStream,
     StockChangesStream,
+    StockDeltasStream,
     StockStream,
     SuppliersStream,
     TransfersStream,
@@ -27,6 +28,7 @@ STREAM_TYPES: list[type[Stream]] = [
     ShopsStream,
     PurchaseOrdersStream,
     StockChangesStream,
+    StockDeltasStream,
     SalesStream,
     SuppliersStream,
     PricesStream,
@@ -42,7 +44,8 @@ class TapTilroy(Tap):
     - products: Product catalog with SKU information
     - shops: Store/location data
     - purchase_orders: Purchase order history
-    - stock_changes: Inventory movement history
+    - stock_changes: Inventory movement history (snapshots)
+    - stock_deltas: Inventory change events with deltas (transfers, corrections, etc.)
     - sales: Sales transactions
     - suppliers: Supplier master data
     - prices: Price rules per SKU
