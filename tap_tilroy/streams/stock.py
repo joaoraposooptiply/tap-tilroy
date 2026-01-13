@@ -126,24 +126,21 @@ class StockChangesStream(DateFilteredStream):
     records_jsonpath = "$[*]"
     default_count = 100
 
+    # Schema matches /stockchanges API response
     schema = th.PropertiesList(
         th.Property("tilroyId", th.CustomType({"type": ["string", "number", "null"]})),
-        th.Property("timestamp", th.DateTimeType),
-        th.Property("sourceId", th.CustomType({"type": ["string", "number", "null"]})),
-        th.Property("reason", th.CustomType({"type": ["string", "number", "null"]})),
-        th.Property("shop", th.CustomType({"type": ["object", "string", "null"]})),
-        th.Property("product", th.CustomType({"type": ["object", "string", "null"]})),
-        th.Property("qty", th.CustomType({"type": ["object", "string", "null"]})),
-        th.Property("size", th.CustomType({"type": ["object", "string", "null"]})),
-        th.Property("refill", th.IntegerType),
         th.Property("sku", th.CustomType({"type": ["object", "string", "null"]})),
-        th.Property("qtyDelta", th.IntegerType),
-        th.Property("qtyTransferredDelta", th.IntegerType),
-        th.Property("qtyReservedDelta", th.IntegerType),
-        th.Property("qtyRequestedDelta", th.IntegerType),
-        th.Property("cause", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("shop", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("qty", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("refill", th.IntegerType),
         th.Property("dateCreated", th.DateTimeType),
         th.Property("dateUpdated", th.DateTimeType),
+        th.Property("modificationType", th.CustomType({"type": ["string", "null"]})),
+        th.Property("location1", th.CustomType({"type": ["string", "null"]})),
+        th.Property("location2", th.CustomType({"type": ["string", "null"]})),
+        th.Property("pickupLocation", th.CustomType({"type": ["string", "null"]})),
+        th.Property("inAssortment", th.BooleanType),
+        th.Property("lastExternalDelivery", th.CustomType({"type": ["string", "null"]})),
     ).to_dict()
 
     def get_url_params(
