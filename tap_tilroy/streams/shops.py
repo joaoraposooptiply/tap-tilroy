@@ -114,13 +114,28 @@ class ShopsStream(TilroyStream):
         # No pagination parameters needed
         return {}
 
-    def get_new_paginator(self) -> None:
-        """Return None since this endpoint has no pagination.
+    def request_records(self, context: Context | None) -> t.Iterable[dict]:
+        """Request all shop records in a single API call.
 
-        Returns:
-            None - the /shops endpoint returns all results at once.
+        The /shops endpoint returns all shops without pagination,
+        so we make one request and yield all results.
+
+        Args:
+            context: Stream partition context.
+
+        Yields:
+            Shop records from the API.
         """
-        return None
+        prepared_request = self.build_prepared_request(
+            method="GET",
+            url=self.get_url(context),
+            params=self.get_url_params(context, None),
+            headers=self.http_headers,
+        )
+
+        response = self._request(prepared_request, context)
+
+        yield from self.parse_response(response)
 
     def post_process(
         self,
