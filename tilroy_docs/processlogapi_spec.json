@@ -1,0 +1,408 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Process Log API",
+    "description": "Process Log API",
+    "version": "1.1.4"
+  },
+  "servers": [
+    {
+      "url": "http://192.168.55.69:9820/"
+    },
+    {
+      "url": "http://192.168.55.159:9820/"
+    },
+    {
+      "url": "http://localhost:9820/"
+    }
+  ],
+  "paths": {
+    "/summary": {
+      "get": {
+        "tags": [
+          "summary"
+        ],
+        "summary": "Retrieve Process Logs summary",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyTenantApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/dateFrom"
+          },
+          {
+            "$ref": "#/components/parameters/dateTo"
+          },
+          {
+            "$ref": "#/components/parameters/type"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Summary"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/processlogs": {
+      "get": {
+        "tags": [
+          "Process Logs"
+        ],
+        "summary": "Get Process Logs",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyTenantApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/dateFrom"
+          },
+          {
+            "$ref": "#/components/parameters/dateTo"
+          },
+          {
+            "$ref": "#/components/parameters/types"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/count"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SearchResultProcessLog"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/loglevel": {
+      "post": {
+        "x-internal": true,
+        "tags": [
+          "loglevel"
+        ],
+        "summary": "Set the loglevel for the service.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyTenantApiKey"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/loglevel"
+        },
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {}
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "headerTilroyTenantApiKey": {
+        "name": "Tilroy-Api-Key",
+        "in": "header",
+        "required": true,
+        "description": "Tenant Api Key",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "pathId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "id",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "dateFrom": {
+        "name": "dateFrom",
+        "in": "query",
+        "description": "Value to define start date to filter results",
+        "example": "2021-07-15",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "dateTo": {
+        "name": "dateTo",
+        "in": "query",
+        "description": "Value to define end date to filter results",
+        "example": "2021-08-15",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "type": {
+        "name": "type",
+        "in": "query",
+        "description": "Value to filter results by type.",
+        "example": "ExportOrderBCWorker",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "types": {
+        "name": "types",
+        "in": "query",
+        "description": "Comma separated list of values to filter results by type.",
+        "example": "ExportOrderBCWorker,MagentoPriceExporter",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "page": {
+        "name": "page",
+        "in": "query",
+        "description": "page of results to be returned (default = 1)",
+        "schema": {
+          "type": "string",
+          "default": "1"
+        }
+      },
+      "count": {
+        "name": "count",
+        "in": "query",
+        "description": "max number of items to be returned (default = 10, max = 100)",
+        "schema": {
+          "type": "string",
+          "default": "10"
+        }
+      }
+    },
+    "responses": {
+      "SearchResultProcessLog": {
+        "description": "ok",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ProcessLog"
+              }
+            }
+          }
+        }
+      },
+      "Summary": {
+        "description": "ok",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Summary"
+              }
+            }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "Bad Request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Internal Server Error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFoundError": {
+        "description": "Not Found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ProcessLog": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "example": "64649ed4a9087a1bf3a57dd7"
+          },
+          "tenantId": {
+            "type": "string",
+            "example": 2
+          },
+          "dateCreated": {
+            "type": "string",
+            "example": "2023-05-17T09:31:00.218Z"
+          },
+          "type": {
+            "type": "string",
+            "example": "ExportTransferWorker"
+          },
+          "summary": {
+            "type": "string",
+            "example": "Could not process transfer"
+          },
+          "queue": {
+            "type": "string",
+            "example": "SalesQueue"
+          },
+          "message": {
+            "type": "string",
+            "example": "The failed JSON message from the Queue"
+          },
+          "status": {
+            "type": "string",
+            "example": "NEW"
+          },
+          "dateUpdated": {
+            "type": "string",
+            "example": "2023-05-17T09:31:00.218Z"
+          },
+          "userUpdated": {
+            "$ref": "#/components/schemas/User"
+          },
+          "category": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "required": [
+          "id",
+          "firstName",
+          "lastName"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": 123
+          },
+          "firstName": {
+            "type": "string",
+            "example": "John"
+          },
+          "lastName": {
+            "type": "string",
+            "example": "Smith"
+          }
+        }
+      },
+      "Summary": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "example": "ExportCustomerWorker"
+            },
+            "lastSuccessDate": {
+              "type": "string",
+              "example": "2022-02-07T13:24:31.826Z"
+            },
+            "lastErrorDate": {
+              "type": "string",
+              "example": "2022-03-31T07:05:07.345Z"
+            },
+            "numberOfErrors": {
+              "type": "number",
+              "example": 1
+            }
+          }
+        }
+      },
+      "LogLevel": {
+        "required": [
+          "level"
+        ],
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code of the error, assigned by Node or the developer."
+          },
+          "message": {
+            "type": "string",
+            "description": "More information about the cause of the error."
+          }
+        },
+        "description": "The error object returned by the service"
+      }
+    },
+    "requestBodies": {
+      "loglevel": {
+        "description": "The logging level type in the body of the request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/LogLevel"
+            }
+          }
+        },
+        "required": true
+      }
+    }
+  }
+}

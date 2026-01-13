@@ -1,0 +1,4437 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "CustomerAPI",
+    "description": "This is the public API for managing customer related data.\n\n**Security**\n\nIn order to use this api, you'll need multipe headers:\n- Tilroy-Api-Key: The api key of the tenant, so that we know what data you are allowed to manage\n- x-api-key: The api key of AWS, so that we know, what you are allowed to do (access specific endpoints or specific throttling rules)\n- Authorization: The bearer token of the customer, so that we know if you are allowed of retrieving/updating data of a specific customer\n\nIf you are developping an app where the customer needs to update his/her own data, you can use the AuthenticationAPI to get a token for the customer by using the /tokens endpoint.\n\nIf you are writing a service for syncing customer data, we will need to provide you a bearer token with access to allow retrieving/updating the data of all customers.\n\nWhen you get an error **'User xxx has no permission to update customer'** you are probably using a wrong combination of headers. \nBoth the Tilroy-Api-Key and the the bearer token should be linked to the same tenant. \nThis can happen when you have multiple tenants for each environment you are integrating with.\n",
+    "version": "2.33.1"
+  },
+  "servers": [
+    {
+      "url": "https://api.tilroy.com/customerapi/production"
+    }
+  ],
+  "paths": {
+    "/customers": {
+      "get": {
+        "tags": [
+          "customers"
+        ],
+        "summary": "Search for a customer",
+        "description": "This endpoint can be used to look up customers by email, googleid and facebookid",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "email",
+            "in": "query",
+            "description": "filter on emailaddress",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "card",
+            "in": "query",
+            "description": "filter on member card",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "facebookId",
+            "in": "query",
+            "description": "filter on facebookId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "googleId",
+            "in": "query",
+            "description": "filter on googleId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceId",
+            "in": "query",
+            "description": "filter on sourceId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "description": "filter on client code",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/queryCount"
+          },
+          {
+            "$ref": "#/components/parameters/queryPage"
+          },
+          {
+            "$ref": "#/components/parameters/queryFields"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "headers": {
+              "X-Paging-ItemsPerPage": {
+                "$ref": "#/components/headers/X-Paging-ItemsPerPage"
+              },
+              "X-Paging-ItemCount": {
+                "$ref": "#/components/headers/X-Paging-ItemCount"
+              },
+              "X-Paging-PageCount": {
+                "$ref": "#/components/headers/X-Paging-PageCount"
+              },
+              "X-Paging-CurrentPage": {
+                "$ref": "#/components/headers/X-Paging-CurrentPage"
+              },
+              "Link-JSON": {
+                "$ref": "#/components/headers/Link-JSON"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CustomerResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "customer"
+        ],
+        "summary": "Create a customer",
+        "description": "This endpoint should be used for creating new customers",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerCreate"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "201": {
+            "description": "Created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codegen-request-body-name": "body"
+      }
+    },
+    "/customers/{customerIdToKeep}/merge": {
+      "post": {
+        "tags": [
+          "customer"
+        ],
+        "summary": "Merge Customers",
+        "description": "This endpoint should be used to merge customers",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerIdToKeep"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeBody"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codegen-request-body-name": "body"
+      }
+    },
+    "/customers/{customerIdToKeep}/mergehistory": {
+      "post": {
+        "tags": [
+          "customer"
+        ],
+        "summary": "Merge Customers",
+        "description": "This endpoint should be used to merge customers history",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerIdToKeep"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeBody"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codegen-request-body-name": "body"
+      }
+    },
+    "/customers/{customerId}": {
+      "get": {
+        "tags": [
+          "customer"
+        ],
+        "summary": "Retrieve a customer",
+        "description": "Use this endpoint to retrieve all the information of a customer",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "customer"
+        ],
+        "summary": "Update a customer",
+        "description": "This endpoint is for updating an exisitng customer",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerUpdate"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-codegen-request-body-name": "body"
+      },
+      "delete": {
+        "tags": [
+          "customer"
+        ],
+        "summary": "Delete a customer",
+        "description": "This endpoint is for deleting an exisitng customer",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "content": {},
+            "description": "Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/customers/{customerId}/addresses": {
+      "get": {
+        "tags": [
+          "addresses"
+        ],
+        "summary": "Retrieve all addresses of a customer",
+        "description": "This endpoint can be used to retrieve all addresses of a customer. Depending on the returned properties, it wil be clear what is the main address and what addresses to use for billing and delivery.",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "headers": {
+              "X-Paging-ItemsPerPage": {
+                "$ref": "#/components/headers/X-Paging-ItemsPerPage"
+              },
+              "X-Paging-ItemCount": {
+                "$ref": "#/components/headers/X-Paging-ItemCount"
+              },
+              "X-Paging-PageCount": {
+                "$ref": "#/components/headers/X-Paging-PageCount"
+              },
+              "X-Paging-CurrentPage": {
+                "$ref": "#/components/headers/X-Paging-CurrentPage"
+              },
+              "Link-JSON": {
+                "$ref": "#/components/headers/Link-JSON"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AddressResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "address"
+        ],
+        "summary": "Create a customer address",
+        "description": "This endpoint is for creating a new customer address",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BaseAddress"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "201": {
+            "description": "Created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddressResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/customers/{customerId}/addresses/{addressId}": {
+      "get": {
+        "tags": [
+          "address"
+        ],
+        "summary": "Retrieve single addresses of a customer",
+        "description": "This endpoint can be used to retrieve a single addresses of a customer. Depending on the returned properties, it wil be clear if it is the main address or the addresses to use for billing and delivery.",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerId"
+          },
+          {
+            "$ref": "#/components/parameters/addressId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddressResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "address"
+        ],
+        "summary": "Update a customer's address",
+        "description": "This endpoint is for updating an exisitng customer address",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerId"
+          },
+          {
+            "$ref": "#/components/parameters/addressId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddressUpdateRequest"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddressResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "address"
+        ],
+        "summary": "Delete a customer's address",
+        "description": "This endpoint is for deleting a customer address. (The main address cannot be deleted!)",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerId"
+          },
+          {
+            "$ref": "#/components/parameters/addressId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddressResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/customers/{customerId}/addresses/types/{type}": {
+      "get": {
+        "tags": [
+          "addressType"
+        ],
+        "summary": "Retrieve single address of a customer by type",
+        "description": "This endpoint can be used to retrieve a single address of a customer by type: main, billing or delivery",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerId"
+          },
+          {
+            "$ref": "#/components/parameters/addressType"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddressResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/customers/{customerId}/addresses/{addressId}/types/{type}": {
+      "put": {
+        "tags": [
+          "addressType"
+        ],
+        "summary": "Set address of a customer to a type",
+        "description": "This endpoint can be used to set a single address of a customer as the default billing or delivery address",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerId"
+          },
+          {
+            "$ref": "#/components/parameters/addressId"
+          },
+          {
+            "$ref": "#/components/parameters/addressTypeChange"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "addressType"
+        ],
+        "summary": "Remove type from customer address",
+        "description": "This endpoint can be used to unset an address of a customer as the default billing or delivery address. The default billing/delivery address will become the main address.",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerId"
+          },
+          {
+            "$ref": "#/components/parameters/addressId"
+          },
+          {
+            "$ref": "#/components/parameters/addressType"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/customers/{customerId}/cards": {
+      "get": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Retrieve all cards of a customer",
+        "description": "This endpoint can be used to retrieve all cards of a customer.",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Card"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "add a card to a customer",
+        "description": "This endpoint can be used to create a card for customer.",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardCreateBody"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/CardCreateResult"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/customers/{customerId}/groups": {
+      "get": {
+        "tags": [
+          "groups"
+        ],
+        "summary": "Retrieve all groups of a customer",
+        "description": "This endpoint can be used to retrieve all groups of a customer.",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CustomerGroup"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "groups"
+        ],
+        "summary": "Add a group to a customer",
+        "description": "This endpoint can be used to add an extra group to a customer, or replace the main group.",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerGroup"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/customers/{customerId}/groups/{groupId}": {
+      "delete": {
+        "tags": [
+          "groups"
+        ],
+        "summary": "remove a group from a customer",
+        "description": "This endpoint can be used to remove a group of a customer. The main group cannot be removed",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerId"
+          },
+          {
+            "$ref": "#/components/parameters/groupId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/customers/{customerId}/interests": {
+      "get": {
+        "tags": [
+          "interests"
+        ],
+        "summary": "Retrieve all interests of a customer",
+        "description": "This endpoint can be used to retrieve all interests of a customer.",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerInterests"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/customers/{customerId}/interests/{interestId}": {
+      "put": {
+        "tags": [
+          "interests"
+        ],
+        "summary": "update an interests of a customer",
+        "description": "This endpoint can be used (un)check an interest of a customer.",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerId"
+          },
+          {
+            "$ref": "#/components/parameters/interestId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerInterest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/export/customers": {
+      "get": {
+        "tags": [
+          "export"
+        ],
+        "summary": "retrieve customers updated since a certain date",
+        "description": "This endpoint can be used to export all customer data.",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/queryCount"
+          },
+          {
+            "$ref": "#/components/parameters/queryPage"
+          },
+          {
+            "$ref": "#/components/parameters/queryFields"
+          },
+          {
+            "$ref": "#/components/parameters/queryDateFrom"
+          },
+          {
+            "$ref": "#/components/parameters/queryDateExportedSince"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CustomerExport"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/export/deletedCustomers": {
+      "get": {
+        "tags": [
+          "export"
+        ],
+        "summary": "retrieve deleted customers updated since a certain date",
+        "description": "This endpoint can be used to export all deleted customer data.",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/queryCount"
+          },
+          {
+            "$ref": "#/components/parameters/queryPage"
+          },
+          {
+            "$ref": "#/components/parameters/queryDateFrom"
+          },
+          {
+            "$ref": "#/components/parameters/queryDateExportedSince"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeletedCustomerExport"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/subscriptions": {
+      "post": {
+        "summary": "subscribe a customer for email",
+        "description": "Use this endpoint for updating the newsletter notification of a customer<br/> When a customer wants to subscribe for newsletter notification, use this endpoint with the hash sent in the email to the customer",
+        "tags": [
+          "subscriptions"
+        ],
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/queryHash"
+          },
+          {
+            "$ref": "#/components/parameters/sourceId"
+          },
+          {
+            "$ref": "#/components/parameters/tilroyId"
+          }
+        ],
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/Created"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "summary": "unsubscribe a customer for email",
+        "description": "Use this endpoint for updating the newsletter notification of a customer<br/> When a customer wants to unsubscribe for newsletter notification, use this endpoint with the hash sent in the email to the customer",
+        "tags": [
+          "subscriptions"
+        ],
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/queryHash"
+          },
+          {
+            "$ref": "#/components/parameters/sourceId"
+          },
+          {
+            "$ref": "#/components/parameters/tilroyId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/validateemail": {
+      "post": {
+        "summary": "Validates an email address",
+        "description": "Not a free endpoint! Use this endpoint for validation of emailadresses <br/> The results contains the orginal value, if it was valid or not, a score on how certain it is valid, and finally a suggestion 'didYouMean' containing a possible better value",
+        "tags": [
+          "validations"
+        ],
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": []
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/EmailValidationRequest"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/EmailValidationResult"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/validatephonenumber": {
+      "post": {
+        "summary": "Validates a phonenumber",
+        "description": "Use this endpoint for validation of phonenumbers <br/> The results contains the orginal value, if it was valid or not, a score on how certain it is valid, and finally a suggestion 'didYouMean' containing a possible better value",
+        "tags": [
+          "validations"
+        ],
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": []
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/PhonenumberValidationRequest"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PhonenumberValidationResult"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/validatepostalcode": {
+      "post": {
+        "summary": "validate postalcode",
+        "description": "Validate postalcode",
+        "tags": [
+          "validations"
+        ],
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": []
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/PostalCodeRequestBody"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PostalCodeResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/validatevat": {
+      "post": {
+        "summary": "validate VAT number",
+        "description": "Validate VAT number",
+        "tags": [
+          "validations"
+        ],
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": []
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/VatValidationRequest"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/VatValidationResult"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/v1/customers/{customerId}/contacts": {
+      "post": {
+        "tags": [
+          "contacts"
+        ],
+        "summary": "create a contact",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerId"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/CustomerContactCreate"
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/CustomerContactResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "summary": "find one or more contacts of a customers",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerId"
+          },
+          {
+            "$ref": "#/components/parameters/queryFields"
+          },
+          {
+            "$ref": "#/components/parameters/queryCount"
+          },
+          {
+            "$ref": "#/components/parameters/queryPage"
+          },
+          {
+            "$ref": "#/components/parameters/queryCards"
+          },
+          {
+            "$ref": "#/components/parameters/queryAllowDeleted"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CustomerContactSearchResult"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/v1/customers/{customerId}/contacts/{contactId}": {
+      "put": {
+        "tags": [
+          "contacts"
+        ],
+        "summary": "update a contact",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerId"
+          },
+          {
+            "$ref": "#/components/parameters/contactId"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/CustomerContactUpdate"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CustomerContactResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "contacts"
+        ],
+        "summary": "Delete a contact.",
+        "description": "Calling this endpoint will update the active flag to false and set the dateDeleted to the current date and time.",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerId"
+          },
+          {
+            "$ref": "#/components/parameters/contactId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "ok",
+            "content": {}
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/v1/customers/{customerId}/switchmaincontact": {
+      "post": {
+        "tags": [
+          "contacts"
+        ],
+        "summary": "switch the main contact of a customer",
+        "description": "Calling this endpoint will swictch the main contact of a customer, and copy the properties from the contact to the customer.",
+        "security": [
+          {
+            "TilroyApiKey": [],
+            "XApiKey": [],
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/customerId"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/CustomerMainContactSwitch"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CustomerContactResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "authorization": {
+        "name": "Authorization",
+        "in": "header",
+        "description": "Bearer access token for getting/updating customer details (https://swagger.io/docs/specification/authentication/bearer-authentication/)",
+        "example": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "customerId": {
+        "name": "customerId",
+        "in": "path",
+        "required": true,
+        "description": "the tilroyId of the customer",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "contactId": {
+        "name": "contactId",
+        "in": "path",
+        "required": true,
+        "description": "the id of the contact",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "customerIdToKeep": {
+        "name": "customerIdToKeep",
+        "in": "path",
+        "required": true,
+        "description": "the tilroyId of the customer that should be kept",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "addressId": {
+        "name": "addressId",
+        "in": "path",
+        "required": true,
+        "description": "the tilroyId of the address",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "addressType": {
+        "name": "type",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "main",
+            "billing",
+            "delivery"
+          ]
+        }
+      },
+      "addressTypeChange": {
+        "name": "type",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "billing",
+            "delivery"
+          ]
+        }
+      },
+      "groupId": {
+        "name": "groupId",
+        "in": "path",
+        "required": true,
+        "description": "the tilroyId of the group",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "interestId": {
+        "name": "interestId",
+        "in": "path",
+        "required": true,
+        "description": "the tilroyId of the interest",
+        "schema": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "queryFields": {
+        "in": "query",
+        "name": "fields",
+        "schema": {
+          "type": "string"
+        },
+        "description": "Comma-separated list of all fields you want returned in the result. All other fields will be omitted.",
+        "required": false
+      },
+      "queryDateFrom": {
+        "name": "dateFrom",
+        "in": "query",
+        "required": false,
+        "description": "filter results by the date the item was created for export (Deprecated, use dateExportedSince)",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryDateExportedSince": {
+        "name": "dateExportedSince",
+        "in": "query",
+        "required": true,
+        "description": "filter results by the date the item was created for export",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryCount": {
+        "name": "count",
+        "in": "query",
+        "description": "max number of items to be returned (default = 10, max = 100)",
+        "schema": {
+          "type": "string",
+          "default": "10"
+        }
+      },
+      "queryHash": {
+        "name": "hash",
+        "in": "query",
+        "description": "a unique string identifying a customer",
+        "schema": {
+          "type": "string",
+          "example": "35d91262b3c3ec8841b54169588c97f7"
+        }
+      },
+      "sourceId": {
+        "name": "sourceId",
+        "in": "query",
+        "description": "source id of the customer",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "tilroyId": {
+        "name": "tilroyId",
+        "in": "query",
+        "description": "tilroy id of a customer",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryPage": {
+        "name": "page",
+        "in": "query",
+        "description": "page of results to be returned (default = 1)",
+        "schema": {
+          "type": "string",
+          "default": "1"
+        }
+      },
+      "queryCards": {
+        "name": "cards",
+        "in": "query",
+        "description": "customer cards you want to fetch on",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryAllowDeleted": {
+        "name": "allowDeleted",
+        "in": "query",
+        "description": "allow deleted documents to be shown",
+        "schema": {
+          "type": "boolean"
+        }
+      }
+    },
+    "schemas": {
+      "CustomerResponse": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "description": "The tilroy id",
+            "example": "123"
+          },
+          "sourceId": {
+            "type": "string",
+            "description": "External customer id",
+            "example": "321"
+          },
+          "code": {
+            "type": "string",
+            "description": "Customer code",
+            "example": "B10"
+          },
+          "language": {
+            "$ref": "#/components/schemas/Language"
+          },
+          "email": {
+            "maxLength": 100,
+            "type": "string",
+            "description": "Customer email",
+            "example": "john.doe@tilroy.com"
+          },
+          "checkEmail": {
+            "type": "boolean",
+            "description": "whether or not the customer should be asked the next time if the email is correct",
+            "example": true,
+            "default": false
+          },
+          "emailOrderConfirmation": {
+            "maxLength": 100,
+            "type": "string",
+            "example": "jane.doe@tirloy.com"
+          },
+          "gender": {
+            "$ref": "#/components/schemas/Gender"
+          },
+          "title": {
+            "$ref": "#/components/schemas/Title"
+          },
+          "firstName": {
+            "maxLength": 50,
+            "type": "string",
+            "description": "The first name of customer",
+            "example": "John"
+          },
+          "middleName": {
+            "maxLength": 50,
+            "type": "string",
+            "description": "The middle name of customer",
+            "example": ""
+          },
+          "surName": {
+            "maxLength": 50,
+            "type": "string",
+            "description": "The sur name of customer",
+            "example": "Doe"
+          },
+          "shortName": {
+            "maxLength": 100,
+            "type": "string",
+            "description": "Customer short name",
+            "example": "Jo"
+          },
+          "dateOfBirth": {
+            "type": "string",
+            "description": "Customer birth date",
+            "format": "dd/MM/yyyy",
+            "example": "25/01/1990"
+          },
+          "mobileNumber": {
+            "maxLength": 50,
+            "type": "string",
+            "example": "0488/112233"
+          },
+          "company": {
+            "$ref": "#/components/schemas/Company"
+          },
+          "addresses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddressResponse"
+            }
+          },
+          "notifications": {
+            "type": "object",
+            "properties": {
+              "eTicket": {
+                "type": "boolean",
+                "default": false
+              },
+              "newsletter": {
+                "type": "boolean",
+                "default": false
+              },
+              "sms": {
+                "type": "boolean",
+                "default": false
+              },
+              "review": {
+                "type": "boolean",
+                "description": "should the customer receive a review email, when buying a product",
+                "default": true
+              },
+              "mail": {
+                "type": "boolean",
+                "default": false
+              }
+            }
+          },
+          "classification": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "123"
+              },
+              "tilroyId": {
+                "type": "string",
+                "description": "The tilroy id",
+                "example": "321"
+              }
+            }
+          },
+          "dispatchMethod": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "click_collect"
+              },
+              "tilroyId": {
+                "type": "string",
+                "description": "The tilroy id",
+                "example": "123"
+              }
+            }
+          },
+          "group": {
+            "$ref": "#/components/schemas/CustomerGroup",
+            "deprecated": true
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomerGroup"
+            }
+          },
+          "paymentCondition": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "c123"
+              },
+              "tilroyId": {
+                "type": "string",
+                "description": "The tilroy id",
+                "example": "123"
+              }
+            }
+          },
+          "shopCreated": {
+            "$ref": "#/components/schemas/ShopCreated"
+          },
+          "type": {
+            "$ref": "#/components/schemas/CustomerType"
+          },
+          "paymentTypes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "cash"
+                },
+                "blocked": {
+                  "type": "boolean",
+                  "example": true
+                },
+                "tilroyId": {
+                  "type": "string",
+                  "description": "The tilroy id",
+                  "example": "123"
+                }
+              }
+            }
+          },
+          "comments": {
+            "type": "string",
+            "example": "comment"
+          },
+          "cashDiscount": {
+            "type": "object",
+            "properties": {
+              "days": {
+                "type": "integer",
+                "format": "int32",
+                "example": 5
+              },
+              "pct": {
+                "type": "number",
+                "format": "double",
+                "example": 10.5
+              }
+            }
+          },
+          "customFields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field1": {
+                  "type": "string",
+                  "example": "loyal"
+                },
+                "field2": {
+                  "type": "string",
+                  "example": "loyal"
+                },
+                "field3": {
+                  "type": "string",
+                  "example": "loyal"
+                },
+                "field4": {
+                  "type": "string",
+                  "example": "loyal"
+                },
+                "field5": {
+                  "type": "string",
+                  "example": "loyal"
+                },
+                "field6": {
+                  "type": "string",
+                  "example": "loyal"
+                },
+                "field7": {
+                  "type": "string",
+                  "example": "loyal"
+                },
+                "field8": {
+                  "type": "string",
+                  "example": "loyal"
+                },
+                "field9": {
+                  "type": "string",
+                  "example": "loyal"
+                },
+                "field10": {
+                  "type": "string",
+                  "example": "loyal"
+                }
+              }
+            }
+          },
+          "freeText": {
+            "type": "object",
+            "properties": {
+              "logistics": {
+                "maxLength": 1073741823,
+                "type": "string",
+                "description": "Customer free text logistics"
+              },
+              "finance": {
+                "maxLength": 1073741823,
+                "type": "string",
+                "description": "Customer free text finance"
+              },
+              "sales": {
+                "maxLength": 1073741823,
+                "type": "string",
+                "description": "Customer free text sales"
+              }
+            }
+          },
+          "versionInfo": {
+            "type": "object",
+            "properties": {
+              "dateUpdated": {
+                "type": "string",
+                "format": "date-time",
+                "example": "2021-03-09T09:59:56.927Z"
+              },
+              "userUpdated": {
+                "$ref": "#/components/schemas/User"
+              }
+            }
+          },
+          "userCreated": {
+            "$ref": "#/components/schemas/User"
+          }
+        }
+      },
+      "BaseCustomerCreate": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "description": "The tilroy id",
+            "example": "123"
+          },
+          "sourceId": {
+            "type": "string",
+            "description": "External customer id",
+            "example": "321"
+          },
+          "code": {
+            "type": "string",
+            "description": "Customer code",
+            "example": "B10"
+          },
+          "language": {
+            "$ref": "#/components/schemas/Language"
+          },
+          "email": {
+            "maxLength": 100,
+            "type": "string",
+            "description": "Customer email",
+            "example": "john.doe@tilroy.com"
+          },
+          "checkEmail": {
+            "type": "boolean",
+            "description": "whether or not the customer should be asked the next time if the email is correct",
+            "example": true,
+            "default": false
+          },
+          "emailOrderConfirmation": {
+            "maxLength": 100,
+            "type": "string",
+            "example": "jane.doe@tirloy.com"
+          },
+          "gender": {
+            "$ref": "#/components/schemas/Gender"
+          },
+          "title": {
+            "$ref": "#/components/schemas/Title"
+          },
+          "firstName": {
+            "maxLength": 50,
+            "type": "string",
+            "description": "The first name of customer",
+            "example": "John"
+          },
+          "middleName": {
+            "maxLength": 50,
+            "type": "string",
+            "description": "The middle name of customer",
+            "example": ""
+          },
+          "surName": {
+            "maxLength": 50,
+            "type": "string",
+            "description": "The sur name of customer",
+            "example": "Doe"
+          },
+          "shortName": {
+            "maxLength": 100,
+            "type": "string",
+            "description": "Customer short name",
+            "example": "Jo"
+          },
+          "dateOfBirth": {
+            "type": "string",
+            "description": "Customer birth date",
+            "format": "dd/MM/yyyy",
+            "example": "25/01/1990"
+          },
+          "mobileNumber": {
+            "maxLength": 50,
+            "type": "string",
+            "example": "0488/112233"
+          },
+          "company": {
+            "$ref": "#/components/schemas/Company"
+          },
+          "addresses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddressCreate"
+            }
+          },
+          "notifications": {
+            "type": "object",
+            "properties": {
+              "eTicket": {
+                "type": "boolean",
+                "default": false
+              },
+              "newsletter": {
+                "type": "boolean",
+                "default": false
+              },
+              "sms": {
+                "type": "boolean",
+                "default": false
+              },
+              "review": {
+                "type": "boolean",
+                "description": "should the customer receive a review email, when buying a product",
+                "default": true
+              },
+              "mail": {
+                "type": "boolean",
+                "default": false
+              }
+            }
+          },
+          "classification": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "123"
+              },
+              "tilroyId": {
+                "type": "string",
+                "description": "The tilroy id",
+                "example": "321"
+              }
+            }
+          },
+          "dispatchMethod": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "click_collect"
+              },
+              "tilroyId": {
+                "type": "string",
+                "description": "The tilroy id",
+                "example": "123"
+              }
+            }
+          },
+          "group": {
+            "deprecated": true,
+            "description": "Deprecated. Use 'groups' instead.",
+            "$ref": "#/components/schemas/CustomerGroup"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomerGroup"
+            }
+          },
+          "paymentCondition": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "c123"
+              },
+              "tilroyId": {
+                "type": "string",
+                "description": "The tilroy id",
+                "example": "123"
+              }
+            }
+          },
+          "shopCreated": {
+            "$ref": "#/components/schemas/ShopCreated"
+          },
+          "type": {
+            "$ref": "#/components/schemas/CustomerType"
+          },
+          "paymentTypes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "cash"
+                },
+                "blocked": {
+                  "type": "boolean",
+                  "example": true
+                },
+                "tilroyId": {
+                  "type": "string",
+                  "description": "The tilroy id",
+                  "example": "123"
+                }
+              }
+            }
+          },
+          "comments": {
+            "type": "string",
+            "example": "comment"
+          },
+          "cashDiscount": {
+            "type": "object",
+            "properties": {
+              "days": {
+                "type": "integer",
+                "format": "int32",
+                "example": 5
+              },
+              "pct": {
+                "type": "number",
+                "format": "double",
+                "example": 10.5
+              }
+            }
+          },
+          "customFields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field1": {
+                  "type": "string",
+                  "example": "loyal"
+                },
+                "field2": {
+                  "type": "string",
+                  "example": "loyal"
+                },
+                "field3": {
+                  "type": "string",
+                  "example": "loyal"
+                },
+                "field4": {
+                  "type": "string",
+                  "example": "loyal"
+                },
+                "field5": {
+                  "type": "string",
+                  "example": "loyal"
+                },
+                "field6": {
+                  "type": "string",
+                  "example": "loyal"
+                },
+                "field7": {
+                  "type": "string",
+                  "example": "loyal"
+                },
+                "field8": {
+                  "type": "string",
+                  "example": "loyal"
+                },
+                "field9": {
+                  "type": "string",
+                  "example": "loyal"
+                },
+                "field10": {
+                  "type": "string",
+                  "example": "loyal"
+                }
+              }
+            }
+          },
+          "freeText": {
+            "type": "object",
+            "properties": {
+              "logistics": {
+                "maxLength": 1073741823,
+                "type": "string",
+                "description": "Customer free text logistics"
+              },
+              "finance": {
+                "maxLength": 1073741823,
+                "type": "string",
+                "description": "Customer free text finance"
+              },
+              "sales": {
+                "maxLength": 1073741823,
+                "type": "string",
+                "description": "Customer free text sales"
+              }
+            }
+          },
+          "versionInfo": {
+            "type": "object",
+            "properties": {
+              "dateUpdated": {
+                "type": "string",
+                "format": "date-time",
+                "example": "2021-03-09T09:59:56.927Z"
+              }
+            }
+          },
+          "lifeStatus": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          },
+          "dateCreated": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "userCreated": {
+            "$ref": "#/components/schemas/UserCreate"
+          }
+        }
+      },
+      "CustomerCreate": {
+        "required": [
+          "language",
+          "shopCreated"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseCustomerCreate"
+          }
+        ]
+      },
+      "CustomerUpdate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseCustomerCreate"
+          }
+        ]
+      },
+      "DeletedCustomerExport": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "number"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "customerCode": {
+            "type": "string"
+          },
+          "dateExported": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CustomerExport": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "integer",
+            "example": 210601
+          },
+          "customerCode": {
+            "type": "string",
+            "example": "1820"
+          },
+          "firstName": {
+            "type": "string",
+            "example": "Jessy"
+          },
+          "surName": {
+            "type": "string",
+            "example": "Hope"
+          },
+          "companyName": {
+            "type": "string",
+            "example": ""
+          },
+          "middleName": {
+            "type": "string",
+            "example": ""
+          },
+          "address1": {
+            "type": "string",
+            "example": "steet 1"
+          },
+          "address2": {
+            "type": "string",
+            "example": ""
+          },
+          "address3": {
+            "type": "string",
+            "example": ""
+          },
+          "address4": {
+            "type": "string",
+            "example": ""
+          },
+          "address5": {
+            "type": "string",
+            "example": ""
+          },
+          "houseNumber": {
+            "type": "string",
+            "example": "90"
+          },
+          "box": {
+            "type": "string",
+            "example": ""
+          },
+          "postalCode": {
+            "type": "string",
+            "example": "6708LZ"
+          },
+          "city": {
+            "type": "string",
+            "example": "New York"
+          },
+          "county": {
+            "type": "string",
+            "example": ""
+          },
+          "country": {
+            "type": "string",
+            "example": "NL"
+          },
+          "source": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "mergedId": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "active": {
+            "type": "boolean",
+            "example": true
+          },
+          "language": {
+            "type": "string",
+            "example": "NL"
+          },
+          "onAccount": {
+            "type": "boolean",
+            "example": false
+          },
+          "cardNumber": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "phoneNumberHome": {
+            "type": "string",
+            "example": "659881425"
+          },
+          "phoneNumberWork": {
+            "type": "string",
+            "nullable": true,
+            "example": "96655822"
+          },
+          "email": {
+            "type": "string",
+            "example": "jhoney0@live.com"
+          },
+          "emailOrderConfirmation": {
+            "type": "string",
+            "example": "jhoney0@live.com"
+          },
+          "jobTitle": {
+            "type": "string",
+            "example": "manager"
+          },
+          "department": {
+            "type": "string",
+            "example": "sales"
+          },
+          "doNotEmail": {
+            "type": "boolean",
+            "example": true
+          },
+          "doNotCall": {
+            "type": "boolean",
+            "example": true
+          },
+          "doNotMail": {
+            "type": "boolean",
+            "example": true
+          },
+          "onAccountBlocked": {
+            "type": "boolean",
+            "example": false
+          },
+          "sourceId": {
+            "type": "string",
+            "nullable": true,
+            "example": "3658998"
+          },
+          "barcode": {
+            "type": "string",
+            "nullable": true,
+            "example": "20555000545"
+          },
+          "comments": {
+            "type": "string",
+            "example": ""
+          },
+          "commentsPopup": {
+            "type": "string",
+            "example": ""
+          },
+          "dateOfBirth": {
+            "type": "string",
+            "example": "12/12/2000"
+          },
+          "mobileNumber": {
+            "type": "string",
+            "example": "6985255"
+          },
+          "fax": {
+            "type": "string",
+            "nullable": true,
+            "example": "6569065665"
+          },
+          "shortName": {
+            "type": "string",
+            "example": ""
+          },
+          "purchaseReferenceRequired": {
+            "type": "boolean",
+            "example": false
+          },
+          "freeTextLogistics": {
+            "type": "string",
+            "example": ""
+          },
+          "freeTextFinance": {
+            "type": "string",
+            "example": ""
+          },
+          "freeTextSales": {
+            "type": "string",
+            "example": "+"
+          },
+          "invoiceMethod": {
+            "type": "object",
+            "properties": {
+              "idTilroy": {
+                "type": "string",
+                "example": "419"
+              },
+              "code": {
+                "type": "string",
+                "example": "Direct"
+              },
+              "description": {
+                "type": "string",
+                "example": "Direct"
+              },
+              "isPeriodicInvoicing": {
+                "type": "boolean",
+                "example": false
+              }
+            }
+          },
+          "vatType": {
+            "type": "object",
+            "properties": {
+              "idTilroy": {
+                "type": "string",
+                "example": "788"
+              },
+              "code": {
+                "type": "string",
+                "example": "BTW Plichtig"
+              },
+              "description": {
+                "type": "string",
+                "example": "BTW Plichtig"
+              },
+              "vatExempt": {
+                "type": "boolean",
+                "example": false
+              }
+            }
+          },
+          "paymentCondition": {
+            "type": "object",
+            "properties": {
+              "idTilroy": {
+                "type": "string",
+                "example": "198"
+              },
+              "code": {
+                "type": "string",
+                "example": "direct"
+              },
+              "description": {
+                "type": "string",
+                "example": "Direct"
+              },
+              "endOfMonth": {
+                "type": "boolean",
+                "example": false
+              },
+              "nofDays": {
+                "type": "integer",
+                "example": 0
+              }
+            }
+          },
+          "cashDiscountDays": {
+            "type": "integer",
+            "example": 0
+          },
+          "cashDiscountPct": {
+            "type": "number",
+            "format": "float",
+            "example": 0
+          },
+          "defaultBillingAddress": {
+            "type": "boolean",
+            "example": true
+          },
+          "defaultDeliveryAddress": {
+            "type": "boolean",
+            "example": true
+          },
+          "customField1": {
+            "type": "string",
+            "example": ""
+          },
+          "customField2": {
+            "type": "string",
+            "example": ""
+          },
+          "customField3": {
+            "type": "string",
+            "example": ""
+          },
+          "customField4": {
+            "type": "string",
+            "example": ""
+          },
+          "customField5": {
+            "type": "string",
+            "example": ""
+          },
+          "customField6": {
+            "type": "string",
+            "example": ""
+          },
+          "customField7": {
+            "type": "string",
+            "example": ""
+          },
+          "customField8": {
+            "type": "string",
+            "example": ""
+          },
+          "customField9": {
+            "type": "string",
+            "example": ""
+          },
+          "customField10": {
+            "type": "string",
+            "example": ""
+          },
+          "bu": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "example": 2820
+                },
+                "idSource": {
+                  "type": "string",
+                  "nullable": true,
+                  "example": null
+                },
+                "doMail": {
+                  "type": "boolean",
+                  "example": false
+                },
+                "doEmail": {
+                  "type": "boolean",
+                  "example": false
+                },
+                "doSms": {
+                  "type": "boolean",
+                  "example": false
+                },
+                "doReview": {
+                  "type": "boolean",
+                  "example": true
+                },
+                "cards": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "memberFrom": {
+                  "type": "string",
+                  "format": "date-time",
+                  "example": "2024-09-18T22:23:01.730Z"
+                },
+                "shopCreated": {
+                  "type": "object",
+                  "properties": {
+                    "tilroyId": {
+                      "type": "integer",
+                      "example": 32680
+                    },
+                    "sourceId": {
+                      "type": "string",
+                      "nullable": true,
+                      "example": null
+                    },
+                    "name": {
+                      "type": "string",
+                      "example": "Brussel"
+                    },
+                    "number": {
+                      "type": "integer",
+                      "example": 1
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "title": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "Mr"
+              },
+              "description": {
+                "type": "string",
+                "example": "Meneer"
+              }
+            }
+          },
+          "gender": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "m"
+              },
+              "description": {
+                "type": "string",
+                "example": ""
+              }
+            }
+          },
+          "customerGroup": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "default_customer"
+              },
+              "description": {
+                "type": "string",
+                "example": "Standaard klant"
+              },
+              "expiryDate": {
+                "type": "string",
+                "nullable": true,
+                "example": null
+              }
+            }
+          },
+          "extraCustomerGroups": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "customerType": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "Consument"
+              },
+              "description": {
+                "type": "string",
+                "example": "Consument"
+              }
+            }
+          },
+          "customerClassification": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "B2C"
+              },
+              "description": {
+                "type": "string",
+                "example": "B2C"
+              }
+            }
+          },
+          "addresses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "VATNumber": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "requiresInvoice": {
+            "type": "boolean",
+            "example": false
+          },
+          "shopCreated": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "integer",
+                "example": 32680
+              },
+              "sourceId": {
+                "type": "string",
+                "nullable": true,
+                "example": null
+              },
+              "name": {
+                "type": "string",
+                "example": "Brussel"
+              },
+              "number": {
+                "type": "integer",
+                "example": 1
+              }
+            }
+          },
+          "eticket": {
+            "type": "boolean",
+            "example": true
+          },
+          "dispatchMethod": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "agent": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "internalSalesperson": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "paymentTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dateCreated": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2024-09-18T22:23:01.720Z"
+          },
+          "dateUpdated": {
+            "type": "string",
+            "example": ""
+          },
+          "dateDeleted": {
+            "type": "string",
+            "example": ""
+          },
+          "userCreated": {
+            "$ref": "#/components/schemas/User"
+          },
+          "userUpdated": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "userDeleted": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "creditLimit": {
+            "type": "number",
+            "format": "float",
+            "example": 0
+          },
+          "cards": {
+            "type": "array",
+            "$ref": "#/components/schemas/Card"
+          },
+          "dateExported": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Title": {
+        "required": [
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "description": "The tilroy id",
+            "example": "123"
+          },
+          "code": {
+            "maxLength": 20,
+            "type": "string",
+            "description": "Title code",
+            "example": "321"
+          }
+        }
+      },
+      "Gender": {
+        "required": [
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "description": "The tilroy id",
+            "example": "123"
+          },
+          "code": {
+            "maxLength": 1,
+            "type": "string",
+            "description": "Gender code - 4 options, 'C' can be used for 'Company'",
+            "example": "M",
+            "enum": [
+              "M",
+              "V",
+              "X",
+              "C"
+            ]
+          }
+        }
+      },
+      "CustomerGroup": {
+        "required": [
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "description": "The tilroy id",
+            "example": "1234"
+          },
+          "code": {
+            "maxLength": 50,
+            "type": "string",
+            "description": "Customer group code",
+            "example": "VIP"
+          },
+          "isDefault": {
+            "type": "boolean",
+            "description": "if this group is the customers default or extra CustomerGroup",
+            "default": true
+          }
+        }
+      },
+      "CustomerType": {
+        "required": [
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "description": "The tilroy id",
+            "example": "123"
+          },
+          "code": {
+            "maxLength": 20,
+            "type": "string",
+            "description": "Customer type code",
+            "example": "321"
+          }
+        }
+      },
+      "Country": {
+        "required": [
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "description": "The tilroy id",
+            "example": "123"
+          },
+          "code": {
+            "maxLength": 20,
+            "type": "string",
+            "description": "ISO 3166-1 alpha-2 country code",
+            "example": "NL"
+          }
+        }
+      },
+      "BaseShop": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "description": "The tilroy id",
+            "example": "123"
+          },
+          "number": {
+            "type": "integer",
+            "format": "int32",
+            "example": 100
+          },
+          "sourceId": {
+            "maxLength": 50,
+            "type": "string",
+            "description": "Shop external id",
+            "example": "321"
+          }
+        }
+      },
+      "ShopCreated": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseShop"
+          }
+        ],
+        "required": [
+          "sourceId",
+          "tilroyId"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "maxLength": 50,
+            "type": "string",
+            "description": "Shop name",
+            "example": "Tilroy"
+          }
+        }
+      },
+      "VatType": {
+        "required": [
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "description": "The tilroy id",
+            "example": "123"
+          },
+          "code": {
+            "maxLength": 20,
+            "type": "string",
+            "description": "Vat type code",
+            "example": "BE21"
+          }
+        }
+      },
+      "InvoiceMethod": {
+        "required": [
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "description": "The tilroy id",
+            "example": "123"
+          },
+          "code": {
+            "maxLength": 20,
+            "type": "string",
+            "description": "Invoice method code",
+            "example": "321"
+          }
+        }
+      },
+      "Company": {
+        "type": "object",
+        "description": "company info of the customer. Can be set to null when updating the customer.",
+        "properties": {
+          "name": {
+            "maxLength": 100,
+            "type": "string",
+            "description": "The company name of customer",
+            "example": "Tilroy"
+          },
+          "vatNumber": {
+            "type": "string",
+            "example": "BE0648822409"
+          },
+          "department": {
+            "type": "string",
+            "example": "Retail"
+          },
+          "needInvoice": {
+            "type": "boolean",
+            "example": true
+          },
+          "vatType": {
+            "$ref": "#/components/schemas/VatType"
+          },
+          "invoiceMethod": {
+            "$ref": "#/components/schemas/InvoiceMethod"
+          },
+          "agent": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "description": "The tilroy id",
+                "example": "123"
+              },
+              "sourceId": {
+                "type": "string",
+                "example": "321"
+              },
+              "login": {
+                "type": "string",
+                "example": "tilroy"
+              }
+            }
+          },
+          "internalSalesperson": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "description": "The tilroy id",
+                "example": "123"
+              },
+              "sourceId": {
+                "type": "string",
+                "example": "321"
+              },
+              "login": {
+                "type": "string",
+                "example": "John"
+              }
+            }
+          },
+          "creditLimit": {
+            "type": "number"
+          }
+        }
+      },
+      "Error": {
+        "required": [
+          "code",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "represents string representation of status code"
+          },
+          "message": {
+            "type": "string",
+            "description": "contains information on resource not found"
+          }
+        }
+      },
+      "BaseAddress": {
+        "type": "object",
+        "properties": {
+          "sourceId": {
+            "type": "string"
+          },
+          "address1": {
+            "maxLength": 500,
+            "type": "string",
+            "description": "line 1 of address",
+            "example": "dijkstraat"
+          },
+          "address2": {
+            "maxLength": 500,
+            "type": "string",
+            "description": "line 2 of address"
+          },
+          "address3": {
+            "maxLength": 500,
+            "type": "string",
+            "description": "line 3 of address"
+          },
+          "address4": {
+            "maxLength": 500,
+            "type": "string",
+            "description": "line 4 of address"
+          },
+          "address5": {
+            "maxLength": 500,
+            "type": "string",
+            "description": "line 5 of address"
+          },
+          "postalCode": {
+            "maxLength": 50,
+            "type": "string",
+            "description": "The postal code of customer",
+            "example": "2630"
+          },
+          "city": {
+            "maxLength": 50,
+            "type": "string",
+            "description": "The postal code of customer",
+            "example": "Aartselaar"
+          },
+          "county": {
+            "maxLength": 50,
+            "type": "string",
+            "description": "The county of customer"
+          },
+          "companyName": {
+            "maxLength": 100,
+            "type": "string",
+            "description": "The company name of customer",
+            "example": "Tilroy"
+          },
+          "firstName": {
+            "maxLength": 50,
+            "type": "string",
+            "description": "The first name of customer",
+            "example": "John"
+          },
+          "middleName": {
+            "maxLength": 50,
+            "type": "string",
+            "description": "The middle name of customer"
+          },
+          "surName": {
+            "maxLength": 50,
+            "type": "string",
+            "description": "The sur name of customer",
+            "example": "Doe"
+          },
+          "houseNumber": {
+            "maxLength": 10,
+            "type": "string",
+            "description": "The house number of customer",
+            "example": "6"
+          },
+          "box": {
+            "maxLength": 20,
+            "type": "string",
+            "description": "The box of customer",
+            "example": "2"
+          },
+          "phoneNumber": {
+            "type": "string",
+            "example": "015/223355"
+          },
+          "title": {
+            "$ref": "#/components/schemas/Title"
+          },
+          "gender": {
+            "$ref": "#/components/schemas/Gender"
+          },
+          "country": {
+            "$ref": "#/components/schemas/Country"
+          }
+        }
+      },
+      "AddressResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseAddress"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "description": "The tilroy id",
+                "example": "123"
+              },
+              "customer": {
+                "type": "object",
+                "properties": {
+                  "tilroyId": {
+                    "type": "string",
+                    "example": "123"
+                  }
+                }
+              },
+              "mainAddress": {
+                "type": "boolean"
+              },
+              "defaultBillingAddress": {
+                "type": "boolean",
+                "example": true
+              },
+              "defaultDeliveryAddress": {
+                "type": "boolean",
+                "example": true
+              }
+            }
+          }
+        ]
+      },
+      "AddressCreate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseAddress"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "description": "The tilroy id",
+                "example": "123"
+              },
+              "customer": {
+                "type": "object",
+                "properties": {
+                  "tilroyId": {
+                    "type": "string",
+                    "example": "123"
+                  }
+                }
+              },
+              "mainAddress": {
+                "type": "boolean",
+                "description": "this value is required when trying to add a new main address, otherwise the first address in the array will be implied as an update to the main address"
+              },
+              "defaultBillingAddress": {
+                "type": "boolean",
+                "example": true
+              },
+              "defaultDeliveryAddress": {
+                "type": "boolean",
+                "example": true
+              }
+            }
+          }
+        ]
+      },
+      "AddressUpdateRequest": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseAddress"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "description": "The tilroy id",
+                "example": "123"
+              },
+              "mainAddress": {
+                "type": "boolean",
+                "description": "Whether this is the main address for the customer"
+              },
+              "defaultBillingAddress": {
+                "type": "boolean",
+                "description": "Whether this is the default billing address for the customer",
+                "example": true
+              },
+              "defaultDeliveryAddress": {
+                "type": "boolean",
+                "description": "Whether this is the default delivery address for the customer",
+                "example": true
+              }
+            }
+          }
+        ]
+      },
+      "CustomerInterest": {
+        "type": "object",
+        "properties": {
+          "customer": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "description": "the id of the customer",
+                "example": 1
+              }
+            }
+          },
+          "interest": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "description": "the id of the interest",
+                "example": 2
+              },
+              "code": {
+                "type": "string",
+                "description": "the code of the interest",
+                "example": "kitchen"
+              }
+            }
+          },
+          "checked": {
+            "type": "boolean",
+            "description": "whether or not a customer is interested in the topic",
+            "default": false
+          }
+        }
+      },
+      "CustomerInterests": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/CustomerInterest"
+        }
+      },
+      "Language": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "description": "The tilroy id",
+            "example": "123"
+          },
+          "code": {
+            "type": "string",
+            "description": "language code",
+            "enum": [
+              "EN",
+              "NL",
+              "FR",
+              "DE"
+            ],
+            "example": "NL"
+          }
+        }
+      },
+      "EmailValidationRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "description": "The email to validate",
+            "type": "string",
+            "example": "john.doe@tilroy.com"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "PhonenumberValidationRequest": {
+        "type": "object",
+        "properties": {
+          "phonenumber": {
+            "description": "The phonenumber to validate",
+            "type": "string",
+            "example": "015223355"
+          },
+          "options": {
+            "type": "object",
+            "properties": {
+              "countryCode": {
+                "type": "string",
+                "description": "ISO 3166-1 alpha-2 country code",
+                "example": "BE"
+              }
+            }
+          }
+        },
+        "required": [
+          "phonenumber"
+        ]
+      },
+      "PostalCodeRequest": {
+        "type": "object",
+        "properties": {
+          "postalcode": {
+            "description": "The postalcode to validate",
+            "type": "string",
+            "example": "2000AA"
+          },
+          "options": {
+            "type": "object",
+            "properties": {
+              "countryCode": {
+                "type": "string",
+                "description": "ISO 3166-1 alpha-2 country code (defaults to BE)",
+                "example": "NL"
+              },
+              "houseNr": {
+                "type": "number",
+                "description": "required for validations of NL",
+                "example": 1
+              }
+            }
+          }
+        },
+        "required": [
+          "postalcode"
+        ]
+      },
+      "VatValidationRequest": {
+        "type": "object",
+        "properties": {
+          "vat": {
+            "description": "The VAT number to validate",
+            "type": "string",
+            "example": "BE0648822409"
+          },
+          "options": {
+            "type": "object",
+            "properties": {
+              "countryCode": {
+                "type": "string",
+                "description": "ISO 3166-1 alpha-2 country code (defaults to BE)",
+                "example": "BE"
+              }
+            }
+          }
+        },
+        "required": [
+          "vat"
+        ]
+      },
+      "EmailValidationResult": {
+        "description": "contains the result of validating an emailaddress",
+        "type": "object",
+        "required": [
+          "verdict",
+          "score"
+        ],
+        "properties": {
+          "email": {
+            "description": "The email to validate",
+            "type": "string",
+            "example": "john.doe@tilroy.com"
+          },
+          "verdict": {
+            "description": "The verdict of the validation",
+            "type": "string",
+            "enum": [
+              "Valid",
+              "Risky",
+              "Invalid"
+            ]
+          },
+          "score": {
+            "description": "A numeric score",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "didYouMean": {
+            "description": "A suggestion to use if miss-typed the domain name",
+            "type": "string",
+            "example": "tilroy.be"
+          }
+        }
+      },
+      "PhonenumberValidationResult": {
+        "description": "contains the result of validating a phonenumber",
+        "type": "object",
+        "required": [
+          "verdict",
+          "score"
+        ],
+        "properties": {
+          "phonenumber": {
+            "description": "The phonenumber to validate",
+            "type": "string",
+            "example": "015/223355"
+          },
+          "verdict": {
+            "description": "The verdict of the validation",
+            "type": "string",
+            "enum": [
+              "Valid",
+              "Invalid"
+            ],
+            "example": "Valid"
+          },
+          "score": {
+            "description": "A numeric score",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "example": 1
+          },
+          "didYouMean": {
+            "description": "A suggestion to use: the phonenumber formatted as national number",
+            "type": "string"
+          }
+        }
+      },
+      "PostalCodeResult": {
+        "type": "object",
+        "properties": {
+          "countrycode": {
+            "type": "string",
+            "example": "BE"
+          },
+          "postalcode": {
+            "type": "string",
+            "example": "2630"
+          },
+          "label": {
+            "type": "string",
+            "example": "label"
+          },
+          "city": {
+            "type": "string",
+            "example": "Aartselaar"
+          },
+          "address": {
+            "type": "string",
+            "example": "Dijkstraat"
+          },
+          "address2": {
+            "type": "string"
+          },
+          "address3": {
+            "type": "string"
+          },
+          "address4": {
+            "type": "string"
+          },
+          "address5": {
+            "type": "string"
+          },
+          "county": {
+            "type": "string"
+          },
+          "housenr": {
+            "type": "string",
+            "example": "6"
+          },
+          "refinement": {
+            "type": "string"
+          },
+          "refine": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "VatValidationResult": {
+        "description": "contains the result of validating a VAT number",
+        "type": "object",
+        "required": [
+          "verdict"
+        ],
+        "properties": {
+          "vat": {
+            "description": "The VAT to validate",
+            "type": "string",
+            "example": "BE0648822409"
+          },
+          "verdict": {
+            "description": "The verdict of the validation",
+            "type": "string",
+            "enum": [
+              "Valid",
+              "Invalid"
+            ],
+            "example": "Valid"
+          },
+          "didYouMean": {
+            "description": "A suggestion to use: the vat number formatted",
+            "type": "string"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "description": "The tilroy id",
+            "example": "123"
+          },
+          "firstName": {
+            "type": "string",
+            "description": "The first name of the user",
+            "example": "John"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "The last name of the user",
+            "example": "Doe"
+          },
+          "email": {
+            "type": "string",
+            "description": "The email of the user",
+            "example": "john.doe@tilroy.com"
+          }
+        }
+      },
+      "UserCreate": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "login": {
+            "type": "string"
+          }
+        }
+      },
+      "CustomerContactResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CustomerContactRequest"
+          }
+        ],
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "example": "341"
+          },
+          "userDeleted": {
+            "$ref": "#/components/schemas/User"
+          },
+          "userCreated": {
+            "$ref": "#/components/schemas/User"
+          },
+          "userUpdated": {
+            "$ref": "#/components/schemas/User"
+          }
+        }
+      },
+      "CustomerContactRequest": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "example": "John"
+          },
+          "lastName": {
+            "type": "string",
+            "example": "Doe"
+          },
+          "sourceId": {
+            "type": "string",
+            "example": "4562"
+          },
+          "cards": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Card"
+            }
+          },
+          "phone": {
+            "type": "string",
+            "example": "031244585"
+          },
+          "mobilePhone": {
+            "type": "string",
+            "example": "0488775544"
+          },
+          "email": {
+            "type": "string",
+            "example": "someemail@mail.some"
+          },
+          "canAddAddress": {
+            "type": "boolean",
+            "example": true
+          },
+          "isAdmin": {
+            "type": "boolean",
+            "example": true
+          },
+          "identityCard": {
+            "type": "string",
+            "example": "1"
+          },
+          "title": {
+            "type": "object",
+            "properties": {
+              "gender": {
+                "type": "object",
+                "properties": {
+                  "tilroyId": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  }
+                }
+              },
+              "tilroyId": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string"
+              }
+            }
+          },
+          "birthDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "mainContact": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CustomerContactUpdateRequest": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CustomerContactRequest"
+          }
+        ],
+        "properties": {
+          "userUpdated": {
+            "$ref": "#/components/schemas/User"
+          },
+          "tilroyId": {
+            "type": "string",
+            "example": "341"
+          }
+        }
+      },
+      "CustomerContactCreateRequest": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CustomerContactRequest"
+          }
+        ],
+        "properties": {
+          "userCreated": {
+            "$ref": "#/components/schemas/User"
+          }
+        }
+      },
+      "CustomerContact": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CustomerContactRequest"
+          }
+        ],
+        "type": "object",
+        "properties": {
+          "dateCreated": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2022-07-21T17:32:28Z"
+          },
+          "dateUpdated": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2022-07-21T17:32:28Z"
+          },
+          "dateDeleted": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2022-07-21T17:32:28Z"
+          }
+        }
+      },
+      "SwitchMainContactRequest": {
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "example": "341"
+          },
+          "userUpdated": {
+            "$ref": "#/components/schemas/User"
+          }
+        }
+      },
+      "title": {
+        "type": "object",
+        "properties": {
+          "sortOrder": {
+            "type": "number",
+            "example": "1"
+          },
+          "active": {
+            "type": "boolean",
+            "example": true
+          },
+          "descriptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/description"
+            }
+          },
+          "gender": {
+            "$ref": "#/components/schemas/gender"
+          }
+        }
+      },
+      "gender": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "number",
+            "example": "1"
+          },
+          "code": {
+            "type": "number",
+            "example": "code"
+          },
+          "descriptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/description"
+            }
+          }
+        }
+      },
+      "description": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "number",
+            "example": "1"
+          },
+          "code": {
+            "type": "string",
+            "example": "code"
+          },
+          "description": {
+            "type": "string",
+            "example": "description"
+          }
+        }
+      },
+      "BaseCard": {
+        "type": "object",
+        "properties": {
+          "card": {
+            "type": "string",
+            "example": "CUS-10003658"
+          },
+          "isDefault": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "CardCreateBody": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseCard"
+          }
+        ],
+        "properties": {
+          "shop": {
+            "$ref": "#/components/schemas/BaseShop"
+          }
+        },
+        "required": [
+          "card"
+        ]
+      },
+      "Card": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseCard"
+          }
+        ],
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "example": "341"
+          },
+          "businessUnit": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "1"
+              }
+            }
+          }
+        }
+      },
+      "MergeBody": {
+        "description": "contains the information of the customers to be merged with the main customer",
+        "type": "object",
+        "required": [
+          "customersToMerge"
+        ],
+        "properties": {
+          "customersToMerge": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tilroyId": {
+                  "type": "string",
+                  "example": "123"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "requestBodies": {
+      "EmailValidationRequest": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/EmailValidationRequest"
+            }
+          }
+        },
+        "required": true
+      },
+      "PhonenumberValidationRequest": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PhonenumberValidationRequest"
+            }
+          }
+        },
+        "required": true
+      },
+      "PostalCodeRequestBody": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PostalCodeRequest"
+            }
+          }
+        }
+      },
+      "VatValidationRequest": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/VatValidationRequest"
+            }
+          }
+        },
+        "required": true
+      },
+      "CustomerContactCreate": {
+        "description": "The CustomerContact JSON in the body of the request or response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CustomerContactCreateRequest"
+            }
+          }
+        },
+        "required": true
+      },
+      "CustomerContactUpdate": {
+        "description": "The CustomerContact JSON in the body of the request or response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CustomerContactUpdateRequest"
+            }
+          }
+        },
+        "required": true
+      },
+      "CustomerMainContactSwitch": {
+        "description": "The Main CustomerContact JSON in the body of the request or response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SwitchMainContactRequest"
+            }
+          }
+        },
+        "required": true
+      }
+    },
+    "responses": {
+      "Created": {
+        "description": "201: Created"
+      },
+      "Ok": {
+        "description": "200: Ok"
+      },
+      "BadRequest": {
+        "description": "400: Bad Request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "500: Internal Server Error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "404: Not Found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "403: Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "401: Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "CardCreateResult": {
+        "description": "The result of the card creation",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Card"
+            }
+          }
+        }
+      },
+      "EmailValidationResult": {
+        "description": "The result of the validation",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/EmailValidationResult"
+            }
+          }
+        }
+      },
+      "PhonenumberValidationResult": {
+        "description": "The result of the validation",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PhonenumberValidationResult"
+            }
+          }
+        }
+      },
+      "PostalCodeResponse": {
+        "description": "The result of the postalcodeservice",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PostalCodeResult"
+            }
+          }
+        }
+      },
+      "VatValidationResult": {
+        "description": "The result of the validation",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/VatValidationResult"
+            }
+          }
+        }
+      },
+      "CustomerContactResponse": {
+        "description": "ok",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CustomerContactResponse"
+            }
+          }
+        }
+      },
+      "CustomerContactSearchResult": {
+        "description": "ok",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/CustomerContactResponse"
+              }
+            }
+          }
+        }
+      }
+    },
+    "headers": {
+      "X-Paging-ItemsPerPage": {
+        "description": "number of max items returned per page.",
+        "schema": {
+          "type": "number"
+        }
+      },
+      "X-Paging-ItemCount": {
+        "description": "total number of items over all pages.",
+        "schema": {
+          "type": "number"
+        }
+      },
+      "X-Paging-PageCount": {
+        "description": "total number of pages.",
+        "schema": {
+          "type": "number"
+        }
+      },
+      "X-Paging-CurrentPage": {
+        "description": "number of the current page.",
+        "schema": {
+          "type": "number"
+        }
+      },
+      "Link-JSON": {
+        "description": "JSON version of the Link header.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Link": {
+        "description": "csv of first/prev/page/next/last links.",
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "securitySchemes": {
+      "TilroyApiKey": {
+        "type": "apiKey",
+        "description": "The API key to identify the tenant",
+        "name": "Tilroy-Api-Key",
+        "in": "header"
+      },
+      "XApiKey": {
+        "type": "apiKey",
+        "description": "The API key of AWS to identify who is performing the requests",
+        "name": "x-api-key",
+        "in": "header"
+      },
+      "Authorization": {
+        "type": "apiKey",
+        "name": "Authorization",
+        "in": "header",
+        "description": "Bearer access token for getting/updating customer details (https://swagger.io/docs/specification/authentication/bearer-authentication/)"
+      }
+    }
+  }
+}

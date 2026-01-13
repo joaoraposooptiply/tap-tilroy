@@ -1,0 +1,635 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Delivery API",
+    "description": "Delivery API",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.tilroy.com/deliveryapi/production"
+    }
+  ],
+  "paths": {
+    "/getdeliveryservices": {
+      "post": {
+        "tags": [
+          "Delivery"
+        ],
+        "summary": "Get Delivery Services",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/xapikey"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/DeliveryService"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DeliveryServices"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/getdeliverydates": {
+      "post": {
+        "tags": [
+          "Delivery"
+        ],
+        "summary": "Get Delivery Dates",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/xapikey"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/DeliveryDate"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DeliveryDates"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/getExpectedDeliverydate": {
+      "post": {
+        "tags": [
+          "Delivery"
+        ],
+        "summary": "Get Expected Delivery Dates",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/xapikey"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/ExpectedDeliveryDate"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ExpectedDeliveryDates"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/loglevel": {
+      "post": {
+        "tags": [
+          "loglevel"
+        ],
+        "summary": "Set the loglevel for the service.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyTenantId"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/loglevel"
+        },
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {}
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "headerTilroyTenantId": {
+        "name": "Tilroy-Tenant-Id",
+        "in": "header",
+        "required": true,
+        "description": "tenantId",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "tilroyApiKey": {
+        "name": "Tilroy-Api-Key",
+        "in": "header",
+        "required": true,
+        "description": "API key to identify and validate the tenant",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "xapikey": {
+        "name": "x-api-key",
+        "in": "header",
+        "required": true,
+        "description": "API key of AWS",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "pathId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "id",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryLanguage": {
+        "in": "query",
+        "name": "language",
+        "description": "language code to filter on",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryFields": {
+        "in": "query",
+        "name": "fields",
+        "schema": {
+          "type": "string"
+        },
+        "description": "Comma-separated list of all fields you want returned in the result. All other fields will be omitted.",
+        "required": false
+      },
+      "queryCount": {
+        "name": "count",
+        "in": "query",
+        "description": "max number of items to be returned (default = 10, max = 100)",
+        "schema": {
+          "type": "string",
+          "default": "10"
+        }
+      },
+      "queryPage": {
+        "name": "page",
+        "in": "query",
+        "description": "page of results to be returned (default = 1)",
+        "schema": {
+          "type": "string",
+          "default": "1"
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Bad Request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Internal Server Error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFoundError": {
+        "description": "Not Found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "DeliveryServices": {
+        "description": "ok",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/DeliveryServiceResponse"
+              }
+            }
+          }
+        }
+      },
+      "DeliveryDates": {
+        "description": "ok",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/DeliveryDateResponse"
+              }
+            }
+          }
+        }
+      },
+      "ExpectedDeliveryDates": {
+        "description": "ok",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "$ref": "#/components/schemas/ExpectedDeliveryDateResponse"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Basket": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "example": "1220345"
+          }
+        }
+      },
+      "Order": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "example": "1312201"
+          }
+        }
+      },
+      "Quotation": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "example": "107_2019.1_1"
+          }
+        }
+      },
+      "Language": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "EN"
+          }
+        }
+      },
+      "Delivery": {
+        "type": "object",
+        "properties": {
+          "basket": {
+            "$ref": "#/components/schemas/Basket"
+          },
+          "order": {
+            "$ref": "#/components/schemas/Order"
+          },
+          "quotation": {
+            "$ref": "#/components/schemas/Quotation"
+          },
+          "deliveryAllowedFrom": {
+            "type": "string",
+            "format": "date",
+            "example": "2024-10-31"
+          }
+        }
+      },
+      "DeliveryService": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Delivery"
+          }
+        ],
+        "type": "object",
+        "properties": {
+          "language": {
+            "$ref": "#/components/schemas/Language"
+          }
+        }
+      },
+      "DeliveryDate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Delivery"
+          }
+        ],
+        "type": "object",
+        "properties": {
+          "monthRequested": {
+            "type": "string",
+            "example": "202011"
+          },
+          "DateRange": {
+            "$ref": "#/components/schemas/DateRange"
+          }
+        }
+      },
+      "ExpectedDeliveryDate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Delivery"
+          }
+        ]
+      },
+      "DateRange": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date",
+            "example": "2024-10-31"
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "example": "2024-11-20"
+          }
+        }
+      },
+      "Sku": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "example": "2040483"
+          },
+          "sourceId": {
+            "type": "string",
+            "example": "onboarding_s20200911"
+          }
+        }
+      },
+      "SkuExpectedDeliveryDate": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Sku"
+          }
+        ],
+        "type": "object",
+        "properties": {
+          "noLongerDeliverable": {
+            "type": "boolean",
+            "example": false
+          },
+          "shopStock": {
+            "$ref": "#/components/schemas/ShopStock"
+          }
+        }
+      },
+      "ShopStock": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "example": "743"
+          },
+          "number": {
+            "type": "number",
+            "example": 10
+          }
+        }
+      },
+      "ProductService": {
+        "type": "object",
+        "properties": {
+          "sku": {
+            "$ref": "#/components/schemas/Sku"
+          },
+          "price": {
+            "type": "number",
+            "example": 0
+          }
+        }
+      },
+      "DeliveryServiceResponse": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "example": "Standaard"
+          },
+          "icon": {
+            "type": "string",
+            "example": "standaard.jpg"
+          },
+          "noAvailableDates": {
+            "type": "boolean",
+            "example": false
+          },
+          "reference": {
+            "type": "string",
+            "example": "Standaard"
+          },
+          "title": {
+            "type": "string",
+            "example": "Standaard"
+          },
+          "type": {
+            "type": "string",
+            "example": "Standaard"
+          },
+          "URL": {
+            "type": "string",
+            "example": "https://example.com"
+          },
+          "productDelivery": {
+            "$ref": "#/components/schemas/ProductDelivery"
+          },
+          "productService": {
+            "$ref": "#/components/schemas/ProductService"
+          }
+        }
+      },
+      "DeliveryDateResponse": {
+        "type": "object",
+        "properties": {
+          "deliveryPossible": {
+            "type": "boolean",
+            "example": false
+          },
+          "isLastPossibleDate": {
+            "type": "boolean",
+            "example": false
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2024-10-31T00:00:00.000Z"
+          },
+          "price": {
+            "type": "number",
+            "example": 2.99
+          },
+          "dispatchMethod": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "tilroyId": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "ExpectedDeliveryDateResponse": {
+        "type": "object",
+        "properties": {
+          "expectedDeliveryDate": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2024-10-31T00:00:00.000Z"
+          },
+          "skus": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkuExpectedDeliveryDate"
+            }
+          }
+        }
+      },
+      "ProductDelivery": {
+        "type": "object",
+        "properties": {
+          "price": {
+            "type": "number",
+            "example": 2.99
+          },
+          "sku": {
+            "$ref": "#/components/schemas/Sku"
+          }
+        }
+      },
+      "LogLevel": {
+        "required": [
+          "level"
+        ],
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code of the error, assigned by Node or the developer."
+          },
+          "message": {
+            "type": "string",
+            "description": "More information about the cause of the error."
+          }
+        },
+        "description": "The error object returned by the service"
+      }
+    },
+    "requestBodies": {
+      "DeliveryService": {
+        "description": "The DeliveryService JSON in the body of the request or response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/DeliveryService"
+            }
+          }
+        },
+        "required": true
+      },
+      "DeliveryDate": {
+        "description": "The DeliveryDate JSON in the body of the request or response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/DeliveryDate"
+            }
+          }
+        },
+        "required": true
+      },
+      "ExpectedDeliveryDate": {
+        "description": "The ExpectedDeliveryDate JSON in the body of the request or response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ExpectedDeliveryDate"
+            }
+          }
+        },
+        "required": true
+      },
+      "loglevel": {
+        "description": "The logging level type in the body of the request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/LogLevel"
+            }
+          }
+        },
+        "required": true
+      }
+    }
+  }
+}

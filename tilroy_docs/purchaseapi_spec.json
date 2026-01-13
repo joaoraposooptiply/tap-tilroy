@@ -1,0 +1,1448 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "purchaseAPI",
+    "version": "3.4.1"
+  },
+  "paths": {
+    "/export/{type}": {
+      "get": {
+        "summary": "get order exports",
+        "description": "Use this endpoint to get a list of purchase orders.",
+        "tags": [
+          "export / import"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/typePath"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/queryCount"
+          },
+          {
+            "$ref": "#/components/parameters/queryPage"
+          },
+          {
+            "$ref": "#/components/parameters/queryFields"
+          },
+          {
+            "$ref": "#/components/parameters/queryDateFrom"
+          },
+          {
+            "$ref": "#/components/parameters/queryDateExportedSince"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "headers": {
+              "Link": {
+                "description": "csv of first/prev/page/next/last links.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Link-JSON": {
+                "description": "JSON version of the Link header.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Paging-CurrentPage": {
+                "description": "number of the current page.",
+                "schema": {
+                  "type": "number"
+                }
+              },
+              "X-Paging-ItemCount": {
+                "description": "total number of items over all pages.",
+                "schema": {
+                  "type": "number"
+                }
+              },
+              "X-Paging-ItemsPerPage": {
+                "description": "number of max items returned per page.",
+                "schema": {
+                  "type": "number"
+                }
+              },
+              "X-Paging-PageCount": {
+                "description": "total number of pages.",
+                "schema": {
+                  "type": "number"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/purchaseOrderExport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/import/purchaseorders": {
+      "post": {
+        "summary": "import purchase orders",
+        "description": "Use this endpoint to import purchase orders.",
+        "tags": [
+          "export / import"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestBody"
+              }
+            }
+          },
+          "description": "request body",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Ok"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/import/purchaseorderreceipts": {
+      "post": {
+        "summary": "import purchase orders receipts",
+        "description": "  Use this endpoint to import purchase order receipts.\n\n<h1> Asynchronous </h1>\n\nInvoking this endpoint will validate the body and put it on an internal queue. The receipt will be imported only when the message is read from the queue and processed.\n<h1> Processing rules </h1>\nThe API validation will inform when these rules apply. To provide transparency over the functionality, there is a description of the processing rules below:\n\n<ul> <li>The purchase order has to have 'standard delivery'.</li> <li>The purchase order has to have the status 'open' or 'delivered'.</li> <li>The purchase order\u2019s lines will be used when no lines are provided in the payload. Considering the purchase order's lines, only the ones with the status 'backOrder' or 'open' will be used. </li> </ul> ",
+        "tags": [
+          "export / import"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/requestBodyPOReceipt"
+              }
+            }
+          },
+          "description": "request body",
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/purchaseorders/{purchaseOrderId}/lines": {
+      "post": {
+        "summary": "Add new line to an existing purchase order",
+        "description": "Use this endpoint to add a new line to an existing purchase order.",
+        "tags": [
+          "Purchase Orders"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/poIdPath"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestBodyNewLine"
+              }
+            }
+          },
+          "description": "request body for new line",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Ok"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/purchaseorders/{purchaseOrderId}/cancel": {
+      "post": {
+        "summary": "Cancel a purchase order",
+        "description": "Use this endpoint to cancel an existing purchase order",
+        "tags": [
+          "Purchase Orders"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/poIdPath"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Ok"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/purchaseorders/{purchaseOrderId}/lines/{purchaseOrderLineId}/qty": {
+      "put": {
+        "summary": "Update the quantity of a purchase order line",
+        "description": "Use this endpoint to update the quantity of a purchase order line. Changing the quantity can affect the 'status' of the line",
+        "tags": [
+          "Purchase Orders"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/poIdPath"
+          },
+          {
+            "$ref": "#/components/parameters/linePOIdPath"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/requestBodyUpdateLineQty"
+              }
+            }
+          },
+          "description": "request body to update purchase order line quantity",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Ok"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/purchaseorders/{purchaseOrderId}/lines/{purchaseOrderLineId}/cancel": {
+      "post": {
+        "summary": "Cancel a purchase order line",
+        "description": "Use this endpoint to cancel a purchase order line.",
+        "tags": [
+          "Purchase Orders"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/poIdPath"
+          },
+          {
+            "$ref": "#/components/parameters/linePOIdPath"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Ok"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/purchaseorders": {
+      "get": {
+        "summary": "search purchase orders",
+        "description": "Use this endpoint to search purchase orders based on criteria",
+        "tags": [
+          "Purchase Orders"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/queryCount"
+          },
+          {
+            "$ref": "#/components/parameters/queryPage"
+          },
+          {
+            "$ref": "#/components/parameters/queryFields"
+          },
+          {
+            "$ref": "#/components/parameters/querySupplierId"
+          },
+          {
+            "$ref": "#/components/parameters/queryStatus"
+          },
+          {
+            "$ref": "#/components/parameters/queryWarehouseNumber"
+          },
+          {
+            "$ref": "#/components/parameters/queryOrderDateFrom"
+          },
+          {
+            "$ref": "#/components/parameters/queryOrderDateTo"
+          },
+          {
+            "$ref": "#/components/parameters/number"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "headers": {
+              "Link": {
+                "description": "csv of first/prev/page/next/last links.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Link-JSON": {
+                "description": "JSON version of the Link header.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Paging-CurrentPage": {
+                "description": "number of the current page.",
+                "schema": {
+                  "type": "number"
+                }
+              },
+              "X-Paging-ItemCount": {
+                "description": "total number of items over all pages.",
+                "schema": {
+                  "type": "number"
+                }
+              },
+              "X-Paging-ItemsPerPage": {
+                "description": "number of max items returned per page.",
+                "schema": {
+                  "type": "number"
+                }
+              },
+              "X-Paging-PageCount": {
+                "description": "total number of pages.",
+                "schema": {
+                  "type": "number"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/purchaseOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.tilroy.com/purchaseapi/production"
+    }
+  ],
+  "components": {
+    "parameters": {
+      "headerTilroyApiKey": {
+        "name": "Tilroy-Api-Key",
+        "in": "header",
+        "required": true,
+        "description": "API key to identify and validate the tenant",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "headerXApiKey": {
+        "name": "x-api-key",
+        "in": "header",
+        "required": true,
+        "description": "API key of AWS",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryCount": {
+        "name": "count",
+        "in": "query",
+        "required": false,
+        "description": "max number of items to be returned (default = 10, max = 100)",
+        "schema": {
+          "type": "string",
+          "default": 10
+        }
+      },
+      "queryDateFrom": {
+        "name": "dateFrom",
+        "in": "query",
+        "required": false,
+        "description": "filter results by the date the item was created for export (Deprecated, use dateExportedSince)",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryDateExportedSince": {
+        "name": "dateExportedSince",
+        "in": "query",
+        "required": true,
+        "description": "filter results by the date the item was created for export",
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "typePath": {
+        "name": "type",
+        "in": "path",
+        "description": "type of the export",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "orders"
+          ]
+        }
+      },
+      "poIdPath": {
+        "name": "purchaseOrderId",
+        "in": "path",
+        "description": "purchase order tilroy Id",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "linePOIdPath": {
+        "name": "purchaseOrderLineId",
+        "in": "path",
+        "description": "purchase order line tilroy Id",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryFields": {
+        "name": "fields",
+        "in": "query",
+        "required": false,
+        "description": "Comma-separated list of all fields you want returned in the result. All other fields will be omitted.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryPage": {
+        "name": "page",
+        "in": "query",
+        "required": false,
+        "description": "page of results to be returned (default = 1)",
+        "schema": {
+          "type": "string",
+          "default": 1
+        }
+      },
+      "querySupplierId": {
+        "name": "supplierId",
+        "in": "query",
+        "required": false,
+        "description": "filter results by the purchase order supplier Tilroy Id",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryStatus": {
+        "name": "status",
+        "in": "query",
+        "required": false,
+        "description": "filter results by the purchase order status",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryWarehouseNumber": {
+        "name": "warehouseNumber",
+        "in": "query",
+        "required": false,
+        "description": "filter results by the purchase order warehouse",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryOrderDateFrom": {
+        "name": "orderDateFrom",
+        "in": "query",
+        "required": false,
+        "description": "filter results by the purchase order date from (inclusive)",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryOrderDateTo": {
+        "name": "orderDateTo",
+        "in": "query",
+        "required": false,
+        "description": "filter results by the purchase order date to (inclusive). Note: If you do not provide an orderDateTo, the results will be limited to purchase orders with a date equal to orderDateFrom.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "number": {
+        "name": "number",
+        "in": "query",
+        "required": false,
+        "description": "filter results by the purchase order number",
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "schemas": {
+      "purchaseOrder": {
+        "description": "the form returned by the service",
+        "properties": {
+          "tilroyId": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string"
+          },
+          "orderDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "supplier": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          },
+          "supplierReference": {
+            "type": "string"
+          },
+          "requestedDeliveryDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "warehouse": {
+            "type": "object",
+            "properties": {
+              "number": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          },
+          "currency": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              }
+            }
+          },
+          "prices": {
+            "type": "object",
+            "properties": {
+              "tenantCurrency": {
+                "type": "object",
+                "properties": {
+                  "vatExc": {
+                    "type": "number"
+                  },
+                  "vatInc": {
+                    "type": "number"
+                  },
+                  "purchaseVatExc": {
+                    "type": "number"
+                  },
+                  "purchaseVatInc": {
+                    "type": "number"
+                  }
+                }
+              },
+              "supplierCurrency": {
+                "type": "object",
+                "properties": {
+                  "vatExc": {
+                    "type": "number"
+                  },
+                  "vatInc": {
+                    "type": "number"
+                  },
+                  "purchaseVatExc": {
+                    "type": "number"
+                  },
+                  "purchaseVatInc": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          },
+          "status": {
+            "type": "string"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "created": {
+            "type": "object",
+            "properties": {
+              "user": {
+                "type": "object",
+                "properties": {
+                  "login": {
+                    "type": "string"
+                  },
+                  "sourceId": {
+                    "type": "string"
+                  }
+                }
+              },
+              "timestamp": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
+          "modified": {
+            "type": "object",
+            "properties": {
+              "user": {
+                "type": "object",
+                "properties": {
+                  "login": {
+                    "type": "string"
+                  },
+                  "sourceId": {
+                    "type": "string"
+                  }
+                }
+              },
+              "timestamp": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "example": "57cfde4fe4b0c3d03f56f65e"
+                },
+                "sku": {
+                  "type": "object",
+                  "properties": {
+                    "tilroyId": {
+                      "type": "string"
+                    },
+                    "sourceId": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "comment": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "requestedDeliveryDate": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "warehouse": {
+                  "type": "object",
+                  "properties": {
+                    "number": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "qty": {
+                  "type": "object",
+                  "properties": {
+                    "ordered": {
+                      "type": "number"
+                    },
+                    "delivered": {
+                      "type": "number"
+                    },
+                    "backOrder": {
+                      "type": "number"
+                    },
+                    "cancelled": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "prices": {
+                  "type": "object",
+                  "properties": {
+                    "tenantCurrency": {
+                      "type": "object",
+                      "properties": {
+                        "vatExc": {
+                          "type": "number"
+                        },
+                        "vatInc": {
+                          "type": "number"
+                        },
+                        "unitVatExc": {
+                          "type": "number"
+                        },
+                        "unitVatInc": {
+                          "type": "number"
+                        },
+                        "standardUnitVatExc": {
+                          "type": "number"
+                        },
+                        "standardVatExc": {
+                          "type": "number"
+                        },
+                        "standardVatInc": {
+                          "type": "number"
+                        },
+                        "standardUnitVatInc": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    "supplierCurrency": {
+                      "type": "object",
+                      "properties": {
+                        "vatExc": {
+                          "type": "number"
+                        },
+                        "vatInc": {
+                          "type": "number"
+                        },
+                        "unitVatExc": {
+                          "type": "number"
+                        },
+                        "unitVatInc": {
+                          "type": "number"
+                        },
+                        "standardUnitVatExc": {
+                          "type": "number"
+                        },
+                        "standardVatExc": {
+                          "type": "number"
+                        },
+                        "standardVatInc": {
+                          "type": "number"
+                        },
+                        "standardUnitVatInc": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  }
+                },
+                "discount": {
+                  "type": "object",
+                  "properties": {
+                    "amount": {
+                      "type": "number"
+                    },
+                    "percentage": {
+                      "type": "number"
+                    },
+                    "total": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "created": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "login": {
+                          "type": "string"
+                        },
+                        "sourceId": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                },
+                "modified": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "login": {
+                          "type": "string"
+                        },
+                        "sourceId": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "purchaseOrderExport": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/purchaseOrder"
+          }
+        ],
+        "type": "object",
+        "properties": {
+          "dateExported": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RequestBody": {
+        "description": "the request body",
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              },
+              "sourceId": {
+                "type": "string"
+              },
+              "login": {
+                "type": "string"
+              }
+            }
+          },
+          "legalEntity": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string"
+              }
+            }
+          },
+          "orderDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "requestedDeliveryDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "supplierReference": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "example": "open"
+          },
+          "supplier": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string"
+              }
+            }
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "example": "open"
+                },
+                "warehouse": {
+                  "type": "object",
+                  "properties": {
+                    "tilroyId": {
+                      "type": "string"
+                    },
+                    "number": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "sku": {
+                  "type": "object",
+                  "properties": {
+                    "tilroyId": {
+                      "type": "string"
+                    },
+                    "sourceId": {
+                      "type": "string"
+                    },
+                    "barcode": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "requestedDeliveryDate": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "qty": {
+                  "type": "object",
+                  "properties": {
+                    "ordered": {
+                      "type": "number"
+                    }
+                  }
+                },
+                "prices": {
+                  "type": "object",
+                  "properties": {
+                    "tenantCurrency": {
+                      "type": "object",
+                      "properties": {
+                        "vatExc": {
+                          "type": "number"
+                        },
+                        "vatInc": {
+                          "type": "number"
+                        },
+                        "unitVatExc": {
+                          "type": "number"
+                        },
+                        "unitVatInc": {
+                          "type": "number"
+                        },
+                        "standardUnitVatExc": {
+                          "type": "number"
+                        },
+                        "standardVatExc": {
+                          "type": "number"
+                        },
+                        "standardVatInc": {
+                          "type": "number"
+                        },
+                        "standardUnitVatInc": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    "supplierCurrency": {
+                      "type": "object",
+                      "properties": {
+                        "vatExc": {
+                          "type": "number"
+                        },
+                        "vatInc": {
+                          "type": "number"
+                        },
+                        "unitVatExc": {
+                          "type": "number"
+                        },
+                        "unitVatInc": {
+                          "type": "number"
+                        },
+                        "standardUnitVatExc": {
+                          "type": "number"
+                        },
+                        "standardVatExc": {
+                          "type": "number"
+                        },
+                        "standardVatInc": {
+                          "type": "number"
+                        },
+                        "standardUnitVatInc": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "options": {
+            "type": "object",
+            "properties": {
+              "cancelBackOrdersBefore": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      },
+      "requestBodyPOReceipt": {
+        "description": "the request body to import a purchase order receipt",
+        "type": "object",
+        "required": [
+          "purchaseOrder"
+        ],
+        "properties": {
+          "purchaseOrder": {
+            "required": [
+              "tilroyId"
+            ],
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              },
+              "doReceipt": {
+                "type": "boolean"
+              },
+              "lines": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "description": "or sku or tilroyId must be provided to identify the line",
+                  "properties": {
+                    "quantity": {
+                      "type": "number"
+                    },
+                    "sku": {
+                      "description": "one of those properties must be provided, tilroyId or sourceId",
+                      "type": "object",
+                      "properties": {
+                        "tilroyId": {
+                          "type": "string"
+                        },
+                        "sourceId": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "costPrice": {
+                      "type": "number",
+                      "example": "10,5"
+                    },
+                    "tilroyId": {
+                      "type": "string",
+                      "example": "63f61b9a2f4fd84f0b75b83c"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "RequestBodyNewLine": {
+        "description": "the request body for a new line.",
+        "type": "object",
+        "required": [
+          "sku"
+        ],
+        "properties": {
+          "comment": {
+            "type": "string"
+          },
+          "discount": {
+            "type": "object",
+            "properties": {
+              "amount": {
+                "type": "number"
+              },
+              "percentage": {
+                "type": "number"
+              },
+              "total": {
+                "type": "number"
+              },
+              "newStandardPrice": {
+                "type": "number"
+              }
+            }
+          },
+          "qty": {
+            "type": "object",
+            "properties": {
+              "ordered": {
+                "type": "number"
+              },
+              "delivered": {
+                "type": "number"
+              },
+              "backOrder": {
+                "type": "number"
+              },
+              "cancelled": {
+                "type": "number"
+              }
+            }
+          },
+          "requestedDeliveryDate": {
+            "type": "string",
+            "example": "2024-06-24T01:00:00.000Z"
+          },
+          "sku": {
+            "type": "object",
+            "description": "The sku object requires or sourceId or tilroyId",
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              },
+              "sourceId": {
+                "type": "string"
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "example": "draft"
+          },
+          "warehouse": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              },
+              "number": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      },
+      "requestBodyUpdateLineQty": {
+        "description": "the request body to update purchase order line quantity. At least one of these properties must be provided",
+        "type": "object",
+        "properties": {
+          "ordered": {
+            "type": "number"
+          },
+          "delivered": {
+            "type": "number"
+          },
+          "backOrder": {
+            "type": "number"
+          },
+          "cancelled": {
+            "type": "number"
+          }
+        }
+      },
+      "Error": {
+        "description": "The error object returned by the service",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code of the error, assigned by Node or the developer."
+          },
+          "message": {
+            "type": "string",
+            "description": "More information about the cause of the error."
+          }
+        }
+      }
+    }
+  }
+}

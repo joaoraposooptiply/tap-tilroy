@@ -1,0 +1,429 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Asset API",
+    "description": "Asset API",
+    "version": "1.2.4"
+  },
+  "servers": [
+    {
+      "url": "https://assetapi.stg.tilroy.lan:9845"
+    },
+    {
+      "url": "https://assetapi.prd.tilroy.lan:9845"
+    },
+    {
+      "url": "https://api.tilroy.com/assetapi/production"
+    }
+  ],
+  "paths": {
+    "/bikes/velopass": {
+      "post": {
+        "tags": [
+          "Velopass"
+        ],
+        "summary": "Create a Bike Purchase at Velopass",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/BikeRequestBody"
+        },
+        "responses": {
+          "201": {
+            "content": {},
+            "description": "Created"
+          },
+          "202": {
+            "content": {},
+            "description": "Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Velopass"
+        ],
+        "summary": "Retrieve a bike from Velopass. Must send or Sticker Code or Brand and Frame Numbers",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/queryStickerCode"
+          },
+          {
+            "$ref": "#/components/parameters/queryBrand"
+          },
+          {
+            "$ref": "#/components/parameters/queryFrameNumber"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/BikeResponseBody"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/bikes/velopass/lost": {
+      "get": {
+        "tags": [
+          "Velopass"
+        ],
+        "summary": "Retrieve a bike status from Velopass. Must send or Sticker Code or Brand and Frame Numbers",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/queryStickerCode"
+          },
+          {
+            "$ref": "#/components/parameters/queryBrand"
+          },
+          {
+            "$ref": "#/components/parameters/queryFrameNumber"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/BikeStatusResponseBody"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/loglevel": {
+      "post": {
+        "x-internal": true,
+        "tags": [
+          "loglevel"
+        ],
+        "summary": "Set the loglevel for the service.",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/loglevel"
+        },
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {}
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "headerTilroyApiKey": {
+        "name": "Tilroy-Api-Key",
+        "in": "header",
+        "required": true,
+        "description": "API key to identify and validate the tenant",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryStickerCode": {
+        "name": "stickerCode",
+        "in": "query",
+        "required": false,
+        "description": "Sticker Code",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryBrand": {
+        "name": "brand",
+        "in": "query",
+        "required": false,
+        "description": "Brand",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryFrameNumber": {
+        "name": "frameNumber",
+        "in": "query",
+        "required": false,
+        "description": "Frame Number",
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "BikeResponseBody": {
+        "description": "Bike from VeloPass",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Bike"
+              }
+            }
+          }
+        }
+      },
+      "BikeStatusResponseBody": {
+        "description": "Bike status from VeloPass",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/BikeStatus"
+              }
+            }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "Bad Request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Internal Server Error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFoundError": {
+        "description": "Not Found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "BikeStatus": {
+        "type": "object",
+        "properties": {
+          "brand": {
+            "type": "string",
+            "example": "Adidas"
+          },
+          "model": {
+            "type": "string",
+            "example": "ABC"
+          },
+          "color": {
+            "type": "string",
+            "example": "red"
+          },
+          "bicycleId": {
+            "type": "string",
+            "example": "123"
+          },
+          "isLost": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "Bike": {
+        "type": "object",
+        "required": [
+          "velopassStickerId",
+          "brand"
+        ],
+        "properties": {
+          "velopassStickerId": {
+            "type": "string",
+            "example": "123"
+          },
+          "frameNumber": {
+            "type": "string",
+            "example": "321"
+          },
+          "brand": {
+            "type": "string",
+            "example": "Adidas"
+          },
+          "model": {
+            "type": "string",
+            "example": "123"
+          },
+          "primaryColor": {
+            "type": "string",
+            "example": "red"
+          },
+          "secondaryColor": {
+            "type": "string",
+            "example": "green"
+          },
+          "bikeType": {
+            "type": "string",
+            "example": "e-bike"
+          },
+          "wheelSize": {
+            "type": "string",
+            "example": "16\""
+          },
+          "frameSize": {
+            "type": "string",
+            "example": "5"
+          },
+          "keyNumber": {
+            "type": "string",
+            "example": "123"
+          },
+          "shopId": {
+            "type": "string",
+            "example": "12"
+          },
+          "velopassShopId": {
+            "type": "string",
+            "example": "21"
+          },
+          "externalId": {
+            "type": "string",
+            "example": "31"
+          },
+          "ean": {
+            "type": "string",
+            "example": "2000000587424"
+          },
+          "audience": {
+            "type": "string",
+            "example": ""
+          },
+          "brakeType": {
+            "type": "string",
+            "example": ""
+          },
+          "driveTrain": {
+            "type": "string",
+            "example": ""
+          },
+          "propulsionType": {
+            "type": "string",
+            "example": ""
+          },
+          "gearAmount": {
+            "type": "number",
+            "example": 5
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "example": "img.png"
+            }
+          }
+        }
+      },
+      "LogLevel": {
+        "required": [
+          "level"
+        ],
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code of the error, assigned by Node or the developer."
+          },
+          "message": {
+            "type": "string",
+            "description": "More information about the cause of the error."
+          }
+        },
+        "description": "The error object returned by the service"
+      }
+    },
+    "requestBodies": {
+      "BikeRequestBody": {
+        "description": "The Bike JSON in the body of the request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Bike"
+            }
+          }
+        },
+        "required": true
+      },
+      "loglevel": {
+        "description": "The logging level type in the body of the request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/LogLevel"
+            }
+          }
+        },
+        "required": true
+      }
+    }
+  }
+}

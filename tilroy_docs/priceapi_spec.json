@@ -1,0 +1,1271 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "PriceAPI",
+    "description": "Public API for price related data",
+    "version": "2.11.0"
+  },
+  "paths": {
+    "/import/prices": {
+      "post": {
+        "summary": "Import prices",
+        "description": "Import prices into Tilroy.\n<br />\n## Shops\nWhen both providing shopNumber and idSourceShop, matching on idSourceShop will get priority over shopNumber.\n<br />\n## Runs\nWhen you pass in a runId that does not yet exist in Tilroy, that run will be created in Tilroy, and future calls will match to that run.\n<br />\n## Price Types\nEither price or volumePrices must be filled in.",
+        "tags": [
+          "import"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/xapikey"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/PricesPayload"
+        },
+        "responses": {
+          "202": {
+            "description": "accepted"
+          },
+          "400": {
+            "description": "bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/import/reset": {
+      "post": {
+        "summary": "reset prices",
+        "description": "Reset all prices for an sku and add new prices afterwards.\n<br />\n## Shops\nWhen both providing shopNumber and idSourceShop, matching on idSourceShop will get priority over shopNumber.\n<br />\n## Runs\nWhen you pass in a runId that does not yet exist in Tilroy, that run will be created in Tilroy, and future calls will match to that run.\n<br />\n## Price Types\nEither price or volumePrices must be filled in.",
+        "tags": [
+          "import"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/xapikey"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/PricesPayload"
+        },
+        "responses": {
+          "202": {
+            "description": "accepted"
+          },
+          "400": {
+            "description": "bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/import/reset": {
+      "post": {
+        "summary": "reset prices",
+        "description": "Reset all prices for an sku and add new prices afterwards. All prices must be of a single priceRange and at least one must be type \"standard\"\n<br />\n## Shops\nWhen both providing shopNumber and idSourceShop, matching on idSourceShop will get priority over shopNumber.\n<br />\n## Runs\nWhen you pass in a runId that does not yet exist in Tilroy, that run will be created in Tilroy, and future calls will match to that run.\n<br />\n## Price Types\nEither price or volumePrices must be filled in.",
+        "tags": [
+          "import"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/xapikey"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/PricesPayload"
+        },
+        "responses": {
+          "202": {
+            "description": "accepted"
+          },
+          "400": {
+            "description": "bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/prices": {
+      "get": {
+        "summary": "Get current price for multiple skus",
+        "description": "This endpoint acts similar to GET /prices/{skuId}/shop/{shopId}, but is meant to be used when you want the current price for multiple skuIds. Either skuIds or skuSourceIds must be passed",
+        "tags": [
+          "prices"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/xapikey"
+          },
+          {
+            "$ref": "#/components/parameters/filterSkuIds"
+          },
+          {
+            "$ref": "#/components/parameters/filterSkuSourceIds"
+          },
+          {
+            "$ref": "#/components/parameters/filterShopId"
+          },
+          {
+            "$ref": "#/components/parameters/filterShopNumber"
+          },
+          {
+            "$ref": "#/components/parameters/filterCountryCode"
+          },
+          {
+            "$ref": "#/components/parameters/priceRange"
+          },
+          {
+            "$ref": "#/components/parameters/dateQuery"
+          },
+          {
+            "$ref": "#/components/parameters/fields"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CurrentPrice"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/price/sku/{skuId}/shop/{shopId}": {
+      "get": {
+        "summary": "Get the current price for an sku",
+        "description": "Please use \"/prices/{skuId}\".\n\nGet the current price for a given sku, consisting of at the most a standard price and a promo price.\n\nAdding a filter on countryCode and / or shopId results in a price that matches the filter as closely as possible. This means that when you add a countryCode filter, the result will be a price for that country, when it is available. When you specify a shopId, the result will be a price for the shop, when it is available. When you pass in both countryCode and shopId, the result will fallback to a country-price (when one is found) when no shop-price could be found.",
+        "tags": [
+          "prices"
+        ],
+        "deprecated": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/xapikey"
+          },
+          {
+            "$ref": "#/components/parameters/pathSkuId"
+          },
+          {
+            "$ref": "#/components/parameters/pathShopId"
+          },
+          {
+            "$ref": "#/components/parameters/filterCountryCode"
+          },
+          {
+            "$ref": "#/components/parameters/priceRange"
+          },
+          {
+            "$ref": "#/components/parameters/date"
+          },
+          {
+            "$ref": "#/components/parameters/fields"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentPrice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/prices/{skuId}": {
+      "get": {
+        "summary": "Get the current price for an sku",
+        "description": "Get the current price for a given sku, consisting of at the most a standard price and a promo price.\nAdding a filter on countryCode and / or shopId results in a price that matches the filter as closely as possible. This means that when you add a countryCode filter, the result will be a price for that country, when it is available. When you specify a shopId/shopNumber, the result will be a price for the shop, when it is available. When you pass in both countryCode and shopId, the result will fallback to a country-price (when one is found) when no shop-price could be found.",
+        "tags": [
+          "prices"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/xapikey"
+          },
+          {
+            "$ref": "#/components/parameters/pathSkuId"
+          },
+          {
+            "$ref": "#/components/parameters/filterShopId"
+          },
+          {
+            "$ref": "#/components/parameters/filterShopNumber"
+          },
+          {
+            "$ref": "#/components/parameters/filterCountryCode"
+          },
+          {
+            "$ref": "#/components/parameters/priceRange"
+          },
+          {
+            "$ref": "#/components/parameters/date"
+          },
+          {
+            "$ref": "#/components/parameters/fields"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentPrice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/price/rules/{skuId}": {
+      "get": {
+        "summary": "Get all price rules for an sku",
+        "description": "Get all price rules for a given sku. This endpoint returns detailed price rule information including shop, country, and price item details with optional pagination and filtering.",
+        "tags": [
+          "prices"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/xapikey"
+          },
+          {
+            "$ref": "#/components/parameters/pathSkuId"
+          },
+          {
+            "$ref": "#/components/parameters/countParam"
+          },
+          {
+            "$ref": "#/components/parameters/pageParam"
+          },
+          {
+            "$ref": "#/components/parameters/dateModifiedParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "headers": {
+              "X-Paging-PageCount": {
+                "description": "Total number of pages",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Paging-CurrentPage": {
+                "description": "Current page number",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Paging-ItemsPerPage": {
+                "description": "Number of items per page",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Paging-ItemCount": {
+                "description": "Total number of items",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PriceRule"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/price/rules": {
+      "get": {
+        "summary": "Get all price rules",
+        "description": "Get all price rules without requiring a specific sku. This endpoint returns detailed price rule information including shop, country, and price item details with optional filtering by shop and pagination support. Use either page-based pagination (page parameter) or cursor-based pagination (lastId parameter), but not both.",
+        "tags": [
+          "prices"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/xapikey"
+          },
+          {
+            "$ref": "#/components/parameters/filterShopIdOptional"
+          },
+          {
+            "$ref": "#/components/parameters/countParam"
+          },
+          {
+            "$ref": "#/components/parameters/pageParam"
+          },
+          {
+            "$ref": "#/components/parameters/lastIdParam"
+          },
+          {
+            "$ref": "#/components/parameters/dateModifiedParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "headers": {
+              "X-Paging-PageCount": {
+                "description": "Total number of pages",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Paging-CurrentPage": {
+                "description": "Current page number",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Paging-ItemsPerPage": {
+                "description": "Number of items per page",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Paging-ItemCount": {
+                "description": "Total number of items",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PriceRule"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/endPrices": {
+      "post": {
+        "summary": "set end date for prices",
+        "description": "End all prices found by the given criteria.\n",
+        "tags": [
+          "prices"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/xapikey"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EndPricePayload"
+              }
+            }
+          },
+          "description": "Payload to import",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EndPricePayload"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.tilroy.com/priceapi/production"
+    }
+  ],
+  "components": {
+    "parameters": {
+      "tilroyApiKey": {
+        "name": "Tilroy-Api-Key",
+        "in": "header",
+        "required": true,
+        "description": "API key to identify and validate the tenant",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "xapikey": {
+        "name": "x-api-key",
+        "in": "header",
+        "required": true,
+        "description": "API key of AWS",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "pathShopId": {
+        "name": "shopId",
+        "in": "path",
+        "required": true,
+        "description": "Identifier of the shop to get the price for.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "pathSkuId": {
+        "name": "skuId",
+        "in": "path",
+        "required": true,
+        "description": "Identifier of the sku to get the price for.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "date": {
+        "name": "date",
+        "in": "query",
+        "required": false,
+        "description": "Provide this when you want the price on a specific date(ISO 8601 format).",
+        "schema": {
+          "type": "string",
+          "format": "ISO 8601"
+        }
+      },
+      "fields": {
+        "name": "fields",
+        "in": "query",
+        "required": false,
+        "description": "Comma-separated list of all fields you want returned in the result. All other fields will be omitted.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "filterCountryCode": {
+        "name": "countryCode",
+        "in": "query",
+        "required": false,
+        "description": "Filter the result on all prices for this sku and this country. Should be a standard 2-letter ISO code. (Shop country will be used if not available)",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "filterShopId": {
+        "name": "shopId",
+        "in": "query",
+        "required": false,
+        "description": "Filter the result on all prices for this sku and this shop. (shopId or shopNumber required)",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "filterShopIdOptional": {
+        "name": "shopId",
+        "in": "query",
+        "required": false,
+        "description": "Optional filter to get price rules for a specific shop",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "filterShopNumber": {
+        "name": "shopNumber",
+        "in": "query",
+        "required": false,
+        "description": "Filter the result on all prices for this sku and this shop. (shopId or shopNumber required)",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "filterSkuIds": {
+        "name": "skuIds",
+        "in": "query",
+        "required": true,
+        "description": "Comma-separated list of all skuIdentifiers you want a price for. This is limited to a maximum of 100 ids.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "filterSkuSourceIds": {
+        "name": "skuSourceIds",
+        "in": "query",
+        "required": true,
+        "description": "Comma-separated list of all sku sourceIds you want a price for. This this takes priority over skuIds passed.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "priceRange": {
+        "name": "priceRange",
+        "in": "query",
+        "required": false,
+        "description": "Determine what price range to use for this call (\"retail\", \"wholesale\" or a custom range).",
+        "schema": {
+          "type": "string",
+          "default": "retail"
+        }
+      },
+      "dateQuery": {
+        "name": "date",
+        "in": "query",
+        "required": false,
+        "description": "Datetime (ISO 8601) to get prices on a specified point in time (for future or historic prices, you don't need to use this to get the current price) - 2020-01-01T00:00:00Z",
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "countParam": {
+        "name": "count",
+        "in": "query",
+        "required": false,
+        "description": "Number of results to return for pagination",
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "pageParam": {
+        "name": "page",
+        "in": "query",
+        "required": false,
+        "description": "Page number for pagination",
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "lastIdParam": {
+        "name": "lastId",
+        "in": "query",
+        "required": false,
+        "description": "Cursor for pagination - the ID of the last item from the previous page. Cannot be used together with the page parameter.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "dateModifiedParam": {
+        "name": "dateModified",
+        "in": "query",
+        "required": false,
+        "description": "Filter by modification date",
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "requestBodies": {
+      "PricesPayload": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PricesPayload"
+            }
+          }
+        },
+        "description": "Payload to import",
+        "required": true
+      }
+    },
+    "schemas": {
+      "Price": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "default": null
+          },
+          "sourceId": {
+            "type": "string",
+            "default": null
+          },
+          "price": {
+            "type": "number"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "promo",
+              "standard"
+            ]
+          },
+          "quantity": {
+            "type": "number",
+            "default": 1
+          },
+          "run": {
+            "$ref": "#/components/schemas/Ids"
+          },
+          "labelType": {
+            "type": "string",
+            "default": null
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateCreated": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CurrentPrice": {
+        "type": "object",
+        "properties": {
+          "sku": {
+            "$ref": "#/components/schemas/Ids"
+          },
+          "prices": {
+            "type": "array",
+            "description": "Exist of at most one standard price and one promo price",
+            "items": {
+              "$ref": "#/components/schemas/Price"
+            }
+          }
+        }
+      },
+      "PricesPayload": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/PricesPayloadItem"
+        }
+      },
+      "EndPricePayload": {
+        "type": "object",
+        "properties": {
+          "sku": {
+            "$ref": "#/components/schemas/Ids"
+          },
+          "run": {
+            "$ref": "#/components/schemas/Ids"
+          },
+          "priceRange": {
+            "type": "string",
+            "default": "retail",
+            "description": "Price range to filter on"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The enddate to set (default is yesterday)",
+            "example": "2020-01-01T23:59:59Z"
+          },
+          "type": {
+            "type": "string",
+            "default": "promo",
+            "enum": [
+              "promo"
+            ]
+          }
+        },
+        "required": [
+          "sku"
+        ]
+      },
+      "PricesPayloadItem": {
+        "type": "object",
+        "required": [
+          "price",
+          "type",
+          "startDate",
+          "sku"
+        ],
+        "properties": {
+          "sourceId": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "object",
+            "description": "Either 'sourceId' or 'tilroyId' or 'productCode' + 'colourCode' + 'sizeCode' are required",
+            "properties": {
+              "sourceId": {
+                "type": "string"
+              },
+              "tilroyId": {
+                "type": "string"
+              },
+              "productCode": {
+                "type": "string"
+              },
+              "colourCode": {
+                "type": "string"
+              },
+              "sizeCode": {
+                "type": "string"
+              }
+            }
+          },
+          "shop": {
+            "type": "object",
+            "description": "Either number or sourceId is required.",
+            "properties": {
+              "number": {
+                "type": "string"
+              },
+              "sourceId": {
+                "type": "string"
+              }
+            }
+          },
+          "labelType": {
+            "type": "string"
+          },
+          "run": {
+            "type": "object",
+            "required": [
+              "sourceId"
+            ],
+            "properties": {
+              "sourceId": {
+                "type": "string"
+              }
+            }
+          },
+          "countryCode": {
+            "type": "string"
+          },
+          "volumePrices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VolumePrice"
+            }
+          },
+          "priceRange": {
+            "type": "string",
+            "default": "retail"
+          },
+          "price": {
+            "type": "number"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "promo",
+              "standard"
+            ]
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2020-01-01T23:59:59Z",
+            "description": "This is the date **and time** the price will end. If you want the price to be still active for the whole day, set the time to 23:59:59"
+          },
+          "dateCreated": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "VolumePrice": {
+        "type": "object",
+        "required": [
+          "quantity",
+          "price"
+        ],
+        "properties": {
+          "quantity": {
+            "type": "number",
+            "minimum": 1
+          },
+          "price": {
+            "type": "number"
+          }
+        }
+      },
+      "Ids": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          }
+        }
+      },
+      "PriceRule": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string"
+          },
+          "shop": {
+            "$ref": "#/components/schemas/ShopResponse"
+          },
+          "country": {
+            "$ref": "#/components/schemas/Country"
+          },
+          "sku": {
+            "$ref": "#/components/schemas/Ids"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "prices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PriceRuleItem"
+            }
+          },
+          "dateModified": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ShopResponse": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string"
+          }
+        }
+      },
+      "Country": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "PriceRuleItem": {
+        "type": "object",
+        "properties": {
+          "run": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              }
+            }
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "tilroyId": {
+            "type": "string"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateCreated": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "labelType": {
+            "type": "string"
+          },
+          "price": {
+            "type": "number"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "type": "string"
+          },
+          "promotionTilroyId": {
+            "type": "string"
+          }
+        }
+      },
+      "LogLevel": {
+        "type": "object",
+        "required": [
+          "level"
+        ],
+        "properties": {
+          "level": {
+            "type": "string"
+          }
+        }
+      },
+      "Error": {
+        "description": "The error object returned by the service",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code of the error, assigned by Node or the developer."
+          },
+          "message": {
+            "type": "string",
+            "description": "More information about the cause of the error."
+          }
+        }
+      }
+    }
+  }
+}

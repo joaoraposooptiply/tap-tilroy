@@ -1,0 +1,5518 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "orderapi",
+    "description": "Order Api",
+    "version": "3.30.0"
+  },
+  "paths": {
+    "/orders": {
+      "post": {
+        "summary": "create an order",
+        "description": "Create a new order in Tilroy.",
+        "tags": [
+          "orders"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayloadOrder"
+              }
+            }
+          },
+          "description": "Payload to create a new order",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Order"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "search orders",
+        "deprecated": true,
+        "description": "Deprecated! Please use V2 version. <p>Use this endpoint to search for orders. At least a customerId or a shopId should be provided (both can provided in one call as well).",
+        "tags": [
+          "orders"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/queryCount"
+          },
+          {
+            "$ref": "#/components/parameters/queryPage"
+          },
+          {
+            "$ref": "#/components/parameters/queryFields"
+          },
+          {
+            "$ref": "#/components/parameters/queryCustomerId"
+          },
+          {
+            "$ref": "#/components/parameters/queryShopId"
+          },
+          {
+            "$ref": "#/components/parameters/queryOrderNumber"
+          },
+          {
+            "$ref": "#/components/parameters/queryBasketId"
+          },
+          {
+            "$ref": "#/components/parameters/sorting"
+          },
+          {
+            "$ref": "#/components/parameters/sortOrder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "headers": {
+              "Link": {
+                "description": "csv of first/prev/page/next/last links.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Link-JSON": {
+                "description": "JSON version of the Link header.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Paging-CurrentPage": {
+                "description": "number of the current page.",
+                "schema": {
+                  "type": "number"
+                }
+              },
+              "X-Paging-ItemCount": {
+                "description": "total number of items over all pages.",
+                "schema": {
+                  "type": "number"
+                }
+              },
+              "X-Paging-ItemsPerPage": {
+                "description": "number of max items returned per page.",
+                "schema": {
+                  "type": "number"
+                }
+              },
+              "X-Paging-PageCount": {
+                "description": "total number of pages.",
+                "schema": {
+                  "type": "number"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/orders": {
+      "get": {
+        "summary": "search orders",
+        "description": "Use this endpoint to search for orders. At least a customerId or a shopId should be provided (both can provided in one call as well).\n<p> The query parameter \"basketId\" can contain a comma-separated list of basketIds.\n<p> Because of performance reasons the response header \"X-Paging-ItemCount\" is not always correct. It is only correct on the last page.\n<br/> This is why you will have to rely on the response-header \"Link-JSON\" if you want to fetch all results. Only if the \"next\" properyt of \"Link-JSON\" is empty, the last page is reached.\n",
+        "tags": [
+          "orders"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/queryCount"
+          },
+          {
+            "$ref": "#/components/parameters/queryPage"
+          },
+          {
+            "$ref": "#/components/parameters/queryFields"
+          },
+          {
+            "$ref": "#/components/parameters/queryCustomerId"
+          },
+          {
+            "$ref": "#/components/parameters/queryCustomerSourceId"
+          },
+          {
+            "$ref": "#/components/parameters/queryShopId"
+          },
+          {
+            "$ref": "#/components/parameters/queryShopNumber"
+          },
+          {
+            "$ref": "#/components/parameters/queryOrderNumber"
+          },
+          {
+            "$ref": "#/components/parameters/queryBasketId"
+          },
+          {
+            "$ref": "#/components/parameters/queryOpen"
+          },
+          {
+            "$ref": "#/components/parameters/sorting"
+          },
+          {
+            "$ref": "#/components/parameters/sortOrder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "headers": {
+              "Link": {
+                "description": "csv of first/prev/page/next/last links.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Link-JSON": {
+                "description": "JSON version of the Link header.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Paging-CurrentPage": {
+                "description": "number of the current page.",
+                "schema": {
+                  "type": "number"
+                }
+              },
+              "X-Paging-ItemCount": {
+                "description": "total number of items over all pages.",
+                "schema": {
+                  "type": "number"
+                }
+              },
+              "X-Paging-ItemsPerPage": {
+                "description": "number of max items returned per page.",
+                "schema": {
+                  "type": "number"
+                }
+              },
+              "X-Paging-PageCount": {
+                "description": "total number of pages.",
+                "schema": {
+                  "type": "number"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Order"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/orders/{orderId}": {
+      "get": {
+        "summary": "search order by Id",
+        "description": "search order by Id.",
+        "tags": [
+          "orders"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          },
+          {
+            "$ref": "#/components/parameters/queryCalculateTotals"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderV2"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/export/orders": {
+      "get": {
+        "summary": "get order exports",
+        "description": "Use this endpoint to get a list of export documents of orders.",
+        "tags": [
+          "export / import"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/queryCount"
+          },
+          {
+            "$ref": "#/components/parameters/queryPage"
+          },
+          {
+            "$ref": "#/components/parameters/queryFields"
+          },
+          {
+            "$ref": "#/components/parameters/queryDateFrom"
+          },
+          {
+            "$ref": "#/components/parameters/queryDateExportedSince"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "headers": {
+              "Link": {
+                "description": "csv of first/prev/page/next/last links.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Link-JSON": {
+                "description": "JSON version of the Link header.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Paging-CurrentPage": {
+                "description": "number of the current page.",
+                "schema": {
+                  "type": "number"
+                }
+              },
+              "X-Paging-ItemCount": {
+                "description": "total number of items over all pages.",
+                "schema": {
+                  "type": "number"
+                }
+              },
+              "X-Paging-ItemsPerPage": {
+                "description": "number of max items returned per page.",
+                "schema": {
+                  "type": "number"
+                }
+              },
+              "X-Paging-PageCount": {
+                "description": "total number of pages.",
+                "schema": {
+                  "type": "number"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrderExport"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}/cancel": {
+      "post": {
+        "summary": "Cancel an order and its lines",
+        "description": "Cancel an order and its lines",
+        "tags": [
+          "orders"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelBody"
+              }
+            }
+          },
+          "description": "Optional payload to cancel an Order and all its lines"
+        },
+        "responses": {
+          "200": {
+            "description": "Ok"
+          },
+          "400": {
+            "description": "bad request error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderNumber}/followupregistrations": {
+      "post": {
+        "summary": "add new registration to the followUp of an order",
+        "description": "Add new registration to the followUp of an order.",
+        "tags": [
+          "orders"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/pathOrderNumber"
+          },
+          {
+            "$ref": "#/components/parameters/queryalwaysCreateNew"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayloadRegistration"
+              }
+            }
+          },
+          "description": "Payload to add a new registration to a followUp",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{tilroyId}": {
+      "get": {
+        "summary": "search order by Id",
+        "description": "search order by Id.",
+        "tags": [
+          "orders"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/pathTilroyId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "update order by Id",
+        "description": "update order by Id.",
+        "tags": [
+          "orders"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/pathTilroyId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayloadUpdateOrder"
+              }
+            }
+          },
+          "description": "Payload to update an order",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}/canamend": {
+      "get": {
+        "summary": "check if can amend order",
+        "description": "check if can amend order",
+        "tags": [
+          "amend"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanAmendResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "bad request error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not found error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}/startamend": {
+      "put": {
+        "summary": "Start amending order",
+        "description": "start amending order",
+        "tags": [
+          "amend"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok"
+          },
+          "400": {
+            "description": "bad request error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not found error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}/cancelamend": {
+      "put": {
+        "summary": "Cancel amending order",
+        "description": "Cancel amending order",
+        "tags": [
+          "amend"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok"
+          },
+          "400": {
+            "description": "bad request error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not found error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}/amenddelivery": {
+      "post": {
+        "summary": "Add / change the delivery service",
+        "description": "Add or update a delivery service and its delivery fee on an order.",
+        "tags": [
+          "amend"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayloadDeliveryServiceAndDate"
+              }
+            }
+          },
+          "description": "payload of a delivery service",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "bad request error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not found error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}/amenddispatchmethod": {
+      "post": {
+        "summary": "Ammend Dispatch Methods",
+        "description": "Ammend Dispatch Methods",
+        "tags": [
+          "amend"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayloadAmendDispatchMethod"
+              }
+            }
+          },
+          "description": "Payload of Amend Dispatch Method endpoint",
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          },
+          "400": {
+            "description": "bad request error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not found error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}/amendshops": {
+      "post": {
+        "summary": "Ammend Shops",
+        "description": "Ammend Shops",
+        "tags": [
+          "amend"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayloadAmendShop"
+              }
+            }
+          },
+          "description": "Payload of Amend Shops endpoint",
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          },
+          "400": {
+            "description": "bad request error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not found error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}/finishamend": {
+      "put": {
+        "summary": "Finish amending order",
+        "description": "Finish amending order",
+        "tags": [
+          "amend"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok"
+          },
+          "400": {
+            "description": "bad request error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not found error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}/dispatches": {
+      "get": {
+        "summary": "Get Track & Trace Info By Order Tilroy Id",
+        "description": "Get Track & Trace Info By Order Tilroy Id",
+        "tags": [
+          "dispatches"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DispatchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "bad request error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not found error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dispatches": {
+      "get": {
+        "summary": "Get Track & Trace Info By Order Number",
+        "description": "Get Track & Trace Info By Order Number",
+        "tags": [
+          "dispatches"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/queryOrderNumberRequired"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DispatchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "bad request error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not found error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}/followups": {
+      "get": {
+        "summary": "Get an order Followup by orderId",
+        "description": "Get an order Followup by orderId",
+        "tags": [
+          "followups"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartialFollowUpRes"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "bad request error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not found error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/followups": {
+      "post": {
+        "summary": "get all followups",
+        "description": "get all followups.",
+        "tags": [
+          "followups"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/queryOrderNumber"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderFollowUpRes"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "bad request error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not found error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/{orderType}/export/orders": {
+      "get": {
+        "summary": "get marketplace or dropshipment orders",
+        "description": "Use this endpoint to get a list of export documents of marketplaceOrders or dropshipmentOrders.",
+        "tags": [
+          "export / import"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/pathOrderType"
+          },
+          {
+            "$ref": "#/components/parameters/headerSupplierApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/queryCount"
+          },
+          {
+            "$ref": "#/components/parameters/queryPage"
+          },
+          {
+            "$ref": "#/components/parameters/queryFields"
+          },
+          {
+            "$ref": "#/components/parameters/queryDateFrom"
+          },
+          {
+            "$ref": "#/components/parameters/queryDateExportedSince"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "headers": {
+              "Link": {
+                "description": "csv of first/prev/page/next/last links.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Link-JSON": {
+                "description": "JSON version of the Link header.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Paging-CurrentPage": {
+                "description": "number of the current page.",
+                "schema": {
+                  "type": "number"
+                }
+              },
+              "X-Paging-ItemCount": {
+                "description": "total number of items over all pages.",
+                "schema": {
+                  "type": "number"
+                }
+              },
+              "X-Paging-ItemsPerPage": {
+                "description": "number of max items returned per page.",
+                "schema": {
+                  "type": "number"
+                }
+              },
+              "X-Paging-PageCount": {
+                "description": "total number of pages.",
+                "schema": {
+                  "type": "number"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MarketPlaceOrDropshipmentOrderExport"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/{orderType}/ordershipments": {
+      "post": {
+        "summary": "Order shipment",
+        "description": "Use this endpoint to ship orders.",
+        "tags": [
+          "orders"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerSupplierApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/pathOrderType"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayloadOrderShipment"
+              }
+            }
+          },
+          "description": "Payload of order shipment endpoint",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "ok"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}/lines/{lineId}/reserve": {
+      "put": {
+        "summary": "reserve line for an order",
+        "description": "reserve line for an order. This is only possible for lines with status = N or M",
+        "tags": [
+          "lines"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          },
+          {
+            "$ref": "#/components/parameters/lineId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderLineReservationBody"
+              }
+            }
+          },
+          "description": "Payload for OrderLine",
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "ok"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}/lines/reserve": {
+      "put": {
+        "summary": "reserve and update location of multiple lines of an order",
+        "description": "reserve and update location of multiple lines of an order. This is only possible for lines with status = N, M or R",
+        "tags": [
+          "lines"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderLineReservationBodyMultiple"
+              }
+            }
+          },
+          "description": "Payload for multiple OrderLine reservation",
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "ok"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}/lines/{lineId}/location": {
+      "put": {
+        "summary": "update the location for an order line",
+        "description": "update the location for an order line",
+        "tags": [
+          "lines"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          },
+          {
+            "$ref": "#/components/parameters/lineId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderLineLocationBody"
+              }
+            }
+          },
+          "description": "Payload for OrderLine",
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "ok"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}/lines/{lineId}/cancel": {
+      "post": {
+        "summary": "Cancel an order line",
+        "description": "Cancel an order line",
+        "tags": [
+          "lines"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          },
+          {
+            "$ref": "#/components/parameters/lineId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelLineBody"
+              }
+            }
+          },
+          "description": "Optional payload to cancel an Order line"
+        },
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}/pdf": {
+      "post": {
+        "summary": "Generate a PDF for an order",
+        "description": "Generate a PDF for an order",
+        "tags": [
+          "PDF"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PDFResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}/collectmethods/click_collect/confirm": {
+      "put": {
+        "summary": "Confirm click and collect for an order",
+        "description": "Confirm click and collect for an order.",
+        "tags": [
+          "orders"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "ok"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}/additionalinfo": {
+      "put": {
+        "summary": "set additional info of an order",
+        "description": "Set additional info of an order.",
+        "tags": [
+          "orders"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdditionalInfoBody"
+              }
+            }
+          },
+          "description": "Payload for AdditionalInfo",
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "ok"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}/dispatch": {
+      "put": {
+        "summary": "set dispatch to a home delivery order",
+        "description": "set dispatch to a home delivery order.",
+        "tags": [
+          "orders"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DispatchBody"
+              }
+            }
+          },
+          "description": "Payload for order dispatch",
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "ok"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}/tags": {
+      "put": {
+        "summary": "add tags to an order",
+        "description": "add tags to an order",
+        "tags": [
+          "orders"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/TagsBody"
+        },
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Order"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "delete tags from an order",
+        "description": "delete tags from an order",
+        "tags": [
+          "orders"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/TagsBody"
+        },
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Order"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}/deliveryaddress": {
+      "put": {
+        "summary": "update the delivery address of an order",
+        "description": "update the delivery address of an order",
+        "tags": [
+          "orders"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryAddressBody"
+              }
+            }
+          },
+          "description": "Payload for the delivery address update",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}/mails/{type}/send": {
+      "post": {
+        "summary": "send a web order mail for order confirmations or gift voucher",
+        "description": "send a web order mail for order confirmations or gift voucher",
+        "tags": [
+          "orders"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          },
+          {
+            "$ref": "#/components/parameters/mailType"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}/sync": {
+      "post": {
+        "summary": "Sync an order",
+        "description": "Endpoint to trigger synchronization of an existing order",
+        "tags": [
+          "sync"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/orderId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success."
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/loglevel": {
+      "post": {
+        "summary": "Set the loglevel for the service.",
+        "description": "",
+        "tags": [
+          "private"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogLevel"
+              }
+            }
+          },
+          "description": "The logging level type in the body of the request",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Ok"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cache": {
+      "get": {
+        "summary": "Get cache stats",
+        "description": "Get cache stats for each item cached.",
+        "tags": [
+          "private"
+        ],
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "delete all cache",
+        "description": "",
+        "tags": [
+          "private"
+        ],
+        "responses": {
+          "204": {
+            "description": "no content"
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.tilroy.com/orderapi/production"
+    }
+  ],
+  "components": {
+    "parameters": {
+      "headerTilroyApiKey": {
+        "name": "Tilroy-Api-Key",
+        "in": "header",
+        "required": true,
+        "description": "API key to identify and validate the tenant",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "headerXApiKey": {
+        "name": "x-api-key",
+        "in": "header",
+        "required": true,
+        "description": "API key of AWS",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "headerSupplierApiKey": {
+        "name": "supplier-api-key",
+        "in": "header",
+        "required": true,
+        "description": "Supplier Api key",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryCount": {
+        "name": "count",
+        "in": "query",
+        "required": false,
+        "description": "max number of items to be returned (default = 10, max = 100)",
+        "schema": {
+          "type": "string",
+          "default": 10
+        }
+      },
+      "queryCustomerId": {
+        "name": "customerId",
+        "in": "query",
+        "required": false,
+        "description": "tilroyId of a customer",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryCustomerSourceId": {
+        "name": "customerSourceId",
+        "in": "query",
+        "required": false,
+        "description": "sourceId of a customer",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryDateFrom": {
+        "name": "dateFrom",
+        "in": "query",
+        "required": false,
+        "description": "filter results by the date the item was created for export (Deprecated, use dateExportedSince)",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryDateExportedSince": {
+        "name": "dateExportedSince",
+        "in": "query",
+        "required": true,
+        "description": "filter results by the date the item was created for export",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryFields": {
+        "name": "fields",
+        "in": "query",
+        "required": false,
+        "description": "Comma-separated list of all fields you want returned in the result. All other fields will be omitted.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryPage": {
+        "name": "page",
+        "in": "query",
+        "required": false,
+        "description": "page of results to be returned (default = 1)",
+        "schema": {
+          "type": "string",
+          "default": 1
+        }
+      },
+      "queryShopId": {
+        "name": "shopId",
+        "in": "query",
+        "required": false,
+        "description": "tilroyId of a shop",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryShopNumber": {
+        "name": "shopNumber",
+        "in": "query",
+        "required": false,
+        "description": "number of a shop",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryOrderNumber": {
+        "name": "orderNumber",
+        "in": "query",
+        "required": false,
+        "description": "number of an order",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryOrderNumberRequired": {
+        "name": "orderNumber",
+        "in": "query",
+        "required": true,
+        "description": "number of an order",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryBasketId": {
+        "name": "basketId",
+        "in": "query",
+        "required": false,
+        "description": "tilroyId of a basket",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryOpen": {
+        "name": "open",
+        "in": "query",
+        "required": false,
+        "description": "true for only open order lines.",
+        "schema": {
+          "type": "boolean"
+        }
+      },
+      "queryCalculateTotals": {
+        "name": "calculateTotals",
+        "in": "query",
+        "required": false,
+        "description": "query to allow the calculation of all \"total\" values",
+        "schema": {
+          "type": "boolean"
+        }
+      },
+      "sorting": {
+        "name": "sorting",
+        "in": "query",
+        "required": false,
+        "description": "comma-separated list of fields to sort on",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "sortOrder": {
+        "name": "sortorder",
+        "in": "query",
+        "required": false,
+        "description": "sort order (1 = asc or -1 = desc)",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryalwaysCreateNew": {
+        "name": "alwaysCreateNew",
+        "in": "query",
+        "required": false,
+        "description": "query to allow the creation of a status even if the status already exists",
+        "schema": {
+          "type": "boolean"
+        }
+      },
+      "pathOrderNumber": {
+        "name": "orderNumber",
+        "in": "path",
+        "required": true,
+        "description": "Id of the order",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "pathOrderType": {
+        "name": "orderType",
+        "in": "path",
+        "required": true,
+        "description": "Order type. Possible values are \"marketplace\" and \"dropshipment\"",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "pathTilroyId": {
+        "name": "tilroyId",
+        "in": "path",
+        "required": true,
+        "description": "Id of the basket",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "orderId": {
+        "name": "orderId",
+        "in": "path",
+        "required": true,
+        "description": "id of the order",
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "mailType": {
+        "name": "type",
+        "in": "path",
+        "required": true,
+        "description": "the type of mail to be sent (must be orderconfirmation or giftvoucher)",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "collectMethodCode": {
+        "name": "collectMethodCode",
+        "in": "path",
+        "required": true,
+        "description": "the collect method code to be used, it can be click_collect, home_delivery or service_pickup",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "lineId": {
+        "name": "lineId",
+        "in": "path",
+        "required": true,
+        "description": "id of the line",
+        "schema": {
+          "type": "integer"
+        }
+      }
+    },
+    "requestBodies": {
+      "TagsBody": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/TagsBody"
+            }
+          }
+        },
+        "description": "Payload for the tags endpoints",
+        "required": true
+      }
+    },
+    "schemas": {
+      "Brand": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "CollectMethod": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "Company": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "Country": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "tilroyId": {
+            "type": "string"
+          }
+        }
+      },
+      "CustomerPayload": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          }
+        }
+      },
+      "Customer": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CustomerPayload"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "firstName": {
+                "type": "string"
+              },
+              "surName": {
+                "type": "string"
+              },
+              "companyName": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "CustomerExport": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Customer"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "email": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "street": {
+                "type": "string"
+              },
+              "houseNumber": {
+                "type": "string"
+              },
+              "box": {
+                "type": "string"
+              },
+              "postalCode": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "country": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  }
+                }
+              },
+              "phone": {
+                "type": "string"
+              },
+              "mobile": {
+                "type": "string"
+              },
+              "VATNumber": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "Payments": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "amount": {
+              "type": "number"
+            },
+            "paymentType": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                }
+              }
+            },
+            "paymentReference": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Delivery": {
+        "type": "object",
+        "required": [
+          "name",
+          "address1",
+          "address2",
+          "houseNumber",
+          "box",
+          "postalCode",
+          "city",
+          "country"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "address1": {
+            "type": "string"
+          },
+          "address2": {
+            "type": "string"
+          },
+          "houseNumber": {
+            "type": "string"
+          },
+          "box": {
+            "type": "string"
+          },
+          "postalCode": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "country": {
+            "$ref": "#/components/schemas/Country"
+          },
+          "deliveryDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expectedDate": {
+            "type": "string",
+            "example": "2023-08-01T00:00:00.000Z"
+          },
+          "startTime": {
+            "type": "string",
+            "example": "2023-08-01T00:00:00.000Z"
+          },
+          "endTime": {
+            "type": "string",
+            "example": "2023-08-01T00:00:00.000Z"
+          }
+        }
+      },
+      "PayloadDelivery": {
+        "type": "object",
+        "required": [
+          "name",
+          "address1",
+          "address2",
+          "houseNumber",
+          "box",
+          "postalCode",
+          "city",
+          "country"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "address1": {
+            "type": "string"
+          },
+          "address2": {
+            "type": "string"
+          },
+          "houseNumber": {
+            "type": "string"
+          },
+          "box": {
+            "type": "string"
+          },
+          "postalCode": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "country": {
+            "$ref": "#/components/schemas/Country"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Dispatch": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "qty": {
+            "type": "number"
+          }
+        }
+      },
+      "Error": {
+        "description": "The error object returned by the service",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code of the error, assigned by Node or the developer."
+          },
+          "message": {
+            "type": "string",
+            "description": "More information about the cause of the error."
+          }
+        }
+      },
+      "Ids": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          }
+        }
+      },
+      "LogLevel": {
+        "type": "object",
+        "required": [
+          "level"
+        ],
+        "properties": {
+          "level": {
+            "type": "string"
+          }
+        }
+      },
+      "LinkedObject": {
+        "description": "(please use lowercase property names. uppercase is deprecated)",
+        "type": "object",
+        "properties": {
+          "barcode": {
+            "type": "string",
+            "example": "2014567854569"
+          },
+          "displayValue": {
+            "type": "string",
+            "example": "2014"
+          },
+          "reference": {
+            "type": "string",
+            "example": "ABC"
+          },
+          "referenceType": {
+            "type": "string",
+            "example": "1"
+          }
+        }
+      },
+      "Assignee": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "description": "Reference of the assignee in Tilroy",
+            "example": "78555"
+          },
+          "sourceId": {
+            "type": "string",
+            "description": "reference of the assignee in the source system",
+            "example": "368dFed8"
+          },
+          "login": {
+            "type": "string",
+            "description": "the login of the assignee",
+            "example": "john.doe"
+          }
+        }
+      },
+      "PDFResponse": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "example": "123456"
+          },
+          "fileName": {
+            "type": "string",
+            "example": "order_123456_80wda88da6s8d444as6d8as.pdf"
+          },
+          "link": {
+            "type": "string",
+            "example": "https://s3.eu-west-1.amazonaws.com/123/order/order_123456_80wda88da6s8d444as6d8as.pdf"
+          }
+        }
+      },
+      "Order": {
+        "description": "Order item object returned by the service",
+        "properties": {
+          "basketId": {
+            "type": "string"
+          },
+          "customer": {
+            "$ref": "#/components/schemas/Customer"
+          },
+          "dateCompleted": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/Delivery"
+          },
+          "payments": {
+            "$ref": "#/components/schemas/Payments"
+          },
+          "paymentProvider": {
+            "type": "object",
+            "properties": {
+              "reference": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string"
+              }
+            }
+          },
+          "deliveryDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isVatInclusive": {
+            "type": "boolean"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderLine"
+            }
+          },
+          "orderNumber": {
+            "type": "string"
+          },
+          "shop": {
+            "$ref": "#/components/schemas/Shop"
+          },
+          "invoice": {
+            "$ref": "#/components/schemas/Invoice"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "languageCode": {
+            "type": "string"
+          },
+          "totalAmountInclVAT": {
+            "type": "number"
+          },
+          "totalAmountExclVAT": {
+            "type": "number"
+          },
+          "totalAmountDiscount": {
+            "type": "number"
+          },
+          "totalAmountVat": {
+            "type": "number"
+          },
+          "totalAmountToPay": {
+            "type": "number"
+          },
+          "totalAmountPaid": {
+            "description": "(deprecated)",
+            "type": "number",
+            "x-deprecated": true
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "externalReference": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sale": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              }
+            }
+          },
+          "linkedObject": {
+            "$ref": "#/components/schemas/LinkedObject"
+          },
+          "statusAmending": {
+            "type": "string"
+          },
+          "expectedDeliveryDate": {
+            "description": "(deprecated)",
+            "type": "string",
+            "x-deprecated": true
+          },
+          "status": {
+            "type": "string",
+            "example": "open"
+          },
+          "onAccount": {
+            "type": "boolean"
+          },
+          "assignee": {
+            "$ref": "#/components/schemas/Assignee"
+          }
+        }
+      },
+      "OrderV2": {
+        "type": "object",
+        "properties": {
+          "additionalInfo": {
+            "type": "string",
+            "example": "Additional Info"
+          },
+          "customer": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "1547590"
+              },
+              "code": {
+                "type": "string",
+                "example": "4213758"
+              },
+              "firstName": {
+                "type": "string",
+                "example": "Til"
+              },
+              "surName": {
+                "type": "string",
+                "example": "Roy"
+              },
+              "companyName": {
+                "type": "string",
+                "example": "Tilroy"
+              }
+            }
+          },
+          "delivery": {
+            "type": "object",
+            "properties": {
+              "address1": {
+                "type": "string",
+                "example": "Dijkstraat"
+              },
+              "address2": {
+                "type": "string",
+                "example": ""
+              },
+              "box": {
+                "type": "string",
+                "example": ""
+              },
+              "city": {
+                "type": "string",
+                "example": "Aartselaar"
+              },
+              "houseNumber": {
+                "type": "string",
+                "example": "6"
+              },
+              "name": {
+                "type": "string",
+                "example": "Tilroy"
+              },
+              "postalCode": {
+                "type": "string",
+                "example": "2630"
+              },
+              "date": {
+                "type": "string",
+                "example": "2023-08-01T00:00:00.000Z"
+              },
+              "expectedDate": {
+                "type": "string",
+                "example": "2023-08-01T00:00:00.000Z"
+              },
+              "startTime": {
+                "type": "string",
+                "example": "2023-08-01T00:00:00.000Z"
+              },
+              "endTime": {
+                "type": "string",
+                "example": "2023-08-01T00:00:00.000Z"
+              },
+              "country": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "example": "BE"
+                  },
+                  "id": {
+                    "type": "string",
+                    "example": "3"
+                  },
+                  "tilroyId": {
+                    "type": "string",
+                    "example": "3"
+                  }
+                }
+              }
+            }
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderLineV2"
+            }
+          },
+          "basketId": {
+            "type": "string",
+            "example": "1031706"
+          },
+          "dateCompleted": {
+            "type": "string",
+            "example": "2023-08-01T00:00:00.000Z"
+          },
+          "isVatInclusive": {
+            "type": "boolean",
+            "example": true
+          },
+          "orderNumber": {
+            "type": "string",
+            "example": "1031706"
+          },
+          "timestamp": {
+            "type": "string",
+            "example": "2022-08-25T08:42:15.181Z"
+          },
+          "externalReference": {
+            "type": "string",
+            "example": "123"
+          },
+          "shop": {
+            "type": "object",
+            "properties": {
+              "sourceId": {
+                "type": "string",
+                "example": "1101"
+              },
+              "tilroyId": {
+                "type": "string",
+                "example": "87"
+              },
+              "number": {
+                "type": "string",
+                "example": "1101"
+              },
+              "name": {
+                "type": "string",
+                "example": "Tilroy Antwerp"
+              }
+            }
+          },
+          "expectedDeliveryDate": {
+            "type": "string",
+            "example": "2023-08-01T00:00:00.000Z",
+            "description": "(deprecated)",
+            "x-deprecated": true
+          },
+          "invoice": {
+            "type": "object",
+            "properties": {
+              "address": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Tilroy"
+                  },
+                  "address1": {
+                    "type": "string",
+                    "example": "Dijkstraat"
+                  },
+                  "address2": {
+                    "type": "string",
+                    "example": ""
+                  },
+                  "houseNumber": {
+                    "type": "string",
+                    "example": "6"
+                  },
+                  "box": {
+                    "type": "string",
+                    "example": ""
+                  },
+                  "postalCode": {
+                    "type": "string",
+                    "example": "2630"
+                  },
+                  "city": {
+                    "type": "string",
+                    "example": "Aartselaar"
+                  },
+                  "country": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string",
+                        "example": "BE"
+                      },
+                      "id": {
+                        "type": "string",
+                        "example": "3"
+                      },
+                      "tilroyId": {
+                        "type": "string",
+                        "example": "3"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "deliveryDate": {
+            "type": "string",
+            "example": "2023-08-01T00:00:00.000Z",
+            "description": "(deprecated)",
+            "x-deprecated": true
+          },
+          "linkedObject": {
+            "$ref": "#/components/schemas/LinkedObject"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "example": "tag"
+            }
+          },
+          "totalAmountToPay": {
+            "type": "number"
+          },
+          "totalAmountCancelled": {
+            "type": "number"
+          },
+          "totalAmountInclVAT": {
+            "type": "number"
+          },
+          "totalAmountExclVAT": {
+            "type": "number"
+          },
+          "totalAmountDiscount": {
+            "type": "number"
+          },
+          "totalAmountVat": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "example": "open"
+          },
+          "onAccount": {
+            "type": "boolean"
+          },
+          "assignee": {
+            "$ref": "#/components/schemas/Assignee"
+          }
+        }
+      },
+      "OrderLineV2": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "example": 123
+          },
+          "collectMethod": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "home_delivery"
+              }
+            }
+          },
+          "icons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "example": "http://some.url/standaard.jpg"
+            }
+          },
+          "product": {
+            "type": "object",
+            "properties": {
+              "brand": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "example": "Nike"
+                  }
+                }
+              },
+              "code": {
+                "type": "string",
+                "example": "item"
+              },
+              "description": {
+                "type": "string",
+                "example": "Item"
+              },
+              "sku": {
+                "type": "object",
+                "properties": {
+                  "sourceId": {
+                    "type": "string",
+                    "example": "456"
+                  },
+                  "tilroyId": {
+                    "type": "string",
+                    "example": "789"
+                  }
+                }
+              },
+              "linkedObject": {
+                "$ref": "#/components/schemas/LinkedObject"
+              }
+            }
+          },
+          "shopHandling": {
+            "type": "object",
+            "properties": {
+              "sourceId": {
+                "type": "string",
+                "example": "1101"
+              },
+              "tilroyId": {
+                "type": "string",
+                "example": "87"
+              },
+              "number": {
+                "type": "string",
+                "example": "1101"
+              },
+              "name": {
+                "type": "string",
+                "example": "Tilroy Antwerp"
+              }
+            }
+          },
+          "shopStock": {
+            "type": "object",
+            "properties": {
+              "sourceId": {
+                "type": "string",
+                "example": "1101"
+              },
+              "tilroyId": {
+                "type": "string",
+                "example": "87"
+              },
+              "number": {
+                "type": "string",
+                "example": "1101"
+              },
+              "name": {
+                "type": "string",
+                "example": "Tilroy Antwerp"
+              }
+            }
+          },
+          "timestamp": {
+            "type": "string",
+            "example": "2022-08-25T08:42:17.641Z"
+          },
+          "priceCost": {
+            "type": "string",
+            "example": "100"
+          },
+          "priceDiscount": {
+            "type": "string",
+            "example": "5"
+          },
+          "priceSell": {
+            "type": "string",
+            "example": "59.98"
+          },
+          "priceStandard": {
+            "type": "string",
+            "example": "59.98"
+          },
+          "quantity": {
+            "type": "string",
+            "example": "1"
+          },
+          "specialOrder": {
+            "type": "string",
+            "example": "false"
+          },
+          "status": {
+            "type": "string",
+            "example": "R",
+            "enum": [
+              "C",
+              "D",
+              "I",
+              "L",
+              "M",
+              "N",
+              "Q",
+              "R",
+              "S",
+              "X"
+            ],
+            "description": "Status of the order line: C = Cancelled, D = Dispatched, I = In transfer, L = Finished, M = Click&Collect confirmed, N = Unreserved, Q = Requested, R = Reserved, S = Sold, X = Not available"
+          },
+          "type": {
+            "type": "string",
+            "example": "P"
+          },
+          "vatPercentage": {
+            "type": "string",
+            "example": "21"
+          },
+          "linkedObject": {
+            "$ref": "#/components/schemas/LinkedObject"
+          }
+        }
+      },
+      "OrderExport": {
+        "description": "Order item object returned by the service",
+        "properties": {
+          "basketId": {
+            "type": "string"
+          },
+          "customer": {
+            "$ref": "#/components/schemas/CustomerExport"
+          },
+          "dateCompleted": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/Delivery"
+          },
+          "payments": {
+            "$ref": "#/components/schemas/Payments"
+          },
+          "paymentProvider": {
+            "type": "object",
+            "properties": {
+              "reference": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string"
+              }
+            }
+          },
+          "deliveryDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isVatInclusive": {
+            "type": "boolean"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderLine"
+            }
+          },
+          "orderNumber": {
+            "type": "string"
+          },
+          "shop": {
+            "$ref": "#/components/schemas/Shop"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "languageCode": {
+            "type": "string"
+          },
+          "totalAmountInclVAT": {
+            "type": "number"
+          },
+          "totalAmountExclVAT": {
+            "type": "number"
+          },
+          "totalAmountDiscount": {
+            "type": "number"
+          },
+          "totalAmountVat": {
+            "type": "number"
+          },
+          "totalAmountPaid": {
+            "type": "number"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "externalReference": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "followUp": {
+            "type": "object",
+            "properties": {
+              "shop": {
+                "$ref": "#/components/schemas/Shop"
+              },
+              "isReviewed": {
+                "type": "boolean"
+              },
+              "registrations": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Registration"
+                }
+              },
+              "status": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  }
+                }
+              },
+              "dateCreated": {
+                "type": "string"
+              },
+              "dateUpdated": {
+                "type": "string"
+              },
+              "dateExported": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      },
+      "MarketPlaceOrDropshipmentOrderExport": {
+        "type": "object",
+        "properties": {
+          "marketPlaceOrderId": {
+            "type": "string",
+            "example": "1038073-Spelhuis"
+          },
+          "orderNumber": {
+            "type": "string",
+            "example": "1038073"
+          },
+          "orderDate": {
+            "type": "string",
+            "example": "2023-04-20T13:32:25.065Z"
+          },
+          "deliveryDate": {
+            "type": "string",
+            "example": "2023-04-20T13:32:25.065Z"
+          },
+          "customer": {
+            "$ref": "#/components/schemas/CustomerExport"
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/Delivery"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/marketPlaceOrDropshipmentOrderLine"
+            }
+          },
+          "shop": {
+            "$ref": "#/components/schemas/Shop"
+          },
+          "timestamp": {
+            "type": "string",
+            "example": "2023-04-20T13:32:25.065Z"
+          },
+          "languageCode": {
+            "type": "string",
+            "example": "NL"
+          },
+          "supplier": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "example": "Spelhuis"
+              }
+            }
+          },
+          "totalAmountInclVAT": {
+            "type": "number",
+            "example": 163.61
+          },
+          "totalAmountExclVAT": {
+            "type": "number",
+            "example": 135.21
+          },
+          "totalAmountVat": {
+            "type": "number",
+            "example": 28.4
+          },
+          "tenantId": {
+            "type": "string",
+            "example": "107"
+          },
+          "dateExported": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "marketPlaceOrDropshipmentOrderLine": {
+        "type": "object",
+        "properties": {
+          "supplierReferenceNumber": {
+            "type": "string",
+            "example": "osaka002_red_size"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "priceSell": {
+            "type": "number",
+            "example": 24.68
+          },
+          "qty": {
+            "type": "number",
+            "example": 2
+          },
+          "vatPtc": {
+            "type": "number",
+            "example": 21
+          }
+        }
+      },
+      "PagedResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Order"
+            }
+          }
+        }
+      },
+      "PagedResultV2": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderV2"
+            }
+          }
+        }
+      },
+      "PayloadDeliveryService": {
+        "type": "object",
+        "required": [
+          "productDelivery",
+          "productService",
+          "reference",
+          "type"
+        ],
+        "properties": {
+          "icon": {
+            "type": "string",
+            "example": "standaard.jpg"
+          },
+          "productDelivery": {
+            "$ref": "#/components/schemas/PayloadDeliveryServiceProduct"
+          },
+          "productService": {
+            "$ref": "#/components/schemas/PayloadDeliveryServiceProduct"
+          },
+          "reference": {
+            "type": "string",
+            "example": "3"
+          },
+          "type": {
+            "type": "string",
+            "example": "2"
+          }
+        }
+      },
+      "PayloadDeliveryServiceAndDate": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deliveryStartTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deliveryEndTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deliveryAllowedFrom": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expectedDeliveryDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "services": {
+            "$ref": "#/components/schemas/PayloadDeliveryService"
+          }
+        }
+      },
+      "PayloadDeliveryServiceProduct": {
+        "type": "object",
+        "required": [
+          "sku",
+          "price"
+        ],
+        "properties": {
+          "price": {
+            "type": "number",
+            "example": 2.99
+          },
+          "sku": {
+            "type": "object",
+            "required": [
+              "id"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "example": "452166"
+              }
+            }
+          }
+        }
+      },
+      "OrderDetail": {
+        "description": "Order item object returned by the service",
+        "properties": {
+          "basketId": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateCompleted": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "customer": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Customer"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "address": {
+                    "type": "string"
+                  },
+                  "address2": {
+                    "type": "string"
+                  },
+                  "houseNumber": {
+                    "type": "string"
+                  },
+                  "box": {
+                    "type": "string"
+                  },
+                  "postalCode": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "countryId": {
+                    "type": "integer"
+                  },
+                  "country": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "mobile": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          },
+          "shop": {
+            "$ref": "#/components/schemas/Shop"
+          },
+          "delivery": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Delivery"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "country": {
+                    "type": "string",
+                    "description": "Description of the country in the correct language"
+                  }
+                }
+              }
+            ]
+          },
+          "isVatInclusive": {
+            "type": "boolean"
+          },
+          "deliveryDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "orderNumber": {
+            "type": "string"
+          },
+          "additionalInfo": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/OrderLine"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "number"
+                    },
+                    "productId": {
+                      "type": "integer"
+                    },
+                    "productColourId": {
+                      "type": "integer"
+                    },
+                    "sellUnique": {
+                      "type": "boolean"
+                    },
+                    "needsSerial": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "qty": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          },
+          "qtyOpen": {
+            "type": "number"
+          },
+          "totalOpen": {
+            "type": "number"
+          },
+          "advance": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string"
+          },
+          "anonymous": {
+            "type": "boolean"
+          },
+          "statusAmending": {
+            "type": "string"
+          },
+          "totalAmountToAmend": {
+            "type": "number"
+          },
+          "orderAmends": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderAmend"
+            }
+          },
+          "discount": {
+            "type": "number"
+          },
+          "removedInfo": {
+            "$ref": "#/components/schemas/removedInfo"
+          }
+        }
+      },
+      "OrderAmend": {
+        "type": "object",
+        "properties": {
+          "saleId": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Registration": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              }
+            }
+          },
+          "comment": {
+            "type": "string"
+          },
+          "userCreated": {
+            "type": "object",
+            "properties": {
+              "firstName": {
+                "type": "string"
+              },
+              "lastName": {
+                "type": "string"
+              },
+              "tilroyId": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "OrderLine": {
+        "type": "object",
+        "properties": {
+          "collectMethod": {
+            "$ref": "#/components/schemas/CollectMethod"
+          },
+          "location": {
+            "type": "string",
+            "description": "free text field describing the location",
+            "example": "Aisle 3"
+          },
+          "priceCost": {
+            "type": "number"
+          },
+          "priceDiscount": {
+            "type": "number"
+          },
+          "priceSell": {
+            "type": "number"
+          },
+          "priceStandard": {
+            "type": "number"
+          },
+          "product": {
+            "$ref": "#/components/schemas/Product"
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "shopHandling": {
+            "$ref": "#/components/schemas/Shop"
+          },
+          "shopStock": {
+            "$ref": "#/components/schemas/Shop"
+          },
+          "specialOrder": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "example": "R",
+            "enum": [
+              "C",
+              "D",
+              "I",
+              "L",
+              "M",
+              "N",
+              "Q",
+              "R",
+              "S",
+              "X"
+            ],
+            "description": "Status of the order line: C = Cancelled, D = Dispatched, I = In transfer, L = Finished, M = Click&Collect confirmed, N = Unreserved, Q = Requested, R = Reserved, S = Sold, X = Not available"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "type": "string"
+          },
+          "vatPercentage": {
+            "type": "number"
+          },
+          "linkedObject": {
+            "$ref": "#/components/schemas/LinkedObject"
+          },
+          "dispatchMethod": {
+            "$ref": "#/components/schemas/DispatchMethod"
+          },
+          "shipment": {
+            "$ref": "#/components/schemas/Shipment"
+          }
+        }
+      },
+      "DispatchMethod": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "example": "3654"
+          },
+          "code": {
+            "type": "string",
+            "example": "BPOST"
+          },
+          "extraData": {
+            "type": "string",
+            "example": "BPOST"
+          }
+        }
+      },
+      "Shipment": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "example": "1030000182"
+          },
+          "reference": {
+            "type": "string",
+            "example": "86654298"
+          },
+          "expiryDate": {
+            "type": "string",
+            "format": "iso-datetime",
+            "example": "2021-12-28T22:21:25"
+          }
+        }
+      },
+      "PayloadGiftVoucher": {
+        "type": "object",
+        "required": [
+          "reference"
+        ],
+        "properties": {
+          "reference": {
+            "type": "string"
+          }
+        }
+      },
+      "PayloadLines": {
+        "type": "object",
+        "required": [
+          "qty",
+          "sku",
+          "collectMethod"
+        ],
+        "properties": {
+          "qty": {
+            "type": "number"
+          },
+          "priceStandard": {
+            "type": "number"
+          },
+          "priceSell": {
+            "type": "number"
+          },
+          "sku": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              },
+              "sourceId": {
+                "type": "string"
+              }
+            }
+          },
+          "promotion": {
+            "$ref": "#/components/schemas/Promotion"
+          },
+          "dispatchMethod": {
+            "type": "object",
+            "required": [
+              "id",
+              "code"
+            ],
+            "properties": {
+              "id": {
+                "type": "number"
+              },
+              "code": {
+                "type": "string"
+              },
+              "extraData": {
+                "type": "string"
+              }
+            }
+          },
+          "collectMethod": {
+            "type": "object",
+            "required": [
+              "code",
+              "shopHandling",
+              "shopStock"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "shopHandling": {
+                "type": "object",
+                "properties": {
+                  "tilroyId": {
+                    "type": "string"
+                  },
+                  "number": {
+                    "type": "number"
+                  }
+                }
+              },
+              "shopStock": {
+                "type": "object",
+                "properties": {
+                  "tilroyId": {
+                    "type": "string"
+                  },
+                  "number": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional alternative description"
+          },
+          "linkedObject": {
+            "$ref": "#/components/schemas/LinkedObject"
+          },
+          "automaticStatusDispatched": {
+            "type": "boolean",
+            "default": false
+          },
+          "vatPercOverride": {
+            "type": "number"
+          },
+          "confirmedToCustomer": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PayloadOrder": {
+        "type": "object",
+        "required": [
+          "shop",
+          "language",
+          "products"
+        ],
+        "properties": {
+          "customer": {
+            "$ref": "#/components/schemas/CustomerPayload"
+          },
+          "shop": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              },
+              "number": {
+                "type": "number"
+              }
+            }
+          },
+          "till": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              }
+            }
+          },
+          "channel": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "description": "When not provided, the default channel code is ECOM",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "TILL",
+                  "ECOM",
+                  "B2B"
+                ]
+              }
+            }
+          },
+          "language": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "Language code (EN, NL, DE, FR)"
+              }
+            }
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/PayloadDelivery"
+          },
+          "isVatInclusive": {
+            "type": "boolean",
+            "default": true
+          },
+          "ogoneReference": {
+            "type": "string"
+          },
+          "user": {
+            "type": "object",
+            "required": [
+              "tilroyId"
+            ],
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              }
+            }
+          },
+          "products": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PayloadLines"
+            }
+          },
+          "vouchers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PayloadVoucher"
+            }
+          },
+          "giftVouchers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PayloadGiftVoucher"
+            }
+          },
+          "payments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PayloadPayment"
+            }
+          },
+          "orderNumber": {
+            "type": "string"
+          },
+          "mollieReference": {
+            "type": "string"
+          },
+          "eTicket": {
+            "type": "boolean"
+          },
+          "shopHandling": {
+            "type": "object",
+            "required": [
+              "tilroyId"
+            ],
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              },
+              "number": {
+                "type": "number"
+              }
+            }
+          },
+          "shopStock": {
+            "type": "object",
+            "required": [
+              "tilroyId"
+            ],
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              },
+              "number": {
+                "type": "number"
+              }
+            }
+          },
+          "linkedObject": {
+            "$ref": "#/components/schemas/LinkedObject"
+          },
+          "invoice": {
+            "type": "boolean"
+          },
+          "externalReference": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "quotation": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              }
+            }
+          },
+          "disablePPEngine": {
+            "type": "boolean"
+          },
+          "additionalInfo": {
+            "type": "string"
+          },
+          "assignee": {
+            "$ref": "#/components/schemas/Assignee"
+          }
+        }
+      },
+      "PayloadUpdateOrder": {
+        "type": "object",
+        "properties": {
+          "assignee": {
+            "$ref": "#/components/schemas/Assignee"
+          },
+          "deliveryDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expectedDeliveryDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deliveryAllowedFrom": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "additionalInfo": {
+            "type": "string"
+          },
+          "externalReference": {
+            "type": "string"
+          },
+          "internalReference": {
+            "type": "string"
+          }
+        }
+      },
+      "PayloadPayment": {
+        "type": "object",
+        "required": [
+          "paymentType",
+          "amount"
+        ],
+        "properties": {
+          "paymentType": {
+            "type": "object",
+            "required": [
+              "tilroyId"
+            ],
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string"
+              }
+            }
+          },
+          "amount": {
+            "type": "number"
+          },
+          "reference": {
+            "type": "string"
+          }
+        }
+      },
+      "PayloadRegistration": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              }
+            }
+          },
+          "comment": {
+            "type": "string"
+          },
+          "userCreated": {
+            "type": "object",
+            "required": [
+              "firstName",
+              "lastName",
+              "id"
+            ],
+            "properties": {
+              "firstName": {
+                "type": "string"
+              },
+              "lastName": {
+                "type": "string"
+              },
+              "tilroyId": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "PayloadVoucher": {
+        "type": "object",
+        "required": [
+          "reference"
+        ],
+        "properties": {
+          "reference": {
+            "type": "string"
+          }
+        }
+      },
+      "Product": {
+        "type": "object",
+        "properties": {
+          "brand": {
+            "$ref": "#/components/schemas/Brand"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "picture": {
+            "type": "string"
+          },
+          "sku": {
+            "$ref": "#/components/schemas/Sku"
+          }
+        }
+      },
+      "Promotion": {
+        "type": "object",
+        "properties": {
+          "actionId": {
+            "type": "string",
+            "description": "Reference to the action applied to this line",
+            "default": "0",
+            "example": "125"
+          },
+          "actionDescription": {
+            "type": "string",
+            "example": "",
+            "default": ""
+          },
+          "bundleApplied": {
+            "type": "boolean",
+            "example": false,
+            "default": false
+          },
+          "bundleDealId": {
+            "type": "string",
+            "example": "125",
+            "default": "0"
+          },
+          "bundleLineParent": {
+            "type": "boolean",
+            "example": false,
+            "default": false
+          },
+          "buyAndGetId": {
+            "type": "string",
+            "description": "Reference to the buy and get applied to this line",
+            "example": "125",
+            "default": "0"
+          },
+          "copyFrom": {
+            "type": "string",
+            "example": "3",
+            "default": ""
+          },
+          "customerPriceId": {
+            "type": "string",
+            "description": "Reference to the customer price applied to this line. Also known as exceptionalPriceId.",
+            "example": "125",
+            "default": "0"
+          },
+          "discountReasonId": {
+            "type": "string",
+            "description": "Reference to the discount-reason applied to this line",
+            "example": "125",
+            "default": "0"
+          },
+          "inBuying": {
+            "type": "boolean",
+            "example": false,
+            "default": false
+          },
+          "lineDiscountId": {
+            "type": "string",
+            "description": "Reference to the line discount applied to this line",
+            "example": "125",
+            "default": "0"
+          },
+          "priceBundle": {
+            "type": "number",
+            "example": 5.93,
+            "default": 0
+          },
+          "priceBuyAndGet": {
+            "type": "number",
+            "example": 5.93,
+            "default": 0
+          },
+          "priceCustomer": {
+            "type": "number",
+            "description": "Also known as priceExceptional.",
+            "default": 0,
+            "example": 0
+          },
+          "priceLineDiscount": {
+            "type": "number",
+            "example": 5.93,
+            "default": 0
+          },
+          "priceManual": {
+            "type": "number",
+            "example": 0,
+            "default": 0
+          },
+          "priceSellGross": {
+            "type": "number",
+            "example": 5.93,
+            "default": 0
+          },
+          "priceSet": {
+            "type": "number",
+            "example": 5.93,
+            "default": 0
+          },
+          "returnIncentiveId": {
+            "type": "string",
+            "description": "Reference to the return incentive applied to this line",
+            "example": "125",
+            "default": "0"
+          },
+          "setId": {
+            "type": "string",
+            "description": "Reference to the set id applied to this line",
+            "example": "125",
+            "default": "0"
+          },
+          "triggerId": {
+            "type": "string",
+            "example": "125",
+            "default": "0"
+          }
+        }
+      },
+      "removedInfo": {
+        "type": "object",
+        "properties": {
+          "removed": {
+            "type": "boolean"
+          },
+          "user": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Shop": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "number": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "SimpleShop": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string"
+          },
+          "number": {
+            "type": "number"
+          }
+        }
+      },
+      "Sku": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Ids"
+          }
+        ]
+      },
+      "PayloadAmendDispatchMethod": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "shipmentId": {
+              "type": "string",
+              "example": 123456
+            },
+            "carrier": {
+              "type": "string",
+              "example": "Dynalogic"
+            },
+            "service": {
+              "type": "string",
+              "example": "AFLXL"
+            }
+          }
+        }
+      },
+      "PayloadAmendShop": {
+        "type": "object",
+        "properties": {
+          "shopHandling": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              },
+              "number": {
+                "type": "string"
+              }
+            }
+          },
+          "shopStock": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              },
+              "number": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "PayloadOrderShipment": {
+        "type": "object",
+        "properties": {
+          "orderNumber": {
+            "type": "string",
+            "example": "1038266"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/orderShipmentLine"
+            }
+          },
+          "parcels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/parcel"
+            }
+          }
+        }
+      },
+      "AdditionalInfoBody": {
+        "type": "object",
+        "required": [
+          "additionalInfo"
+        ],
+        "properties": {
+          "additionalInfo": {
+            "type": "string"
+          }
+        }
+      },
+      "OrderLineReservationBody": {
+        "type": "object",
+        "properties": {
+          "quantity": {
+            "type": "number",
+            "example": 1
+          },
+          "location": {
+            "type": "string",
+            "example": "second shelve on the right"
+          }
+        }
+      },
+      "OrderLineReservationBodyMultiple": {
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/OrderLineReservationBody"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "lineId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "OrderLineLocationBody": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string",
+            "example": "a random location"
+          }
+        }
+      },
+      "CancelLineBody": {
+        "type": "object",
+        "properties": {
+          "paymentType": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string"
+              }
+            }
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "cancelReason": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "CancelBody": {
+        "type": "object",
+        "properties": {
+          "cancelReason": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "DispatchBody": {
+        "type": "object",
+        "required": [
+          "dispatchMethod"
+        ],
+        "properties": {
+          "dispatchMethod": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              }
+            }
+          },
+          "reserveAll": {
+            "type": "boolean"
+          },
+          "shopHandling": {
+            "$ref": "#/components/schemas/SimpleShop"
+          }
+        }
+      },
+      "TagsBody": {
+        "type": "object",
+        "properties": {
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "DeliveryAddressBody": {
+        "type": "object",
+        "required": [
+          "name",
+          "address1",
+          "houseNumber",
+          "postalCode",
+          "city",
+          "country"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "address1": {
+            "type": "string"
+          },
+          "address2": {
+            "type": "string"
+          },
+          "houseNumber": {
+            "type": "string"
+          },
+          "box": {
+            "type": "string"
+          },
+          "postalCode": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "country": {
+            "$ref": "#/components/schemas/Country"
+          },
+          "companyName": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          }
+        }
+      },
+      "RefundBody": {
+        "type": "object",
+        "required": [
+          "paymentType"
+        ],
+        "properties": {
+          "paymentType": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "integer",
+                "description": "Tilroy ID of the payment type"
+              },
+              "code": {
+                "type": "string",
+                "description": "Code of the payment type"
+              }
+            },
+            "description": "Payment type object with either tilroyId or code (at least one is required)"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name for the refund"
+          },
+          "account": {
+            "type": "string",
+            "description": "Account information for the refund"
+          },
+          "additionalInfo": {
+            "type": "string",
+            "description": "Additional information for the refund"
+          }
+        }
+      },
+      "parcel": {
+        "type": "object",
+        "properties": {
+          "trackingCode": {
+            "type": "string",
+            "example": "323200224259919118552030"
+          },
+          "trackingUrl": {
+            "type": "string",
+            "example": "http://track.bpost.be/btr/web/#/search?itemCode=323200224259919118552030&postalCode=2630&lang=NL"
+          },
+          "labelUrl": {
+            "type": "string",
+            "example": "https://s3.eu-west-1.amazonaws.com/tilroy/107/BPost_Labels/1070010011546.pdf"
+          }
+        }
+      },
+      "orderShipmentLine": {
+        "type": "object",
+        "properties": {
+          "supplierReferenceNumber": {
+            "type": "string",
+            "example": "osaka002_red_size"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "qty": {
+            "type": "number",
+            "example": 1
+          }
+        }
+      },
+      "CanAmendResult": {
+        "type": "object",
+        "properties": {
+          "canAmend": {
+            "type": "boolean"
+          },
+          "canAmendDeliveryDate": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Invoice": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/InvoiceAddress"
+          }
+        }
+      },
+      "InvoiceAddress": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "John Doe"
+          },
+          "address1": {
+            "type": "string",
+            "example": "Address 1"
+          },
+          "address2": {
+            "type": "string",
+            "example": "Address 2"
+          },
+          "houseNumber": {
+            "type": "string",
+            "example": "2"
+          },
+          "box": {
+            "type": "string",
+            "example": "BOX2"
+          },
+          "postalCode": {
+            "type": "string",
+            "example": "2000"
+          },
+          "city": {
+            "type": "string",
+            "example": "Antwerpen"
+          },
+          "country": {
+            "$ref": "#/components/schemas/Country"
+          }
+        }
+      },
+      "DispatchResponse": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "sale": {
+              "type": "object",
+              "properties": {
+                "tilroyId": {
+                  "type": "string",
+                  "example": "123456789"
+                }
+              }
+            },
+            "order": {
+              "type": "object",
+              "properties": {
+                "tilroyId": {
+                  "type": "string",
+                  "example": "987654321"
+                },
+                "orderNumber": {
+                  "type": "string",
+                  "example": "35269885"
+                }
+              }
+            },
+            "date": {
+              "type": "string",
+              "format": "date-time",
+              "example": "2021-12-14T13:23:21.109Z"
+            },
+            "method": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "example": "1"
+                },
+                "code": {
+                  "type": "string",
+                  "example": "BPOST"
+                }
+              }
+            },
+            "parcels": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "tracking": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string",
+                        "example": "3987562432"
+                      },
+                      "url": {
+                        "type": "string",
+                        "example": "http://track.bpost.be/btr/web/#/search?itemCode=323200224259989771413030&lang=NL"
+                      }
+                    }
+                  },
+                  "label": {
+                    "type": "object",
+                    "properties": {
+                      "url": {
+                        "type": "string",
+                        "example": "https://s3-eu-west-1.amazonaws.com/tilroy/107/BPost_Labels/1070010008266.pdf"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "PartialFollowUpRes": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "V2A587"
+              }
+            }
+          },
+          "dateCreated": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "shop": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              },
+              "number": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      },
+      "OrderFollowUpRes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "tenantId": {
+              "type": "string"
+            },
+            "orderNumber": {
+              "type": "string"
+            },
+            "status": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "descriptions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "languageCode": {
+                        "type": "string"
+                      },
+                      "languageId": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "shopId": {
+              "type": "string"
+            },
+            "isReviewed": {
+              "type": "string"
+            },
+            "registrations": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "descriptions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "languageCode": {
+                            "type": "string"
+                          },
+                          "languageId": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "comment": {
+                  "type": "string"
+                },
+                "userCreated": {
+                  "type": "object",
+                  "properties": {
+                    "firstName": {
+                      "type": "string"
+                    },
+                    "lastName": {
+                      "type": "string"
+                    },
+                    "tilroyId": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "dateCreated": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            },
+            "dateCreated": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      }
+    }
+  }
+}

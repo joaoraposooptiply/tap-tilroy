@@ -1,0 +1,1763 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "ShopAPI",
+    "description": "Public API for shop related data.",
+    "version": "2.5.0"
+  },
+  "paths": {
+    "/shops": {
+      "get": {
+        "summary": "Search shops",
+        "description": "Search shops. When passing in sourceId, all other filters will be ignored.",
+        "tags": [
+          "shops"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/queryFields"
+          },
+          {
+            "$ref": "#/components/parameters/querySourceId"
+          },
+          {
+            "$ref": "#/components/parameters/queryNumber"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SearchResult"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/export/cashups": {
+      "get": {
+        "tags": [
+          "import-export"
+        ],
+        "summary": "get Cashup exports",
+        "description": "The list with properties is not complete. You'll notice more properties then described in this document. Please only use the documented fields. **Undocumented fields can change or be deleted!**",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/queryCount"
+          },
+          {
+            "$ref": "#/components/parameters/queryPage"
+          },
+          {
+            "$ref": "#/components/parameters/queryFields"
+          },
+          {
+            "$ref": "#/components/parameters/queryDateFrom"
+          },
+          {
+            "$ref": "#/components/parameters/queryDateExportedSince"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "headers": {
+              "X-Paging-ItemsPerPage": {
+                "$ref": "#/components/headers/X-Paging-ItemsPerPage"
+              },
+              "X-Paging-ItemCount": {
+                "$ref": "#/components/headers/X-Paging-ItemCount"
+              },
+              "X-Paging-PageCount": {
+                "$ref": "#/components/headers/X-Paging-PageCount"
+              },
+              "X-Paging-CurrentPage": {
+                "$ref": "#/components/headers/X-Paging-CurrentPage"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashupExport"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/export/pettycashes": {
+      "get": {
+        "tags": [
+          "import-export"
+        ],
+        "summary": "get PettyCash exports",
+        "description": "The list with properties is not complete. You'll notice more properties then described in this document. Please only use the documented fields. **Undocumented fields can change or be deleted!**",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/queryCount"
+          },
+          {
+            "$ref": "#/components/parameters/queryPage"
+          },
+          {
+            "$ref": "#/components/parameters/queryFields"
+          },
+          {
+            "$ref": "#/components/parameters/queryDateFrom"
+          },
+          {
+            "$ref": "#/components/parameters/queryDateExportedSince"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "headers": {
+              "X-Paging-ItemsPerPage": {
+                "$ref": "#/components/headers/X-Paging-ItemsPerPage"
+              },
+              "X-Paging-ItemCount": {
+                "$ref": "#/components/headers/X-Paging-ItemCount"
+              },
+              "X-Paging-PageCount": {
+                "$ref": "#/components/headers/X-Paging-PageCount"
+              },
+              "X-Paging-CurrentPage": {
+                "$ref": "#/components/headers/X-Paging-CurrentPage"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PettyCashExport"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/export/moneytransfers": {
+      "get": {
+        "tags": [
+          "import-export"
+        ],
+        "summary": "get MoneyTransfer exports",
+        "description": "The list with properties is not complete. You'll notice more properties then described in this document. Please only use the documented fields. **Undocumented fields can change or be deleted!**",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/queryCount"
+          },
+          {
+            "$ref": "#/components/parameters/queryPage"
+          },
+          {
+            "$ref": "#/components/parameters/queryFields"
+          },
+          {
+            "$ref": "#/components/parameters/queryDateFrom"
+          },
+          {
+            "$ref": "#/components/parameters/queryDateExportedSince"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "headers": {
+              "X-Paging-ItemsPerPage": {
+                "$ref": "#/components/headers/X-Paging-ItemsPerPage"
+              },
+              "X-Paging-ItemCount": {
+                "$ref": "#/components/headers/X-Paging-ItemCount"
+              },
+              "X-Paging-PageCount": {
+                "$ref": "#/components/headers/X-Paging-PageCount"
+              },
+              "X-Paging-CurrentPage": {
+                "$ref": "#/components/headers/X-Paging-CurrentPage"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoneyTransferExport"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/moneylocations": {
+      "get": {
+        "tags": [
+          "moneylocations"
+        ],
+        "summary": "Get Money Locations by Shop Number and Till Number",
+        "description": "Get Money Locations by Shop Number and Till Number",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/queryShopNumber"
+          },
+          {
+            "$ref": "#/components/parameters/queryTillNumber"
+          },
+          {
+            "$ref": "#/components/parameters/moneyLocationshopId"
+          },
+          {
+            "$ref": "#/components/parameters/moneyLocationCode"
+          },
+          {
+            "$ref": "#/components/parameters/paymentTypeCodes"
+          },
+          {
+            "$ref": "#/components/parameters/queryCount"
+          },
+          {
+            "$ref": "#/components/parameters/queryPage"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MoneyLocationResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/moneylocations/{id}/paymenttypes": {
+      "get": {
+        "tags": [
+          "moneylocations"
+        ],
+        "summary": "Get Payment Types By Money Location Id",
+        "description": "Get Payment Types By Money Location Id",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MoneyLocationPaymentTypeResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/import/shops": {
+      "post": {
+        "summary": "import a shop",
+        "description": "",
+        "tags": [
+          "import-export"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportShop"
+              }
+            }
+          },
+          "description": "shop payload",
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/shops/{shopId}/legalEntity": {
+      "get": {
+        "summary": "get a legalEntity for a shop",
+        "description": "get a legalEntity for a shop",
+        "tags": [
+          "shops"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/shopId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/LegalEntity"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/shops/{shopId}": {
+      "get": {
+        "summary": "get a shop by id",
+        "description": "get a shop by id",
+        "tags": [
+          "shops"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/shopId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SearchByIdResult"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/loglevel": {
+      "post": {
+        "x-internal": true,
+        "summary": "Set the loglevel for the service.",
+        "description": "",
+        "tags": [
+          "internal"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogLevel"
+              }
+            }
+          },
+          "description": "The logging level type in the body of the request",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/cache": {
+      "delete": {
+        "x-internal": true,
+        "summary": "clear cache",
+        "description": "",
+        "tags": [
+          "internal"
+        ],
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "get": {
+        "x-internal": true,
+        "summary": "get cache stats",
+        "description": "",
+        "tags": [
+          "internal"
+        ],
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.tilroy.com/shopapi/production"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "x-api-key": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key"
+      },
+      "Tilroy-Api-Key": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Tilroy-Api-Key"
+      }
+    },
+    "parameters": {
+      "headerTilroyApiKey": {
+        "name": "Tilroy-Api-Key",
+        "in": "header",
+        "required": true,
+        "description": "API key to identify and validate the tenant",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "headerXApiKey": {
+        "name": "x-api-key",
+        "in": "header",
+        "required": true,
+        "description": "API key of AWS",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "tenantId": {
+        "name": "Tilroy-Tenant-Id",
+        "in": "header",
+        "required": true,
+        "description": "tenantId",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "shopId": {
+        "name": "shopId",
+        "in": "path",
+        "required": true,
+        "description": "shopId",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "id": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "id",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "language": {
+        "in": "query",
+        "name": "language",
+        "description": "language code to filter on",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryFields": {
+        "in": "query",
+        "name": "fields",
+        "schema": {
+          "type": "string"
+        },
+        "description": "Comma-separated list of all fields you want returned in the result. All other fields will be omitted.",
+        "required": false
+      },
+      "querySourceId": {
+        "in": "query",
+        "name": "sourceId",
+        "schema": {
+          "type": "string"
+        },
+        "description": "Shop sourceId",
+        "required": false
+      },
+      "queryNumber": {
+        "in": "query",
+        "name": "number",
+        "schema": {
+          "type": "string"
+        },
+        "description": "Shop number",
+        "required": false
+      },
+      "queryCount": {
+        "name": "count",
+        "in": "query",
+        "description": "max number of items to be returned (default = 10, max = 100)",
+        "schema": {
+          "type": "string",
+          "default": "10"
+        }
+      },
+      "queryPage": {
+        "name": "page",
+        "in": "query",
+        "description": "page of results to be returned (default = 1)",
+        "schema": {
+          "type": "string",
+          "default": "1"
+        }
+      },
+      "queryDateFrom": {
+        "name": "dateFrom",
+        "in": "query",
+        "description": "filter results by the date the item was created for export (Deprecated, use dateExportedSince)",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryDateExportedSince": {
+        "name": "dateExportedSince",
+        "in": "query",
+        "description": "filter results by the date the item was created for export",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryShopNumber": {
+        "name": "shopNumber",
+        "in": "query",
+        "description": "Shop Number",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryTillNumber": {
+        "name": "tillNumber",
+        "in": "query",
+        "description": "Till Number",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "moneyLocationshopId": {
+        "name": "shopId",
+        "in": "query",
+        "required": false,
+        "description": "shopId",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "moneyLocationCode": {
+        "name": "moneyLocationCode",
+        "in": "query",
+        "required": false,
+        "description": "moneyLocation code",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "paymentTypeCodes": {
+        "name": "paymentTypeCodes",
+        "in": "query",
+        "required": false,
+        "description": "Filter the result on comma-separated list of paymentTypeCodes.",
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Bad Request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Internal Server Error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFoundError": {
+        "description": "Not Found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "SearchResult": {
+        "description": "ok",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Shop"
+              }
+            }
+          }
+        }
+      },
+      "SearchByIdResult": {
+        "description": "ok",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Shop"
+            }
+          }
+        }
+      },
+      "LegalEntity": {
+        "description": "ok",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/LegalEntity"
+              }
+            }
+          }
+        }
+      },
+      "MoneyLocation": {
+        "description": "ok",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/MoneyLocation"
+              }
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "MoneyLocationResponse": {
+        "description": "ok",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/MoneyLocationResponse"
+              }
+            }
+          }
+        }
+      },
+      "MoneyLocationPaymentTypeResponse": {
+        "description": "ok",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/MoneyLocationPaymentType"
+              }
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "description": "The error object returned by the service",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code of the error, assigned by Node or the developer."
+          },
+          "message": {
+            "type": "string",
+            "description": "More information about the cause of the error."
+          }
+        }
+      },
+      "ImportObj": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "Language": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "LogLevel": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string"
+          }
+        }
+      },
+      "Shop": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "number": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "language": {
+            "$ref": "#/components/schemas/Language"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ShopType"
+          },
+          "subType": {
+            "$ref": "#/components/schemas/ShopSubType"
+          },
+          "latitude": {
+            "type": "string"
+          },
+          "longitude": {
+            "type": "string"
+          },
+          "postalCode": {
+            "type": "string"
+          },
+          "street": {
+            "type": "string"
+          },
+          "houseNumber": {
+            "type": "string"
+          }
+        }
+      },
+      "LegalEntity": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "vatNr": {
+            "type": "string"
+          }
+        }
+      },
+      "ShopType": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "ShopSubType": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "ShopDescriptions": {
+        "type": "object",
+        "required": [
+          "language"
+        ],
+        "properties": {
+          "language": {
+            "$ref": "#/components/schemas/ImportObj"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "webDescription": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "statusDescription": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "storeManagerQuote": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "ticketHeader": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "ticketFooter": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "ticketFooterReturnIncentive": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "ticketNoDiscountText": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "ticketHeaderGift": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "ticketFooterGift": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "ticketFooterRepair": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "ticketActivation": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "eticketFrom": {
+            "type": "string",
+            "maxLength": 250
+          },
+          "eticketSubject": {
+            "type": "string",
+            "maxLength": 250
+          },
+          "eticketHeader": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "eticketFooter": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "eticketSales": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "eticketReturns": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "eticketHomeDelivery": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "eticketClickCollect": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "eticketFooterBanner": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "ecomAddress": {
+            "type": "string",
+            "maxLength": 250
+          },
+          "ecomTitle": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "ecomPhone": {
+            "type": "string",
+            "maxLength": 250
+          },
+          "ecomEmail": {
+            "type": "string",
+            "maxLength": 250
+          },
+          "ecomListDescription": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        }
+      },
+      "ImportShop": {
+        "type": "object",
+        "properties": {
+          "activeShop": {
+            "type": "boolean"
+          },
+          "box": {
+            "type": "string",
+            "maxLength": 10
+          },
+          "city": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "country": {
+            "$ref": "#/components/schemas/ImportObj"
+          },
+          "currency": {
+            "$ref": "#/components/schemas/ImportObj"
+          },
+          "descriptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShopDescriptions"
+            }
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "fax": {
+            "type": "string",
+            "maxLength": 30
+          },
+          "houseNumber": {
+            "type": "string",
+            "maxLength": 10
+          },
+          "language": {
+            "$ref": "#/components/schemas/ImportObj"
+          },
+          "latitude": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "legalEntity": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImportObj"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "sourceId": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          },
+          "longitude": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "moneyLocations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShopMoneyLocation"
+            }
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "nameStoreManager": {
+            "type": "string",
+            "maxLength": 150
+          },
+          "number": {
+            "type": "number"
+          },
+          "openingHours": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "openHoursMon": {
+            "type": "string",
+            "maxLength": 150
+          },
+          "openHoursTue": {
+            "type": "string",
+            "maxLength": 150
+          },
+          "openHoursWed": {
+            "type": "string",
+            "maxLength": 150
+          },
+          "openHoursThu": {
+            "type": "string",
+            "maxLength": 150
+          },
+          "openHoursFri": {
+            "type": "string",
+            "maxLength": 150
+          },
+          "openHoursSat": {
+            "type": "string",
+            "maxLength": 150
+          },
+          "openHoursSun": {
+            "type": "string",
+            "maxLength": 150
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 30
+          },
+          "postalCode": {
+            "type": "string",
+            "maxLength": 10
+          },
+          "refillFromOtherShop": {
+            "type": "boolean"
+          },
+          "refillShop": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              },
+              "sourceId": {
+                "type": "string",
+                "maxLength": 50
+              },
+              "number": {
+                "type": "number"
+              }
+            }
+          },
+          "shortName": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "sourceId": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "street": {
+            "type": "string",
+            "maxLength": 250
+          },
+          "subType": {
+            "$ref": "#/components/schemas/ImportObj"
+          },
+          "tills": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShopTill"
+            }
+          },
+          "tilroyId": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ImportObj"
+          },
+          "webUrl": {
+            "type": "string",
+            "maxLength": 250
+          },
+          "tenantDomain": {
+            "type": "string",
+            "maxLength": 6,
+            "example": "ab1234",
+            "pattern": "/^[a-z0-9-]+$/",
+            "description": "will be used to create shop specific urls: [urlPrefix]-[tenantDomain].tilroy.com"
+          },
+          "urlPrefix": {
+            "type": "string",
+            "example": "antwerpenmeir",
+            "pattern": "/^[a-z0-9-]+$/",
+            "maxLength": 20,
+            "description": "will be used to create shop specific urls: [urlPrefix]-[tenantDomain].tilroy.com"
+          }
+        }
+      },
+      "ShopMoneyLocation": {
+        "type": "object",
+        "properties": {
+          "cashUp": {
+            "type": "boolean"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "descriptions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "description": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "language": {
+                  "$ref": "#/components/schemas/ImportObj"
+                },
+                "tilroyId": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "isBank": {
+            "type": "boolean"
+          },
+          "isSafe": {
+            "type": "boolean"
+          },
+          "sourceId": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "tilroyId": {
+            "type": "string"
+          },
+          "user": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              },
+              "sourceId": {
+                "type": "string",
+                "maxLength": 50
+              }
+            }
+          }
+        }
+      },
+      "ShopTill": {
+        "type": "object",
+        "properties": {
+          "eftTerminalNumber": {
+            "type": "number"
+          },
+          "hostName": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "isEcom": {
+            "type": "boolean"
+          },
+          "number": {
+            "type": "number"
+          },
+          "printerLeftMargin": {
+            "type": "number"
+          },
+          "printerType": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "pulseOff": {
+            "type": "number"
+          },
+          "pulseOn": {
+            "type": "number"
+          },
+          "pulsePin": {
+            "type": "number"
+          },
+          "sourceId": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "tilroyId": {
+            "type": "string"
+          },
+          "uniqueTillIdentifier": {
+            "type": "string",
+            "maxLength": 50
+          }
+        }
+      },
+      "MoneyTransferExport": {
+        "type": "object",
+        "properties": {
+          "idSourceUser": {
+            "type": "string",
+            "maxLength": 50,
+            "description": "reference user created money transfer"
+          },
+          "idSourcePaymentType": {
+            "type": "string"
+          },
+          "idSourceShopMoneyLocationFrom": {
+            "type": "string",
+            "example": null
+          },
+          "idSourceShopMoneyLocationTo": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "example": 1000,
+            "description": "amount of paymenttype that is transferred"
+          },
+          "amountBeforeFrom": {
+            "type": "number",
+            "example": 1000
+          },
+          "amountBeforeTo": {
+            "type": "number",
+            "example": 0
+          },
+          "reference": {
+            "type": "string",
+            "example": "Kastelling",
+            "maxLength": 100,
+            "description": "additional info"
+          },
+          "correction": {
+            "type": "boolean",
+            "description": "in case of correction from or to can be empty from: empty in case of positive correction to: empty in case of negative correction"
+          },
+          "calculatedReference": {
+            "type": "string",
+            "example": null
+          },
+          "date": {
+            "type": "string",
+            "example": "2020-02-17T10:48Z",
+            "description": "ISO 8601 date format"
+          },
+          "paymentType": {
+            "$ref": "#/components/schemas/PaymenType"
+          },
+          "from": {
+            "$ref": "#/components/schemas/MoneyLocation"
+          },
+          "to": {
+            "$ref": "#/components/schemas/MoneyLocation"
+          },
+          "idTilroyMoneyTransfer": {
+            "type": "string",
+            "example": 10700000236,
+            "description": "unique MoneyTransfer reference Tilroy",
+            "maxLength": 13
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          },
+          "dateExported": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MoneyLocation": {
+        "type": "object",
+        "properties": {
+          "idTilroy": {
+            "type": "string",
+            "example": 1430
+          },
+          "idSource": {
+            "type": "string",
+            "description": "external reference of the money location"
+          },
+          "code": {
+            "type": "string",
+            "example": "CASH",
+            "description": "money location code Tilroy"
+          },
+          "amountBefore": {
+            "type": "number",
+            "example": 1000,
+            "description": "amount on moneylocation before the transfer"
+          },
+          "shop": {
+            "$ref": "#/components/schemas/Shop"
+          }
+        }
+      },
+      "CashupExport": {
+        "type": "object",
+        "properties": {
+          "idTilroyCashUp": {
+            "type": "number"
+          },
+          "idSourceShop": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "idSourceMoneyLocation": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "idSourceUser": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "paymentTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PaymenType"
+            }
+          },
+          "isAutoGenerated": {
+            "type": "boolean"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "shop": {
+            "$ref": "#/components/schemas/Shop"
+          },
+          "moneyLocation": {
+            "type": "object",
+            "properties": {
+              "idTilroy": {
+                "type": "string"
+              },
+              "idSource": {
+                "type": "string",
+                "maxLength": 50
+              },
+              "code": {
+                "type": "string",
+                "maxLength": 50
+              }
+            }
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          },
+          "dateExported": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PaymenType": {
+        "type": "object",
+        "properties": {
+          "idSourcePaymentType": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "actualAmount": {
+            "type": "number"
+          },
+          "amountCounted": {
+            "type": "number"
+          },
+          "difference": {
+            "type": "number"
+          },
+          "sortOrder": {
+            "type": "number"
+          },
+          "cashUpRounds": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "difference": {
+                  "type": "number"
+                },
+                "cashUpRound": {
+                  "type": "number"
+                },
+                "amountCounted": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "differenceReason": {
+            "type": "string",
+            "maxLength": 255
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "idTilroy": {
+            "type": "string"
+          },
+          "idSource": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "firstName": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "lastName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "login": {
+            "type": "string",
+            "maxLength": 100
+          }
+        }
+      },
+      "PettyCashExport": {
+        "type": "object",
+        "properties": {
+          "amountIn": {
+            "type": "number"
+          },
+          "amountOut": {
+            "type": "number"
+          },
+          "freeText": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "idSourcePettyCashReason": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "idSourceShop": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "idSourceTill": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "idSourceUser": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "idTilroyPettyCash": {
+            "type": "string"
+          },
+          "pettyCashReason": {
+            "type": "object",
+            "properties": {
+              "idTilroy": {
+                "type": "string"
+              },
+              "idSource": {
+                "type": "string",
+                "maxLength": 50
+              },
+              "code": {
+                "type": "string",
+                "maxLength": 50
+              }
+            }
+          },
+          "shop": {
+            "$ref": "#/components/schemas/Shop"
+          },
+          "till": {
+            "type": "object",
+            "properties": {
+              "idTilroy": {
+                "type": "string"
+              },
+              "idSource": {
+                "type": "string",
+                "maxLength": 50
+              },
+              "number": {
+                "type": "number"
+              }
+            }
+          },
+          "moneylocation": {
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          },
+          "dateExported": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MoneyLocationResponse": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "example": "143"
+          },
+          "code": {
+            "type": "string",
+            "example": "CASH"
+          },
+          "shop": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": 87
+              },
+              "name": {
+                "type": "string",
+                "example": "BU1 - Tilroy Antwerp"
+              },
+              "number": {
+                "type": "string",
+                "example": "1101"
+              }
+            }
+          },
+          "till": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "90"
+              },
+              "number": {
+                "type": "string",
+                "example": "1"
+              }
+            }
+          },
+          "paymentTypes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "amount": {
+                  "type": "number"
+                },
+                "code": {
+                  "type": "string",
+                  "description": "only available when using the paymentTypeCodes query"
+                }
+              }
+            }
+          }
+        }
+      },
+      "MoneyLocationPaymentType": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "example": "4963"
+          },
+          "paymentType": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "1085"
+              },
+              "code": {
+                "type": "string",
+                "example": "budget"
+              }
+            }
+          },
+          "amount": {
+            "type": "number",
+            "example": 1473.52
+          }
+        }
+      }
+    },
+    "headers": {
+      "X-Paging-ItemsPerPage": {
+        "description": "number of max items returned per page.",
+        "schema": {
+          "type": "number"
+        }
+      },
+      "X-Paging-ItemCount": {
+        "description": "total number of items over all pages.",
+        "schema": {
+          "type": "number"
+        }
+      },
+      "X-Paging-PageCount": {
+        "description": "total number of pages.",
+        "schema": {
+          "type": "number"
+        }
+      },
+      "X-Paging-CurrentPage": {
+        "description": "number of the current page.",
+        "schema": {
+          "type": "number"
+        }
+      }
+    }
+  }
+}

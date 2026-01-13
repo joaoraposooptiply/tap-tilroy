@@ -1,0 +1,869 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Feature API",
+    "description": "Public API with feature related endpoints",
+    "version": "2.10.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.tilroy.com/featureapi/production"
+    }
+  ],
+  "paths": {
+    "/import/productfeatures": {
+      "post": {
+        "tags": [
+          "import"
+        ],
+        "summary": "import a list of product features",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/ProductFeatures"
+        },
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/import/features": {
+      "post": {
+        "tags": [
+          "import"
+        ],
+        "summary": "import a single feature",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/Feature"
+        },
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/productfeatures": {
+      "get": {
+        "tags": [
+          "productfeatures"
+        ],
+        "summary": "Get product features by sourceId or tilroyId",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/productSourceId"
+          },
+          {
+            "$ref": "#/components/parameters/productTilroyId"
+          },
+          {
+            "$ref": "#/components/parameters/productCode"
+          },
+          {
+            "$ref": "#/components/parameters/productBarcode"
+          },
+          {
+            "$ref": "#/components/parameters/featureCodes"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ProductFeatures"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "productfeatures"
+        ],
+        "summary": "Create product feature",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/ProductFeature"
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/ProductFeature"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/productfeatures/{id}": {
+      "put": {
+        "tags": [
+          "productfeatures"
+        ],
+        "summary": "Update product feature description",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/pathId"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/productFeatureDescription"
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/ProductFeature"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "productfeatures"
+        ],
+        "summary": "remove product feature description",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/pathId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/loglevel": {
+      "post": {
+        "x-internal": true,
+        "tags": [
+          "loglevel"
+        ],
+        "summary": "Set the loglevel for the service.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyTenantId"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/loglevel"
+        },
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {}
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "headerTilroyTenantId": {
+        "name": "Tilroy-Tenant-Id",
+        "in": "header",
+        "required": true,
+        "description": "tenantId",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "headerTilroyApiKey": {
+        "name": "Tilroy-Api-Key",
+        "in": "header",
+        "required": true,
+        "description": "API key to identify and validate the tenant",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "headerXApiKey": {
+        "name": "x-api-key",
+        "in": "header",
+        "required": true,
+        "description": "API key of AWS",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "pathId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "id",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "productSourceId": {
+        "in": "query",
+        "name": "product.sourceId",
+        "description": "the sourceId of the product (sourceId, tilroyId, code or barcode required)",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "productTilroyId": {
+        "in": "query",
+        "name": "product.tilroyId",
+        "description": "the tilroyId of the product (sourceId, tilroyId, code or barcode required)",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "productCode": {
+        "in": "query",
+        "name": "product.code",
+        "description": "the code of the product (sourceId, tilroyId, code or barcode required)",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "productBarcode": {
+        "in": "query",
+        "name": "product.barcode",
+        "description": "the code of the product (sourceId, tilroyId, code or barcode required)",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "featureCodes": {
+        "in": "query",
+        "name": "feature.codes",
+        "description": "Comma-separated list of featureCodes",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryLanguage": {
+        "in": "query",
+        "name": "language",
+        "description": "language code to filter on",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryFields": {
+        "in": "query",
+        "name": "fields",
+        "schema": {
+          "type": "string"
+        },
+        "description": "Comma-separated list of all fields you want returned in the result. All other fields will be omitted.",
+        "required": false
+      },
+      "queryCount": {
+        "name": "count",
+        "in": "query",
+        "description": "max number of items to be returned (default = 10, max = 100)",
+        "schema": {
+          "type": "string",
+          "default": "10"
+        }
+      },
+      "queryPage": {
+        "name": "page",
+        "in": "query",
+        "description": "page of results to be returned (default = 1)",
+        "schema": {
+          "type": "string",
+          "default": "1"
+        }
+      },
+      "findCriteriaFeature": {
+        "name": "findCriteriaFeature",
+        "in": "query",
+        "description": "An example of a query parameter that would filter the search result",
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Bad Request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Internal Server Error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFoundError": {
+        "description": "Not Found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "SearchResult": {
+        "description": "ok",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Feature"
+              }
+            }
+          }
+        }
+      },
+      "ProductFeatures": {
+        "description": "ok",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ProductFeature2"
+              }
+            }
+          }
+        }
+      },
+      "ProductFeature": {
+        "description": "ok",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProductFeature2"
+            }
+          }
+        }
+      },
+      "Accepted": {
+        "description": "Accepted"
+      }
+    },
+    "schemas": {
+      "ProductFeature": {
+        "type": "object",
+        "description": "When importing an active ProductFeature, at least 1 description is required for a text feature, a featureListItem for a list feature or featureListItems for a list feature with multiple items.",
+        "properties": {
+          "product": {
+            "$ref": "#/components/schemas/Product"
+          },
+          "feature": {
+            "$ref": "#/components/schemas/Feature"
+          },
+          "descriptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Description"
+            }
+          },
+          "active": {
+            "type": "boolean",
+            "default": true
+          },
+          "featureListItem": {
+            "$ref": "#/components/schemas/FeatureListItem"
+          },
+          "featureListItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeatureListItem"
+            }
+          }
+        },
+        "required": [
+          "product",
+          "feature"
+        ]
+      },
+      "FeatureToImport": {
+        "type": "object",
+        "required": [
+          "sourceId",
+          "code",
+          "type"
+        ],
+        "properties": {
+          "sourceId": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "type": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "LIST",
+                "description": "Can only be BOOLEAN FLOAT, TEXT, DATE, LIST"
+              }
+            }
+          },
+          "showTextOnWeb": {
+            "type": "boolean"
+          },
+          "webFilter": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "number"
+          },
+          "level": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "product",
+                "default": "product",
+                "deprecated": true
+              },
+              "id": {
+                "type": "number"
+              }
+            }
+          },
+          "descriptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Description"
+            }
+          },
+          "itemSortMethod": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "SORTORDER",
+                "description": "Can only be SORTORDER, ALPHABETICAL, NUMERICAL"
+              }
+            }
+          },
+          "featureListItems": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sourceId": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "order": {
+                  "type": "number"
+                },
+                "descriptions": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Description"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "BaseProductFeature": {
+        "type": "object",
+        "properties": {
+          "product": {
+            "$ref": "#/components/schemas/BaseProduct"
+          },
+          "feature": {
+            "$ref": "#/components/schemas/Feature"
+          },
+          "descriptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Description"
+            }
+          },
+          "active": {
+            "type": "boolean",
+            "default": true
+          },
+          "featureListItem": {
+            "$ref": "#/components/schemas/FeatureListItem"
+          }
+        },
+        "required": [
+          "product",
+          "feature",
+          "descriptions"
+        ]
+      },
+      "ProductFeature2": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "61cdab29f05ec40a1943ae6f"
+              },
+              "product": {
+                "type": "object",
+                "properties": {
+                  "tilroyId": {
+                    "type": "string"
+                  },
+                  "sourceId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "$ref": "#/components/schemas/BaseProductFeature"
+          }
+        ]
+      },
+      "CreateProductFeature": {
+        "type": "object",
+        "properties": {
+          "product": {
+            "type": "object",
+            "properties": {
+              "sourceId": {
+                "type": "string",
+                "example": "123"
+              }
+            }
+          },
+          "feature": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "expecteddeliverydate1010"
+              }
+            }
+          },
+          "descriptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Description"
+            }
+          }
+        }
+      },
+      "Product": {
+        "type": "object",
+        "description": "1 of the properties is required to identify the product",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "example": "3698"
+          },
+          "sourceId": {
+            "type": "string",
+            "maxLength": 50,
+            "example": "102259"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 20,
+            "example": "BDE23"
+          },
+          "barcode": {
+            "type": "string",
+            "maxLength": 100,
+            "example": "1000000000002298"
+          }
+        }
+      },
+      "BaseProduct": {
+        "type": "object",
+        "description": "1 of the properties is required to identify the product",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "example": "3698"
+          },
+          "sourceId": {
+            "type": "string",
+            "maxLength": 50,
+            "example": "102259"
+          }
+        }
+      },
+      "Feature": {
+        "type": "object",
+        "description": "1 of the properties is required to identify the feature",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "example": "785"
+          },
+          "sourceId": {
+            "type": "string",
+            "maxLength": 50,
+            "example": "6985354"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 100,
+            "example": "platform"
+          }
+        }
+      },
+      "Description": {
+        "type": "object",
+        "properties": {
+          "languageId": {
+            "type": "string",
+            "example": 3658
+          },
+          "languageCode": {
+            "type": "string",
+            "example": "FR",
+            "description": "language ISO code:'NL', 'FR', 'EN', ..."
+          },
+          "description": {
+            "type": "string",
+            "example": "Cd Storage Sleeve"
+          }
+        },
+        "required": [
+          "languageCode",
+          "description"
+        ]
+      },
+      "ProductFeatureDescriptions": {
+        "type": "object",
+        "properties": {
+          "descriptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Description"
+            }
+          }
+        }
+      },
+      "FeatureListItem": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "LIST-4555",
+            "nullable": true
+          },
+          "sourceId": {
+            "type": "string",
+            "example": "fli-120002",
+            "nullable": true
+          },
+          "tilroyId": {
+            "type": "string",
+            "example": 4521333,
+            "nullable": true
+          }
+        }
+      },
+      "LogLevel": {
+        "required": [
+          "level"
+        ],
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code of the error, assigned by Node or the developer."
+          },
+          "message": {
+            "type": "string",
+            "description": "More information about the cause of the error."
+          }
+        },
+        "description": "The error object returned by the service"
+      }
+    },
+    "requestBodies": {
+      "ProductFeatures": {
+        "description": "The Product Features JSON in the body of the request or response. (Maximum 1000)",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ProductFeature"
+              }
+            }
+          }
+        }
+      },
+      "Feature": {
+        "description": "The Feature to be Imported",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/FeatureToImport"
+            }
+          }
+        }
+      },
+      "ProductFeature": {
+        "description": "Create a new ProductFeatures",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CreateProductFeature"
+            }
+          }
+        }
+      },
+      "productFeatureDescription": {
+        "description": "Update productFeature description",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProductFeatureDescriptions"
+            }
+          }
+        },
+        "required": true
+      },
+      "loglevel": {
+        "description": "The logging level type in the body of the request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/LogLevel"
+            }
+          }
+        },
+        "required": true
+      }
+    }
+  }
+}

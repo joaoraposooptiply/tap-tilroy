@@ -1,0 +1,867 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "TransferAPI",
+    "description": "Public API of transfers",
+    "version": "2.7.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.tilroy.com/transferapi/production"
+    }
+  ],
+  "paths": {
+    "/export/transfers": {
+      "get": {
+        "tags": [
+          "export"
+        ],
+        "summary": "get Transfer exports",
+        "description": "The list with properties is not complete. You'll notice more properties then described in this document. Please only use the documented fields. **Undocumented fields can change or be deleted!**",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/queryCount"
+          },
+          {
+            "$ref": "#/components/parameters/queryPage"
+          },
+          {
+            "$ref": "#/components/parameters/queryFields"
+          },
+          {
+            "$ref": "#/components/parameters/queryDateFrom"
+          },
+          {
+            "$ref": "#/components/parameters/queryDateExportedSince"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/TransferExports"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/import/transfers": {
+      "post": {
+        "tags": [
+          "import"
+        ],
+        "summary": "trigger a transfer import",
+        "description": "Use this endpoint to start an import of a transfer.\n## Asynchronous\nInvoking this endpoint will validate the body and put it on an internal queue. Only when the message was read from the queue and processed, the transfer will become visible.\n## Validation\n<p> Before putting the requestbody as a message on the queue, it will be validated. </p> <p> Wherever you'll see multiple identifiers (tilroyId, sourceId, barcode (sku), number (shop)) you'll have to provide at least one. When the system does not recognizes the identifier, it will return an error explaining the problem. </p> <p> Extra validation rules: <ul> <li>When doDispatch is true, then doReceipt has to be true also</li> <li>When isExternalDelivery is true, then shopFrom is forbidden</li> <li>When doReceipt is true, then the collections of lines, should contain at least 1 element</li> </ul> </p> ",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/TransferImport"
+        },
+        "responses": {
+          "202": {
+            "$ref": "#/components/responses/Accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/loglevel": {
+      "post": {
+        "x-internal": true,
+        "tags": [
+          "loglevel"
+        ],
+        "summary": "Set the loglevel for the service.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyTenantId"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/loglevel"
+        },
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {}
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "x-api-key": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key"
+      },
+      "Tilroy-Api-Key": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Tilroy-Api-Key"
+      }
+    },
+    "parameters": {
+      "headerTilroyApiKey": {
+        "name": "Tilroy-Api-Key",
+        "in": "header",
+        "required": true,
+        "description": "API key to identify and validate the tenant",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "headerXApiKey": {
+        "name": "x-api-key",
+        "in": "header",
+        "required": true,
+        "description": "API key of AWS",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "headerTilroyTenantId": {
+        "name": "Tilroy-Tenant-Id",
+        "in": "header",
+        "required": true,
+        "description": "tenantId",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "pathId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "id",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryLanguage": {
+        "in": "query",
+        "name": "language",
+        "description": "language code to filter on",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryFields": {
+        "in": "query",
+        "name": "fields",
+        "schema": {
+          "type": "string"
+        },
+        "description": "Comma-separated list of all fields you want returned in the result. All other fields will be omitted.",
+        "required": false
+      },
+      "queryCount": {
+        "name": "count",
+        "in": "query",
+        "description": "max number of items to be returned (default = 10, max = 100)",
+        "schema": {
+          "type": "string",
+          "default": "10"
+        }
+      },
+      "queryPage": {
+        "name": "page",
+        "in": "query",
+        "description": "page of results to be returned (default = 1)",
+        "schema": {
+          "type": "string",
+          "default": "1"
+        }
+      },
+      "queryDateFrom": {
+        "name": "dateFrom",
+        "in": "query",
+        "description": "filter results by the date the item was created for exportt (Deprecated, use dateExportedSince)",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryDateExportedSince": {
+        "in": "query",
+        "name": "dateExportedSince",
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "description": "filter results by the date the item was created for export",
+        "required": true
+      },
+      "findCriteriaTransfer": {
+        "name": "findCriteriaTransfer",
+        "in": "query",
+        "description": "An example of a query parameter that would filter the search result",
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Bad Request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Internal Server Error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFoundError": {
+        "description": "Not Found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Accepted": {
+        "description": "accepted"
+      },
+      "TransferExports": {
+        "description": "ok",
+        "headers": {
+          "X-Paging-ItemsPerPage": {
+            "$ref": "#/components/headers/X-Paging-ItemsPerPage"
+          },
+          "X-Paging-ItemCount": {
+            "$ref": "#/components/headers/X-Paging-ItemCount"
+          },
+          "X-Paging-PageCount": {
+            "$ref": "#/components/headers/X-Paging-PageCount"
+          },
+          "X-Paging-CurrentPage": {
+            "$ref": "#/components/headers/X-Paging-CurrentPage"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/TransferExport"
+              }
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "TransferExport": {
+        "type": "object",
+        "properties": {
+          "idTilroy": {
+            "type": "string",
+            "description": "Tilroy unique reference of the transfer",
+            "maxLength": 13
+          },
+          "idTenant": {
+            "type": "string"
+          },
+          "idSource": {
+            "type": "string",
+            "description": "unique reference of the transfer",
+            "maxLength": 50
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "N",
+              "Q",
+              "T",
+              "R",
+              "C"
+            ],
+            "description": "status field of the transfer:\n  * `N` - New\n  * `Q` - Request\n  * `T` - Transferred\n  * `R` - Received\n  * `C` - Cancelled\n"
+          },
+          "code": {
+            "type": "string",
+            "description": "code of the transfer",
+            "maxLength": 50
+          },
+          "reference": {
+            "type": "string",
+            "description": "reference of the transfer, can be description",
+            "maxLength": 1000
+          },
+          "isRequest": {
+            "type": "boolean"
+          },
+          "isExternalDelivery": {
+            "type": "boolean",
+            "description": "when true this is an external delivery, so shop from will be emty.This is in case of direct delivery from supplier to shop."
+          },
+          "lines": {
+            "type": "array",
+            "description": "product lines of the transfer",
+            "items": {
+              "$ref": "#/components/schemas/TransferLineExport"
+            }
+          },
+          "customerOrder": {
+            "$ref": "#/components/schemas/CustomerOrder"
+          },
+          "deliveryAddress": {
+            "description": "delivery address, filled in case of home delivery",
+            "$ref": "#/components/schemas/DeliveryAddress"
+          },
+          "additionalInfo": {
+            "type": "string",
+            "description": "additional info on the transfer",
+            "maxLength": 2000
+          },
+          "dateTransferred": {
+            "type": "string",
+            "format": "date"
+          },
+          "dateReceived": {
+            "type": "string",
+            "format": "date"
+          },
+          "dateRequested": {
+            "type": "string",
+            "format": "date"
+          },
+          "description": {
+            "type": "string"
+          },
+          "isDifference": {
+            "type": "boolean"
+          },
+          "isPartial": {
+            "type": "boolean"
+          },
+          "dateInserted": {
+            "type": "string"
+          },
+          "dateModified": {
+            "type": "string"
+          },
+          "purchaseOrderId": {
+            "type": "string"
+          },
+          "basedOn": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              },
+              "sourceId": {
+                "type": "string"
+              }
+            }
+          },
+          "userRequested": {
+            "$ref": "#/components/schemas/User"
+          },
+          "userTransferred": {
+            "$ref": "#/components/schemas/User"
+          },
+          "userReceived": {
+            "$ref": "#/components/schemas/User"
+          },
+          "shopTo": {
+            "$ref": "#/components/schemas/Shop",
+            "description": "shop to of the transfer"
+          },
+          "shopFrom": {
+            "$ref": "#/components/schemas/Shop",
+            "description": "shop from of the transfer"
+          },
+          "dateExported": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "TransferLineExport": {
+        "type": "object",
+        "properties": {
+          "idTilroy": {
+            "type": "string",
+            "description": "Tilroy unique reference of the line",
+            "maxLength": 13
+          },
+          "idSource": {
+            "type": "string",
+            "description": "external reference of the line",
+            "maxLength": 50
+          },
+          "idSkuTilroy": {
+            "type": "number",
+            "description": "Tilroy unique refrence of the sku"
+          },
+          "idSourceSku": {
+            "type": "string"
+          },
+          "barcode": {
+            "type": "string",
+            "description": "Barcode of the sku",
+            "maxLength": 100
+          },
+          "lineNumber": {
+            "type": "number"
+          },
+          "quantityTransferred": {
+            "type": "number",
+            "description": "quantity that is transferred"
+          },
+          "quantityRequested": {
+            "type": "number",
+            "description": "quantity that was requested"
+          },
+          "quantityReceived": {
+            "type": "number",
+            "description": "quantity that is received"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "CustomerOrder": {
+        "type": "object",
+        "description": "reference to the customer order\t(only in case transfer for a customer order)",
+        "properties": {
+          "orderNumber": {
+            "type": "string",
+            "description": "shop reference external system",
+            "maxLength": 50
+          },
+          "orderDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "dateRequested": {
+            "type": "string",
+            "format": "date",
+            "description": "delivery date requested by the customer"
+          },
+          "customer": {
+            "description": "detail of the customer",
+            "$ref": "#/components/schemas/Customer"
+          }
+        }
+      },
+      "Customer": {
+        "type": "object",
+        "properties": {
+          "idTilroy": {
+            "type": "string",
+            "description": "Tilroy unique reference of the customer"
+          },
+          "idSource": {
+            "type": "string",
+            "description": "external reference of the customer",
+            "maxLength": 50
+          },
+          "logisticsInfo": {
+            "type": "string",
+            "description": "additional logistics info about the customer"
+          }
+        }
+      },
+      "DeliveryAddress": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the delivery address",
+            "maxLength": 100
+          },
+          "street": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "houseNumber": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "box": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "postalCode": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "country": {
+            "type": "string",
+            "maxLength": 2,
+            "description": "ISO 3166-1 alpha-2 country code"
+          },
+          "additionalAddressLine": {
+            "type": "string",
+            "maxLength": 500
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "login": {
+            "type": "string"
+          }
+        }
+      },
+      "Shop": {
+        "type": "object",
+        "properties": {
+          "idTilroy": {
+            "type": "string",
+            "description": "Tilroy unique id of the shop"
+          },
+          "idSource": {
+            "type": "string",
+            "description": "shop reference external system",
+            "maxLength": 50
+          },
+          "name": {
+            "type": "string",
+            "description": "name of the shop",
+            "maxLength": 50
+          },
+          "shopNumber": {
+            "type": "number",
+            "description": "number of the shop"
+          }
+        }
+      },
+      "TransferImport": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "description": "Tilroy unique reference",
+            "maxLength": 13
+          },
+          "sourceId": {
+            "type": "string",
+            "description": "unique reference",
+            "maxLength": 50
+          },
+          "reference": {
+            "type": "string",
+            "description": "reference of the transfer, can be description",
+            "maxLength": 1000
+          },
+          "isRequest": {
+            "type": "boolean",
+            "description": "when true this is a transfer request. First state of a transfer"
+          },
+          "isExternalDelivery": {
+            "type": "boolean",
+            "description": "when true this is an external delivery, so shop from will be emty. This is in case of direct delivery from supplier to shop."
+          },
+          "doReceipt": {
+            "type": "boolean",
+            "description": "when true goods will be booked in stock based on the lines in the JSON. Return transfer will be created it there is a difference between the transfer quantities and the receipt quantities"
+          },
+          "doCloseRequest": {
+            "type": "boolean",
+            "description": "when true the request will be closed. We don't expect any transfers to be created for the same transfer request."
+          },
+          "doDispatch": {
+            "type": "boolean",
+            "description": "when true the dispatch sale for the customer order will be registered autmatically"
+          },
+          "doUpdateOnAvailableStock": {
+            "type": "boolean",
+            "description": "when true Tilroy will modified the request according to the available stock in the shop from. So in case the requested quantity is higher then available in the shop from the quantity will be decreased."
+          },
+          "doCheckOffOpenRequests": {
+            "type": "boolean",
+            "description": "when true Tilroy will use the open request for both orders as for shop refills"
+          },
+          "exceedRequestedAllowed": {
+            "type": "boolean",
+            "description": "Allow to receive a higher quantity then requested for the transfer request lines"
+          },
+          "shopFrom": {
+            "description": "Manditory in case transfer was not created in Tilroy, in case transfer originates from Tilroy this data is optional. The shop should contain a valid identiefier: tilroyId, sourceId or number",
+            "$ref": "#/components/schemas/ShopImport"
+          },
+          "shopTo": {
+            "description": "Manditory in case transfer was not created in Tilroy, in case transfer originates from Tilroy this data is optional. The shop should contain a valid identiefier: tilroyId, sourceId or number",
+            "$ref": "#/components/schemas/ShopImport"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TransferLineImport"
+            }
+          },
+          "purchaseOrder": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "ShopImport": {
+        "type": "object",
+        "properties": {
+          "idTilroy": {
+            "type": "string",
+            "description": "Tilroy unique id of the shop"
+          },
+          "idSource": {
+            "type": "string",
+            "description": "shop reference external system",
+            "maxLength": 50
+          },
+          "number": {
+            "type": "number",
+            "description": "number of the shop"
+          }
+        }
+      },
+      "TransferLineImport": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "description": "Manditory in case transfer was created in Tilroy",
+            "maxLength": 13
+          },
+          "sourceId": {
+            "type": "string",
+            "description": "Manditory in case transfer was not created in Tilroy",
+            "maxLength": 50
+          },
+          "quantity": {
+            "type": "number",
+            "description": "quantity of the transfer line (Must be positive!)"
+          },
+          "sku": {
+            "$ref": "#/components/schemas/SkuImport"
+          },
+          "reservations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderInfo"
+            }
+          },
+          "costPrice": {
+            "type": "number",
+            "description": "cost price of the sku (optional when used for purchase orders)",
+            "example": "25,4"
+          },
+          "purchaseOrderLineId": {
+            "type": "string",
+            "description": "id of the purchase order line (required when used for purchase orders)",
+            "example": "mlqked5s8e45s5s84e"
+          }
+        }
+      },
+      "SkuImport": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "description": "idTilroy of sku",
+            "maxLength": 13
+          },
+          "sourceId": {
+            "type": "string",
+            "description": "idSource of the sku",
+            "maxLength": 50
+          },
+          "barcode": {
+            "type": "string",
+            "description": "barcode of the sku",
+            "maxLength": 100
+          }
+        }
+      },
+      "LogLevel": {
+        "required": [
+          "level"
+        ],
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string"
+          }
+        }
+      },
+      "OrderInfo": {
+        "type": "object",
+        "properties": {
+          "orderNumber": {
+            "type": "string",
+            "description": "id of the order - deprecated: use orderId",
+            "maxLength": 13,
+            "example": "3658",
+            "deprecated": true
+          },
+          "orderId": {
+            "type": "string",
+            "description": "id of the order",
+            "maxLength": 13,
+            "example": "3658"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "quantity",
+            "example": 1
+          },
+          "lineIds": {
+            "type": "array",
+            "description": "list of order line ids where the matching sku is found",
+            "items": {
+              "type": "string",
+              "example": "5"
+            }
+          }
+        },
+        "required": [
+          "quantity"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code of the error, assigned by Node or the developer."
+          },
+          "message": {
+            "type": "string",
+            "description": "More information about the cause of the error."
+          }
+        },
+        "description": "The error object returned by the service"
+      }
+    },
+    "requestBodies": {
+      "TransferImport": {
+        "description": "The transfer JSON in the body of the request or response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/TransferImport"
+            }
+          }
+        },
+        "required": true
+      },
+      "loglevel": {
+        "description": "The logging level type in the body of the request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/LogLevel"
+            }
+          }
+        },
+        "required": true
+      }
+    },
+    "headers": {
+      "X-Paging-ItemsPerPage": {
+        "description": "number of max items returned per page.",
+        "schema": {
+          "type": "number"
+        }
+      },
+      "X-Paging-ItemCount": {
+        "description": "total number of items over all pages.",
+        "schema": {
+          "type": "number"
+        }
+      },
+      "X-Paging-PageCount": {
+        "description": "total number of pages.",
+        "schema": {
+          "type": "number"
+        }
+      },
+      "X-Paging-CurrentPage": {
+        "description": "number of the current page.",
+        "schema": {
+          "type": "number"
+        }
+      }
+    }
+  }
+}

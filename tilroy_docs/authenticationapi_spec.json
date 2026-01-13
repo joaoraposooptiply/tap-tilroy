@@ -1,0 +1,741 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "AuthenticationAPI",
+    "description": "check logins for a user",
+    "version": "3.1.2"
+  },
+  "paths": {
+    "/auth/tokens": {
+      "post": {
+        "summary": "Authenticate",
+        "description": "This endpoint should be used to aquire valid access and refresh tokens.\n\nThe payload can be a combination of login and password, or a combination of an expired access token and a valid refresh token.\n",
+        "tags": [
+          "tokens"
+        ],
+        "parameters": [
+          {
+            "name": "Tilroy-Api-Key",
+            "in": "header",
+            "description": "API key of Tilroy",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "description": "API key of AWS",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Token"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid/missing data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "404 not found error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/password/{login}": {
+      "put": {
+        "summary": "Update the password of a login",
+        "description": "Use this endpoint to change the password of a login.\n\nChanging a password will also invalidate the current user's refresh token! After a password change, <strong>a user must login by username and password first</strong>, to get a new valid refresh token.\n",
+        "tags": [
+          "password"
+        ],
+        "parameters": [
+          {
+            "name": "login",
+            "in": "path",
+            "description": "email address",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Tilroy-Api-Key",
+            "in": "header",
+            "description": "API key of Tilroy",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "description": "API key of AWS",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "400": {
+            "description": "BadRequest",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "404 not found error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/hashes/": {
+      "post": {
+        "summary": "Generates a hash to identify a customer",
+        "description": "This endpoint can be used for 2 uses:\n  1. It should be called to receive a hash to reset the users password. When this hash is send to the provided email address, it is possible to authenticate the user. For this use, you need to provide the type 'login' (default)\n  2. It should be called to receive a hash to un/subscribe a customer. After sending an url with this hash in an email to the customer, it is possible to identify the customer to unsubscribe.. For this use, you need to provide the type 'customer'\n\nA 'login' hash has a shorter lifespan, then a 'customer' hash. Creating a 'customer' hash, will not invalidate a 'login' hash or vice versa\n",
+        "tags": [
+          "hashes"
+        ],
+        "parameters": [
+          {
+            "name": "Tilroy-Api-Key",
+            "in": "header",
+            "description": "API key of Tilroy",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "description": "API key of AWS",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HashRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HashResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "BadRequest",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/hashes/{id}": {
+      "get": {
+        "summary": "Retrieve the user information by a hash",
+        "description": "This endpoint should be called when an email was sent to a customer with the hash in an link, to authenticate a user.\n",
+        "tags": [
+          "hashes"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "the hash to identify the user",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "the hash type. It can be or 'login' or 'customer'",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "login"
+            }
+          },
+          {
+            "name": "Tilroy-Api-Key",
+            "in": "header",
+            "description": "API key of Tilroy",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "description": "API key of AWS",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HashResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "BadRequest",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/secret/refresh": {
+      "post": {
+        "summary": "refresh secret",
+        "description": "Refresh secret\n",
+        "tags": [
+          "tokens"
+        ],
+        "parameters": [
+          {
+            "name": "Tilroy-Api-Key",
+            "in": "header",
+            "description": "API key of Tilroy",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "description": "API key of AWS",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "400": {
+            "description": "Invalid/missing data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "404 not found error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tokens": {
+      "post": {
+        "x-internal": true,
+        "summary": "User Token",
+        "description": "Acquire User access token\n",
+        "tags": [
+          "tokens"
+        ],
+        "parameters": [
+          {
+            "name": "Tilroy-Api-Key",
+            "in": "header",
+            "description": "API key of Tilroy",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "description": "API key of AWS",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserTokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid/missing data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "404 not found error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (unexpected) error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.tilroy.com/authenticationapi/production"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "TokenRequest": {
+        "description": "Payload to log in.",
+        "type": "object",
+        "properties": {
+          "login": {
+            "description": "login",
+            "type": "string",
+            "example": "john"
+          },
+          "password": {
+            "description": "password",
+            "type": "string",
+            "example": "password123"
+          },
+          "role": {
+            "type": "string",
+            "description": "the role of the user (customer, till, ...?)",
+            "example": "customer"
+          },
+          "access": {
+            "type": "string",
+            "description": "The bearer JWT token",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMTA1OTc1OCIsInJ..."
+          },
+          "refresh": {
+            "type": "string",
+            "description": "The refresh token",
+            "example": "9d00638d0c616a1bba3c46a854ee5dbfe0cad49f"
+          }
+        }
+      },
+      "Token": {
+        "description": "result of a login check",
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "number",
+            "description": "customer ID",
+            "example": 1232
+          },
+          "role": {
+            "type": "string",
+            "description": "the role of the user (customer, till, ...?)",
+            "example": "customer"
+          },
+          "access": {
+            "type": "string",
+            "description": "The bearer JWT token. This will be valid only a short time, but can be refreshed in combination with a valid refresh token",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMTA1OTc1OCIsInJ..."
+          },
+          "refresh": {
+            "type": "string",
+            "description": "The refresh token. This will be valid, until the user updates the password",
+            "example": "9d00638d0c616a1bba3c46a854ee5dbfe0cad49f"
+          }
+        }
+      },
+      "PasswordUpdateRequest": {
+        "description": "Payload to update password",
+        "type": "object",
+        "properties": {
+          "password": {
+            "description": "password",
+            "type": "string",
+            "example": "password123"
+          },
+          "role": {
+            "type": "string",
+            "description": "the role of the user (customer, till, ...?)",
+            "example": "customer"
+          }
+        }
+      },
+      "HashRequest": {
+        "description": "The payload when requesting a password reset token",
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "john.Doe@tilroy.com"
+          },
+          "customerId": {
+            "type": "string",
+            "example": "123456"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "login",
+              "customer"
+            ],
+            "description": "values:\n  * `login` - used for resetting password\n  * `customer` - used for un/subscribing\n",
+            "example": "login"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "HashResponse": {
+        "description": "The reponse when requesting a password reset token",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HashRequest"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "example": "b8af0b847fd623e6a353415a60199d35a3fee3d6"
+              },
+              "createdAt": {
+                "type": "string",
+                "example": "2023-10-26"
+              }
+            }
+          }
+        ],
+        "required": [
+          "id",
+          "email",
+          "createdAt",
+          "type"
+        ]
+      },
+      "UserTokenRequest": {
+        "description": "Payload to acquired user access tokens",
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "description": "Tilroy User Id",
+                "example": "123"
+              }
+            }
+          },
+          "role": {
+            "type": "string",
+            "description": "the role of the user (customer, till, ...?)",
+            "example": "customer"
+          }
+        }
+      },
+      "UserToken": {
+        "description": "User Token object",
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "number",
+            "description": "Tilroy User Id",
+            "example": 123
+          },
+          "role": {
+            "type": "string",
+            "description": "the role of the user (customer, till, ...?)",
+            "example": "customer"
+          },
+          "access": {
+            "type": "string",
+            "description": "The bearer JWT token",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMTA1OTc1OCIsInJ..."
+          }
+        }
+      },
+      "Error": {
+        "description": "error object returned by node service",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code of the error, assigned by Node or the developer."
+          },
+          "message": {
+            "type": "string",
+            "description": "More information about the cause of the error."
+          }
+        },
+        "example": {
+          "code": "InternalError",
+          "message": "sReturn is not defined."
+        }
+      }
+    }
+  }
+}

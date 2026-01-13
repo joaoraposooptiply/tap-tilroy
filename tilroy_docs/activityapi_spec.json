@@ -1,0 +1,2042 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "activityApi",
+    "description": "activityApi",
+    "version": "1.1.5"
+  },
+  "servers": [
+    {
+      "url": "https://api.tilroy.com/activityapi/production"
+    }
+  ],
+  "paths": {
+    "/activityregistrations": {
+      "get": {
+        "tags": [
+          "Activity Registrations"
+        ],
+        "summary": "Get all activity registrations by customerId",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/customerTilroyId"
+          },
+          {
+            "$ref": "#/components/parameters/customerSourceId"
+          },
+          {
+            "$ref": "#/components/parameters/queryPage"
+          },
+          {
+            "$ref": "#/components/parameters/queryCount"
+          },
+          {
+            "$ref": "#/components/parameters/queryFields"
+          },
+          {
+            "$ref": "#/components/parameters/querySearch"
+          },
+          {
+            "$ref": "#/components/parameters/queryOrderId"
+          },
+          {
+            "$ref": "#/components/parameters/queryQuotationId"
+          },
+          {
+            "$ref": "#/components/parameters/queryFrom"
+          },
+          {
+            "$ref": "#/components/parameters/queryUntil"
+          },
+          {
+            "$ref": "#/components/parameters/canBeLinked"
+          },
+          {
+            "$ref": "#/components/parameters/querySort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SearchResultActivityRegistrationGet"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Activity Registrations"
+        ],
+        "summary": "create a new activity registration",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/ActivityRegistration"
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/SearchResultActivityRegistration"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFoundError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/activityregistrations/{id}": {
+      "put": {
+        "tags": [
+          "Activity Registrations"
+        ],
+        "summary": "update an activity registration",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/ActivityRegistration"
+        },
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {}
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/workshops": {
+      "get": {
+        "tags": [
+          "Workshops"
+        ],
+        "summary": "Get all workshops",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/queryPage"
+          },
+          {
+            "$ref": "#/components/parameters/queryCount"
+          },
+          {
+            "$ref": "#/components/parameters/queryFields"
+          },
+          {
+            "$ref": "#/components/parameters/queryCode"
+          },
+          {
+            "$ref": "#/components/parameters/querySearch"
+          },
+          {
+            "$ref": "#/components/parameters/querySort"
+          },
+          {
+            "$ref": "#/components/parameters/queryDateFrom"
+          },
+          {
+            "$ref": "#/components/parameters/queryDateTo"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SearchResultWorkshop"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/workshopregistrations": {
+      "post": {
+        "tags": [
+          "WorkshopRegistrations"
+        ],
+        "summary": "create a new workshop registration",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/WorkshopRegistration"
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/WorshopRegistrationResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "WorkshopRegistrations"
+        ],
+        "summary": "Get all workshop registrations",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/headerTilroyApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/headerXApiKey"
+          },
+          {
+            "$ref": "#/components/parameters/queryPage"
+          },
+          {
+            "$ref": "#/components/parameters/queryCount"
+          },
+          {
+            "$ref": "#/components/parameters/queryFields"
+          },
+          {
+            "$ref": "#/components/parameters/queryFrom"
+          },
+          {
+            "$ref": "#/components/parameters/queryUntil"
+          },
+          {
+            "$ref": "#/components/parameters/queryShopId"
+          },
+          {
+            "$ref": "#/components/parameters/queryCustomerId"
+          },
+          {
+            "$ref": "#/components/parameters/queryStatus"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SearchResultWorkshopRegistration"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "headers": {
+      "X-Paging-ItemsPerPage": {
+        "description": "number of max items returned per page.",
+        "schema": {
+          "type": "number"
+        }
+      },
+      "X-Paging-ItemCount": {
+        "description": "total number of items over all pages.",
+        "schema": {
+          "type": "number"
+        }
+      },
+      "X-Paging-PageCount": {
+        "description": "total number of pages.",
+        "schema": {
+          "type": "number"
+        }
+      },
+      "X-Paging-CurrentPage": {
+        "description": "number of the current page.",
+        "schema": {
+          "type": "number"
+        }
+      }
+    },
+    "parameters": {
+      "headerTilroyApiKey": {
+        "name": "Tilroy-Api-Key",
+        "in": "header",
+        "required": true,
+        "description": "tilroy api key",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "headerXApiKey": {
+        "name": "x-api-key",
+        "in": "header",
+        "required": true,
+        "description": "integrator api key",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "customerId": {
+        "name": "customer Id",
+        "in": "query",
+        "required": true,
+        "description": "customerId",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "id": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "id",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "pathId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "id",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryLanguage": {
+        "in": "query",
+        "name": "language",
+        "description": "language code to filter on",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "queryFields": {
+        "in": "query",
+        "name": "fields",
+        "schema": {
+          "type": "string"
+        },
+        "description": "Comma-separated list of all fields you want returned in the result. All other fields will be omitted.",
+        "required": false
+      },
+      "queryOrderId": {
+        "in": "query",
+        "name": "Order id",
+        "schema": {
+          "type": "string"
+        },
+        "description": "Order id.",
+        "required": false
+      },
+      "queryQuotationId": {
+        "in": "query",
+        "name": "Quoation id",
+        "schema": {
+          "type": "string"
+        },
+        "description": "Quotation id.",
+        "required": false
+      },
+      "queryUntil": {
+        "in": "query",
+        "name": "until",
+        "schema": {
+          "type": "string"
+        },
+        "description": "Date end limit to query results.",
+        "required": false
+      },
+      "queryShopId": {
+        "in": "query",
+        "name": "shopId",
+        "schema": {
+          "type": "string"
+        },
+        "description": "id of the shop.",
+        "required": false
+      },
+      "queryCustomerId": {
+        "in": "query",
+        "name": "customerId",
+        "schema": {
+          "type": "string"
+        },
+        "description": "tilroy id of the customer.",
+        "required": false
+      },
+      "queryStatus": {
+        "in": "query",
+        "name": "status",
+        "schema": {
+          "type": "string"
+        },
+        "description": "activity/workshop status.",
+        "required": false
+      },
+      "queryWorkshopId": {
+        "in": "query",
+        "name": "workshopId",
+        "schema": {
+          "type": "string"
+        },
+        "description": "id of the workshop.",
+        "required": false
+      },
+      "canBeLinked": {
+        "in": "query",
+        "name": "canBeLinked",
+        "schema": {
+          "type": "boolean"
+        },
+        "description": "Can Be Linked.",
+        "required": false
+      },
+      "querySort": {
+        "in": "query",
+        "name": "sort",
+        "schema": {
+          "type": "string"
+        },
+        "description": "Name of field that lis tmust be sorted by prefixed by order.",
+        "required": false
+      },
+      "queryCode": {
+        "in": "query",
+        "name": "code",
+        "schema": {
+          "type": "string"
+        },
+        "description": "code.",
+        "required": false
+      },
+      "queryFrom": {
+        "in": "query",
+        "name": "from",
+        "schema": {
+          "type": "string"
+        },
+        "description": "Date start limit to query results.",
+        "required": false
+      },
+      "querySearch": {
+        "in": "query",
+        "name": "search",
+        "schema": {
+          "type": "string"
+        },
+        "description": "search term.",
+        "required": false
+      },
+      "queryCount": {
+        "name": "count",
+        "in": "query",
+        "description": "max number of items to be returned (default = 10, max = 100)",
+        "schema": {
+          "type": "string",
+          "default": "10"
+        }
+      },
+      "queryPage": {
+        "name": "page",
+        "in": "query",
+        "description": "page of results to be returned (default = 1)",
+        "schema": {
+          "type": "string",
+          "default": "1"
+        }
+      },
+      "queryDateFrom": {
+        "name": "dateFrom",
+        "in": "query",
+        "description": "date start limit to filter result",
+        "schema": {
+          "type": "string",
+          "example": "2022-01-01"
+        }
+      },
+      "queryDateTo": {
+        "name": "dateTo",
+        "in": "query",
+        "description": "date end limit to filter result",
+        "schema": {
+          "type": "string",
+          "example": "2023-01-01"
+        }
+      },
+      "customerTilroyId": {
+        "name": "customerTilroyId",
+        "in": "query",
+        "description": "the tilroy id of the customer (either this or customerSourceId is required)",
+        "schema": {
+          "type": "string"
+        },
+        "required": true
+      },
+      "customerSourceId": {
+        "name": "customerSourceId",
+        "in": "query",
+        "description": "the source id of the customer (either this or customerTilroyId is required)",
+        "schema": {
+          "type": "string"
+        },
+        "required": true
+      },
+      "findCriteriaTemplate": {
+        "name": "findCriteriaTemplate",
+        "in": "query",
+        "description": "An example of a query parameter that would filter the search result",
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Bad Request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "SearchResultActivityRegistrationGet": {
+        "description": "ok",
+        "headers": {
+          "X-Paging-ItemsPerPage": {
+            "$ref": "#/components/headers/X-Paging-ItemsPerPage"
+          },
+          "X-Paging-ItemCount": {
+            "$ref": "#/components/headers/X-Paging-ItemCount"
+          },
+          "X-Paging-PageCount": {
+            "$ref": "#/components/headers/X-Paging-PageCount"
+          },
+          "X-Paging-CurrentPage": {
+            "$ref": "#/components/headers/X-Paging-CurrentPage"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ActivityRegistration"
+              }
+            }
+          }
+        }
+      },
+      "SearchResultActivityRegistration": {
+        "description": "ok",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ActivityRegistration"
+            }
+          }
+        }
+      },
+      "WorshopRegistrationResponse": {
+        "description": "ok",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/WorshopRegistrationResponse"
+            }
+          }
+        }
+      },
+      "CreateResultWorkshopRegistration": {
+        "description": "ok",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ResponseWorkshopRegistration"
+            }
+          }
+        }
+      },
+      "SearchResultWorkshop": {
+        "description": "ok",
+        "headers": {
+          "X-Paging-ItemsPerPage": {
+            "$ref": "#/components/headers/X-Paging-ItemsPerPage"
+          },
+          "X-Paging-ItemCount": {
+            "$ref": "#/components/headers/X-Paging-ItemCount"
+          },
+          "X-Paging-PageCount": {
+            "$ref": "#/components/headers/X-Paging-PageCount"
+          },
+          "X-Paging-CurrentPage": {
+            "$ref": "#/components/headers/X-Paging-CurrentPage"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Workshop"
+              }
+            }
+          }
+        }
+      },
+      "SearchResultWorkshopRegistration": {
+        "description": "ok",
+        "headers": {
+          "X-Paging-ItemsPerPage": {
+            "$ref": "#/components/headers/X-Paging-ItemsPerPage"
+          },
+          "X-Paging-ItemCount": {
+            "$ref": "#/components/headers/X-Paging-ItemCount"
+          },
+          "X-Paging-PageCount": {
+            "$ref": "#/components/headers/X-Paging-PageCount"
+          },
+          "X-Paging-CurrentPage": {
+            "$ref": "#/components/headers/X-Paging-CurrentPage"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/WorkshopRegistration"
+              }
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Internal Server Error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFoundError": {
+        "description": "Not Found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "workshopRegistrationRequest": {
+        "type": "object",
+        "required": [
+          "workshop",
+          "customer",
+          "shopCreated",
+          "userCreated",
+          "linkProducts"
+        ],
+        "properties": {
+          "workshop": {
+            "type": "object",
+            "required": [
+              "tilroyId"
+            ],
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "60f9d14ee91884536f34d442"
+              },
+              "code": {
+                "type": "string",
+                "example": "BBYLEA"
+              }
+            }
+          },
+          "customer": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "123"
+              },
+              "sourceId": {
+                "type": "string",
+                "example": "321"
+              }
+            }
+          },
+          "shopCreated": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "123"
+              },
+              "sourceId": {
+                "type": "string",
+                "example": "321"
+              },
+              "number": {
+                "type": "number",
+                "example": 10
+              }
+            }
+          },
+          "userCreated": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "123"
+              },
+              "sourceId": {
+                "type": "string",
+                "example": "321"
+              }
+            }
+          },
+          "status": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "001"
+              }
+            }
+          },
+          "linkProducts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "sku",
+                "qty",
+                "paid"
+              ],
+              "properties": {
+                "sku": {
+                  "type": "object",
+                  "required": [
+                    "tilroyId"
+                  ],
+                  "properties": {
+                    "tilroyId": {
+                      "type": "string",
+                      "example": "123456"
+                    }
+                  }
+                },
+                "qty": {
+                  "type": "number",
+                  "example": 1
+                },
+                "paid": {
+                  "type": "boolean",
+                  "example": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "ResponseWorkshopRegistration": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string"
+          },
+          "workshop": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "123"
+              }
+            }
+          },
+          "customer": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "123"
+              },
+              "firstName": {
+                "type": "string",
+                "example": "John"
+              },
+              "lastName": {
+                "type": "string",
+                "example": "Doe"
+              },
+              "code": {
+                "type": "string",
+                "example": "321"
+              }
+            }
+          },
+          "shopCreated": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "123"
+              }
+            }
+          },
+          "userCreated": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "123"
+              },
+              "firstName": {
+                "type": "string",
+                "example": "John"
+              },
+              "lastName": {
+                "type": "string",
+                "example": "Doe"
+              }
+            }
+          },
+          "status": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "PAM"
+              }
+            }
+          },
+          "linkProducts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sku": {
+                  "type": "object",
+                  "properties": {
+                    "tilroyId": {
+                      "type": "string",
+                      "example": "123"
+                    }
+                  }
+                },
+                "qty": {
+                  "type": "integer",
+                  "example": 5
+                },
+                "tilroyId": {
+                  "type": "boolean",
+                  "example": "123"
+                }
+              }
+            }
+          }
+        }
+      },
+      "WorshopRegistrationResponse": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "example": "60f9d14ee91884536f34d442"
+          },
+          "userCreated": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "123"
+              },
+              "firstName": {
+                "type": "string",
+                "example": "John"
+              },
+              "lastName": {
+                "type": "string",
+                "example": "Doe"
+              }
+            }
+          },
+          "workshop": {
+            "type": "object",
+            "required": [
+              "tilroyId"
+            ],
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "60f9d14ee91884536f34d442"
+              }
+            }
+          },
+          "customer": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "123"
+              },
+              "firstName": {
+                "type": "string",
+                "example": "John"
+              },
+              "lastName": {
+                "type": "string",
+                "example": "Doe"
+              },
+              "code": {
+                "type": "string",
+                "example": "1234"
+              }
+            }
+          },
+          "shopCreated": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "87"
+              },
+              "number": {
+                "type": "number",
+                "example": 1999
+              }
+            }
+          },
+          "status": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "001"
+              }
+            }
+          },
+          "linkProducts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sku": {
+                  "type": "object",
+                  "properties": {
+                    "tilroyId": {
+                      "type": "string",
+                      "example": "123456"
+                    }
+                  }
+                },
+                "qty": {
+                  "type": "integer",
+                  "example": 1
+                },
+                "paid": {
+                  "type": "boolean",
+                  "example": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "ActivityRegistration": {
+        "type": "object",
+        "properties": {
+          "activity": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "123"
+              },
+              "code": {
+                "type": "string",
+                "example": "321"
+              }
+            }
+          },
+          "customer": {
+            "$ref": "#/components/schemas/Customer"
+          },
+          "tilroyId": {
+            "type": "string",
+            "example": "123"
+          },
+          "titles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Titles"
+            }
+          },
+          "shopCreated": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "123"
+              }
+            }
+          },
+          "userCreated": {
+            "$ref": "#/components/schemas/User"
+          },
+          "userUpdated": {
+            "$ref": "#/components/schemas/User"
+          },
+          "dateCreated": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2021-08-24T14:35:10.912Z"
+          },
+          "dateUpdated": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2021-08-24T14:35:10.912Z"
+          },
+          "plannedDate": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2021-08-24T14:35:10.912Z"
+          },
+          "plannedTime": {
+            "type": "string",
+            "example": "2021-08-24T14:35:10.912Z"
+          },
+          "plannedTimeDescription": {
+            "type": "string",
+            "description": "The planned time formated as HH:mm"
+          },
+          "plannedDuration": {
+            "type": "number",
+            "example": 5
+          },
+          "expectedStartDate": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2021-08-24T14:35:10.912Z"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2021-08-24T14:35:10.912Z"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2021-08-24T14:35:10.912Z"
+          },
+          "rooms": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "descriptions": {
+                  "$ref": "#/components/schemas/Description"
+                }
+              }
+            }
+          },
+          "employee": {
+            "$ref": "#/components/schemas/Customer"
+          },
+          "status": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "descriptions": {
+                "$ref": "#/components/schemas/Description"
+              }
+            }
+          },
+          "linkOrders": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "123"
+              },
+              "type": {
+                "type": "string",
+                "example": ""
+              },
+              "number": {
+                "type": "string",
+                "example": 10
+              }
+            }
+          },
+          "linkCustomers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Customer"
+            }
+          },
+          "linkActivities": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "123"
+              },
+              "registration": {
+                "type": "object",
+                "properties": {
+                  "tilroyId": {
+                    "type": "string",
+                    "example": "123"
+                  }
+                }
+              },
+              "titles": {
+                "$ref": "#/components/schemas/Description"
+              }
+            }
+          },
+          "canBeLinked": {
+            "type": "boolean",
+            "example": true
+          },
+          "location": {
+            "$ref": "#/components/schemas/Location"
+          },
+          "linkProducts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductRegistration"
+            }
+          },
+          "linkDocuments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "fileName": {
+                  "type": "string",
+                  "example": "file"
+                },
+                "location": {
+                  "type": "string",
+                  "example": "Aartselaar"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Workshop": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "321"
+          },
+          "titles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Description"
+            }
+          },
+          "descriptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Description"
+            }
+          },
+          "products": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Product"
+            }
+          },
+          "statuses": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "321"
+                },
+                "descriptions": {
+                  "$ref": "#/components/schemas/Description"
+                }
+              }
+            }
+          },
+          "userCreated": {
+            "$ref": "#/components/schemas/User"
+          },
+          "userUpdated": {
+            "$ref": "#/components/schemas/User"
+          },
+          "dateCreated": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2021-08-24T14:35:10.912Z"
+          },
+          "dateUpdated": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2021-08-24T14:35:10.912Z"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2021-08-24T14:35:10.912Z"
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2021-08-24T15:00:00.000Z"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2021-08-24T18:00:00.000Z"
+          },
+          "endTimeDescription": {
+            "type": "string",
+            "description": "The end time formated as HH:mm"
+          },
+          "startTimeDescription": {
+            "type": "string",
+            "description": "The start time formated as HH:mm"
+          },
+          "duration": {
+            "type": "number",
+            "example": 3
+          },
+          "complete": {
+            "type": "boolean",
+            "example": true
+          },
+          "location": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "123"
+              },
+              "name": {
+                "type": "string",
+                "example": "Tilroy"
+              },
+              "number": {
+                "type": "string",
+                "example": "321"
+              }
+            }
+          },
+          "numberParticipants": {
+            "type": "number",
+            "example": 5
+          },
+          "hasRegistrations": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "Product": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "example": "123"
+          },
+          "code": {
+            "type": "string",
+            "example": "321"
+          },
+          "brand": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "321"
+              }
+            }
+          },
+          "descriptions": {
+            "$ref": "#/components/schemas/ProductDescription"
+          },
+          "colour": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "red"
+              },
+              "picture": {
+                "type": "string",
+                "example": "picture.png"
+              },
+              "idProductColour": {
+                "type": "string",
+                "example": "321"
+              },
+              "useInProductDescription": {
+                "type": "boolean",
+                "example": true
+              },
+              "descriptions": {
+                "$ref": "#/components/schemas/ProductDescription"
+              },
+              "sku": {
+                "type": "object",
+                "properties": {
+                  "tilroyId": {
+                    "type": "string",
+                    "example": "123"
+                  },
+                  "size": {
+                    "type": "object",
+                    "properties": {
+                      "tilroyId": {
+                        "type": "string",
+                        "example": "123"
+                      },
+                      "code": {
+                        "type": "string",
+                        "example": "OneSize"
+                      },
+                      "useInProductDescription": {
+                        "type": "boolean",
+                        "example": true
+                      },
+                      "descriptions": {
+                        "$ref": "#/components/schemas/ProductDescription"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "ProductDescription": {
+        "type": "object",
+        "properties": {
+          "language": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "123"
+              },
+              "code": {
+                "type": "string",
+                "example": "NL"
+              }
+            }
+          },
+          "description": {
+            "type": "string",
+            "example": "product description"
+          },
+          "webDescription": {
+            "type": "string",
+            "example": "web product description"
+          }
+        }
+      },
+      "Location": {
+        "type": "object",
+        "required": [
+          "street",
+          "houseNumber",
+          "city",
+          "postalCode"
+        ],
+        "properties": {
+          "street": {
+            "type": "string",
+            "example": "Dijkstraat"
+          },
+          "houseNumber": {
+            "type": "string",
+            "example": "6"
+          },
+          "box": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string",
+            "example": "Aartselaar"
+          },
+          "postalCode": {
+            "type": "string",
+            "example": "2630"
+          },
+          "country": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "3"
+              },
+              "code": {
+                "type": "string",
+                "example": "BE"
+              }
+            }
+          }
+        }
+      },
+      "Customer": {
+        "type": "object",
+        "required": [
+          "tilroyId",
+          "firstName",
+          "companyName"
+        ],
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "example": "123"
+          },
+          "firstName": {
+            "type": "string",
+            "example": "John"
+          },
+          "lastName": {
+            "type": "string",
+            "example": "Doe"
+          },
+          "code": {
+            "type": "string",
+            "example": "1234"
+          },
+          "companyName": {
+            "type": "string",
+            "example": "1234"
+          },
+          "sourceId": {
+            "type": "string",
+            "example": "3190696999"
+          }
+        }
+      },
+      "Description": {
+        "type": "object",
+        "required": [
+          "language",
+          "description"
+        ],
+        "properties": {
+          "language": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "1"
+              },
+              "code": {
+                "type": "string",
+                "example": "EN"
+              }
+            }
+          },
+          "description": {
+            "type": "string",
+            "example": "someDescription"
+          }
+        }
+      },
+      "Titles": {
+        "type": "object",
+        "properties": {
+          "language": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "1"
+              },
+              "code": {
+                "type": "string",
+                "example": "EN"
+              }
+            }
+          },
+          "description": {
+            "type": "string",
+            "example": "someDescription"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "required": [
+          "tilroyId",
+          "firstName",
+          "lastName"
+        ],
+        "properties": {
+          "tilroyId": {
+            "type": "string",
+            "example": "123"
+          },
+          "firstName": {
+            "type": "string",
+            "example": "John"
+          },
+          "lastName": {
+            "type": "string",
+            "example": "Doe"
+          }
+        }
+      },
+      "ProductRegistration": {
+        "type": "object",
+        "properties": {
+          "sku": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "123"
+              },
+              "sourceId": {
+                "type": "string",
+                "example": "321"
+              }
+            }
+          },
+          "qty": {
+            "type": "number",
+            "example": 1
+          },
+          "paid": {
+            "type": "boolean",
+            "example": false
+          }
+        }
+      },
+      "activityRegistrationRequest": {
+        "type": "object",
+        "required": [
+          "activity",
+          "customer",
+          "shopCreated"
+        ],
+        "properties": {
+          "activity": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "123"
+              },
+              "code": {
+                "type": "string",
+                "example": "321"
+              }
+            }
+          },
+          "customer": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "123"
+              },
+              "sourceId": {
+                "type": "string",
+                "example": "321"
+              }
+            }
+          },
+          "shopCreated": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "123"
+              },
+              "sourceId": {
+                "type": "string",
+                "example": "321"
+              },
+              "number": {
+                "type": "number",
+                "example": 10
+              }
+            }
+          },
+          "userCreated": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "123"
+              },
+              "sourceId": {
+                "type": "string",
+                "example": "321"
+              }
+            }
+          },
+          "userUpdated": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "123"
+              },
+              "sourceId": {
+                "type": "string",
+                "example": "321"
+              }
+            }
+          },
+          "plannedDate": {
+            "type": "string"
+          },
+          "plannedTime": {
+            "type": "string",
+            "example": "2021-11-19T16:30:00.000Z"
+          },
+          "plannedTimeDescription": {
+            "type": "string",
+            "description": "The planned time formated as HH:mm"
+          },
+          "plannedDuration": {
+            "type": "number",
+            "example": 2
+          },
+          "expectedStartDate": {
+            "type": "string",
+            "example": "2021-11-19"
+          },
+          "startDate": {
+            "type": "string",
+            "example": "2021-11-19"
+          },
+          "endDate": {
+            "type": "string",
+            "example": "2021-11-19"
+          },
+          "rooms": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "123"
+                }
+              }
+            }
+          },
+          "employee": {
+            "$ref": "#/components/schemas/Customer"
+          },
+          "status": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "PAM"
+              }
+            }
+          },
+          "linkQuotes": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "123"
+              }
+            }
+          },
+          "linkOrders": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tilroyId": {
+                  "type": "string",
+                  "example": "123"
+                },
+                "orderNumber": {
+                  "type": "string",
+                  "example": "321"
+                }
+              }
+            }
+          },
+          "linkCustomers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tilroyId": {
+                  "type": "string",
+                  "example": "123"
+                },
+                "sourceId": {
+                  "type": "string",
+                  "example": "321"
+                }
+              }
+            }
+          },
+          "linkActivities": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "321"
+              }
+            }
+          },
+          "canBeLinked": {
+            "type": "boolean",
+            "example": true
+          },
+          "location": {
+            "$ref": "#/components/schemas/Location"
+          },
+          "linkProductSkus": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tilroyId": {
+                  "type": "string",
+                  "example": "123"
+                },
+                "sourceId": {
+                  "type": "string",
+                  "example": "321"
+                }
+              }
+            }
+          },
+          "linkDocument": {
+            "type": "array",
+            "items": {
+              "properties": {
+                "location": {
+                  "type": "string",
+                  "example": "https://filelocation.com"
+                },
+                "fileName": {
+                  "type": "string",
+                  "example": "name.jpg"
+                }
+              }
+            }
+          },
+          "dateCreated": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2021-11-19T16:30:00.000Z"
+          }
+        }
+      },
+      "WorkshopRegistration": {
+        "type": "object",
+        "properties": {
+          "workshop": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "123"
+              },
+              "code": {
+                "type": "string",
+                "example": "321"
+              }
+            }
+          },
+          "tenantId": {
+            "type": "string",
+            "example": "2"
+          },
+          "tilroyId": {
+            "type": "string",
+            "example": "6124ff586f6bf8080cc9bdf2"
+          },
+          "titles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "language": {
+                  "type": "object",
+                  "properties": {
+                    "tilroyId": {
+                      "type": "string",
+                      "example": "2"
+                    },
+                    "code": {
+                      "type": "string",
+                      "example": "NL"
+                    }
+                  }
+                },
+                "description": {
+                  "type": "string",
+                  "example": "Doop Lea"
+                }
+              }
+            }
+          },
+          "customer": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "1547825"
+              },
+              "firstName": {
+                "type": "string",
+                "example": "Pam"
+              },
+              "lastName": {
+                "type": "string",
+                "example": "VDL"
+              },
+              "code": {
+                "type": "string",
+                "example": "1000916"
+              }
+            }
+          },
+          "shopCreated": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "01"
+              },
+              "number": {
+                "type": "integer",
+                "example": 1101
+              },
+              "name": {
+                "type": "string",
+                "example": "BU1 - Tilroy Antwerp"
+              }
+            }
+          },
+          "dateCreated": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2021-08-24T14:16:56.922Z"
+          },
+          "dateUpdated": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2021-10-14T12:26:50.525Z"
+          },
+          "userCreated": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "7282"
+              },
+              "firstName": {
+                "type": "string",
+                "example": "Prosteps"
+              },
+              "lastName": {
+                "type": "string",
+                "example": "NL"
+              }
+            }
+          },
+          "userUpdated": {
+            "type": "object",
+            "properties": {
+              "tilroyId": {
+                "type": "string",
+                "example": "7282"
+              },
+              "firstName": {
+                "type": "string",
+                "example": "Prosteps"
+              },
+              "lastName": {
+                "type": "string",
+                "example": "NL"
+              }
+            }
+          },
+          "paidAmount": {
+            "type": "number",
+            "example": 30
+          },
+          "status": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "PaMeLa WS"
+              },
+              "descriptions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "language": {
+                      "type": "object",
+                      "properties": {
+                        "tilroyId": {
+                          "type": "string",
+                          "example": "2"
+                        },
+                        "code": {
+                          "type": "string",
+                          "example": "NL"
+                        }
+                      }
+                    },
+                    "description": {
+                      "type": "string",
+                      "example": "2e Workshop status"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "linkProducts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sku": {
+                  "properties": {
+                    "tilroyId": {
+                      "type": "string",
+                      "example": "123"
+                    }
+                  }
+                },
+                "qty": {
+                  "type": "number",
+                  "example": 5
+                },
+                "paid": {
+                  "type": "boolean",
+                  "example": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code of the error, assigned by Node or the developer."
+          },
+          "message": {
+            "type": "string",
+            "description": "More information about the cause of the error."
+          }
+        },
+        "description": "The error object returned by the service"
+      }
+    },
+    "requestBodies": {
+      "WorkshopRegistration": {
+        "description": "JSON body to create a new workshop registration",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/workshopRegistrationRequest"
+            }
+          }
+        }
+      },
+      "ActivityRegistration": {
+        "description": "JSON body to create a new activity registration",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/activityRegistrationRequest"
+            }
+          }
+        }
+      }
+    }
+  }
+}
