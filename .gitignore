@@ -1,3 +1,7 @@
+# Local documentation and test outputs (not tracked)
+docs/
+tilroy_docs/
+test_output/
 
 # ==================================
 
