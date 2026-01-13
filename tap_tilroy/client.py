@@ -125,6 +125,12 @@ class TilroyStream(RESTStream[int]):
 
         yield from extract_jsonpath(self.records_jsonpath, input=data)
 
+    # Fields that should be kept as integers (not floats)
+    _integer_fields: frozenset = frozenset({
+        "tilroyId", "sourceId", "number", "tilroy_id", "source_id",
+        "legalEntityId", "tenantId", "shopNumber", "shop_number",
+    })
+
     def post_process(
         self,
         row: dict,
@@ -153,16 +159,27 @@ class TilroyStream(RESTStream[int]):
                 row[key] = None
                 continue
 
-            # Convert string numbers to float for number fields
+            # Convert floats to int for ID/number fields (avoid .0 suffix)
+            if isinstance(value, float) and key in self._integer_fields:
+                if value == int(value):  # Only if it's a whole number
+                    row[key] = int(value)
+                continue
+
+            # Convert string numbers to appropriate type for number fields
             if isinstance(value, str):
                 field_schema = self.schema.get("properties", {}).get(key, {})
                 field_types = field_schema.get("type", [])
                 if isinstance(field_types, str):
                     field_types = [field_types]
 
-                if "number" in field_types:
+                if "number" in field_types or "integer" in field_types:
                     try:
-                        row[key] = float(value)
+                        num_value = float(value)
+                        # Keep as int if it's a whole number and an ID field
+                        if key in self._integer_fields and num_value == int(num_value):
+                            row[key] = int(num_value)
+                        else:
+                            row[key] = num_value
                     except ValueError:
                         pass  # Keep as string if conversion fails
 
