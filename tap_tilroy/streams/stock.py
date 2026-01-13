@@ -154,6 +154,11 @@ class StockChangesStream(DateFilteredStream):
         # Stock changes API requires dateTo parameter
         params["dateTo"] = datetime.now().strftime("%Y-%m-%d")
 
+        # Optional shop number filter
+        shop_number = self.config.get("stock_changes_shop_number")
+        if shop_number:
+            params["shopNumber"] = shop_number
+
         return params
 
     def post_process(
