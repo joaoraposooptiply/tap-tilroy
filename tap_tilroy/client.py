@@ -186,6 +186,30 @@ class TilroyStream(RESTStream[int]):
 
         return row
 
+    def _flatten_shop(self, row: dict, shop_field: str = "shop", prefix: str = "shop") -> dict:
+        """Flatten a nested shop object into separate fields.
+
+        Args:
+            row: The record containing the shop object.
+            shop_field: The name of the shop field in the record.
+            prefix: Prefix for the flattened field names.
+
+        Returns:
+            The record with flattened shop fields added.
+        """
+        shop = row.get(shop_field)
+        if isinstance(shop, dict):
+            row[f"{prefix}_tilroy_id"] = shop.get("tilroyId") or shop.get("idTilroy")
+            row[f"{prefix}_number"] = shop.get("number") or shop.get("shopNumber")
+            row[f"{prefix}_name"] = shop.get("name")
+            row[f"{prefix}_source_id"] = shop.get("sourceId") or shop.get("idSource")
+        else:
+            row[f"{prefix}_tilroy_id"] = None
+            row[f"{prefix}_number"] = None
+            row[f"{prefix}_name"] = None
+            row[f"{prefix}_source_id"] = None
+        return row
+
     def _stringify_nested_objects(self, data: dict) -> dict:
         """Convert nested objects to JSON strings for CSV compatibility.
 

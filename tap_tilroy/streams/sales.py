@@ -121,6 +121,11 @@ class SalesStream(DateFilteredStream):
 
         # Location info
         th.Property("shop", th.CustomType({"type": ["object", "string", "null"]})),
+        # Flattened shop fields for easier filtering
+        th.Property("shop_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("shop_number", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("shop_name", th.CustomType({"type": ["string", "null"]})),
+        th.Property("shop_source_id", th.CustomType({"type": ["string", "null"]})),
         th.Property("till", th.CustomType({"type": ["object", "string", "null"]})),
         th.Property("legalEntity", th.CustomType({"type": ["object", "string", "null"]})),
 
@@ -253,6 +258,9 @@ class SalesStream(DateFilteredStream):
 
         # Convert types
         row = _convert_types_recursive(row)
+
+        # Flatten shop object for easier filtering
+        row = self._flatten_shop(row, "shop", "shop")
 
         # Ensure ID fields are strings
         for field in ("idTilroySale", "idTenant", "idSession", "idSourceCustomer"):

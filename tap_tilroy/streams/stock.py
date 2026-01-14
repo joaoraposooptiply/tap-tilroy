@@ -41,6 +41,11 @@ class StockDeltasStream(DateFilteredStream):
         th.Property("modificationType", th.CustomType({"type": ["string", "null"]})),
         th.Property("reason", th.CustomType({"type": ["string", "number", "null"]})),
         th.Property("shop", th.CustomType({"type": ["object", "string", "null"]})),
+        # Flattened shop fields for easier filtering
+        th.Property("shop_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("shop_number", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("shop_name", th.CustomType({"type": ["string", "null"]})),
+        th.Property("shop_source_id", th.CustomType({"type": ["string", "null"]})),
         th.Property("product", th.CustomType({"type": ["object", "string", "null"]})),
         th.Property("colour", th.CustomType({"type": ["object", "string", "null"]})),
         th.Property("size", th.CustomType({"type": ["object", "string", "null"]})),
@@ -107,6 +112,7 @@ class StockDeltasStream(DateFilteredStream):
         """Post-process stock delta record."""
         row = super().post_process(row, context)
         if row:
+            row = self._flatten_shop(row, "shop", "shop")
             row = self._stringify_nested_objects(row)
         return row
 
@@ -131,6 +137,11 @@ class StockChangesStream(DateFilteredStream):
         th.Property("tilroyId", th.CustomType({"type": ["string", "number", "null"]})),
         th.Property("sku", th.CustomType({"type": ["object", "string", "null"]})),
         th.Property("shop", th.CustomType({"type": ["object", "string", "null"]})),
+        # Flattened shop fields for easier filtering
+        th.Property("shop_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("shop_number", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("shop_name", th.CustomType({"type": ["string", "null"]})),
+        th.Property("shop_source_id", th.CustomType({"type": ["string", "null"]})),
         th.Property("qty", th.CustomType({"type": ["object", "string", "null"]})),
         th.Property("refill", th.IntegerType),
         th.Property("dateCreated", th.DateTimeType),
@@ -169,6 +180,7 @@ class StockChangesStream(DateFilteredStream):
         """Post-process stock change record."""
         row = super().post_process(row, context)
         if row:
+            row = self._flatten_shop(row, "shop", "shop")
             row = self._stringify_nested_objects(row)
         return row
 
@@ -200,6 +212,11 @@ class StockStream(TilroyStream):
         th.Property("refill", th.IntegerType),
         th.Property("dateUpdated", th.DateTimeType),
         th.Property("shop", th.CustomType({"type": ["object", "string", "null"]})),
+        # Flattened shop fields for easier filtering
+        th.Property("shop_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("shop_number", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("shop_name", th.CustomType({"type": ["string", "null"]})),
+        th.Property("shop_source_id", th.CustomType({"type": ["string", "null"]})),
     ).to_dict()
 
     def _get_sku_ids_from_products(self) -> list[str]:
@@ -322,5 +339,6 @@ class StockStream(TilroyStream):
         """Post-process stock record."""
         row = super().post_process(row, context)
         if row:
+            row = self._flatten_shop(row, "shop", "shop")
             row = self._stringify_nested_objects(row)
         return row

@@ -58,7 +58,17 @@ class TransfersStream(DateFilteredStream):
 
         # Shop references (nested objects -> JSON strings)
         th.Property("shopFrom", th.CustomType({"type": ["object", "string", "null"]})),
+        # Flattened shopFrom fields for easier filtering
+        th.Property("shop_from_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("shop_from_number", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("shop_from_name", th.CustomType({"type": ["string", "null"]})),
+        th.Property("shop_from_source_id", th.CustomType({"type": ["string", "null"]})),
         th.Property("shopTo", th.CustomType({"type": ["object", "string", "null"]})),
+        # Flattened shopTo fields for easier filtering
+        th.Property("shop_to_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("shop_to_number", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("shop_to_name", th.CustomType({"type": ["string", "null"]})),
+        th.Property("shop_to_source_id", th.CustomType({"type": ["string", "null"]})),
 
         # User references (nested objects -> JSON strings)
         th.Property("userRequested", th.CustomType({"type": ["object", "string", "null"]})),
@@ -82,9 +92,12 @@ class TransfersStream(DateFilteredStream):
     ) -> dict | None:
         """Post-process transfer record.
 
-        Converts nested objects to JSON strings for compatibility.
+        Flattens shop objects and converts nested objects to JSON strings.
         """
         row = super().post_process(row, context)
         if row:
+            # Flatten shopFrom and shopTo for easier filtering
+            row = self._flatten_shop(row, "shopFrom", "shop_from")
+            row = self._flatten_shop(row, "shopTo", "shop_to")
             row = self._stringify_nested_objects(row)
         return row
