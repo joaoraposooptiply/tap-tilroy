@@ -135,7 +135,10 @@ class ShopsStream(TilroyStream):
 
         response = self._request(prepared_request, context)
 
-        yield from self.parse_response(response)
+        for record in self.parse_response(response):
+            processed = self.post_process(record, context)
+            if processed:
+                yield processed
 
     def post_process(
         self,
