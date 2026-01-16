@@ -73,6 +73,11 @@ class PricesStream(LastIdPaginatedStream):
         if next_page_token:
             params["lastId"] = next_page_token
 
+        # Optional shop number filter (required for large tenants to avoid timeout)
+        shop_number = self.config.get("prices_shop_number")
+        if shop_number:
+            params["shopNumber"] = shop_number
+
         return params
 
     def request_records(self, context: Context | None) -> t.Iterable[dict]:
