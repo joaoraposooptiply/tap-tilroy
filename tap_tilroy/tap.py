@@ -82,9 +82,9 @@ class TapTilroy(Tap):
             description="The earliest date to sync data from (ISO 8601 format)",
         ),
         th.Property(
-            "prices_shop_number",
-            th.IntegerType,
-            description="Shop number filter for prices (optional)",
+            "prices_shop_id",
+            th.CustomType({"type": ["string", "integer"]}),
+            description="Shop tilroyId filter for prices (optional) - use shop's tilroyId, not number",
         ),
         th.Property(
             "stock_changes_shop_number",
