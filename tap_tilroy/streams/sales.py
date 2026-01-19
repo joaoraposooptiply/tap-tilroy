@@ -40,7 +40,7 @@ STRING_FIELDS = frozenset({
     "idTransactionLine", "idVat", "idUserSalesPerson", "idDispatchMethod",
     "combinedProductId", "ppCustomerGroupID", "ppCustomerSiteID", "ppDeliveryID",
     "ppDeliveryMethodID", "ppDeliveryMultipleID", "ppDeliveryTimeID",
-    "ppLanguageID", "type", "vatKind", "deliveryPromise", "warrantyDate",
+    "ppLanguageID", "type", "vatKind", "warrantyDate",
     "deliveryDate", "wac", "collectMethod", "order", "collectShop",
     "discountReason", "returnReason", "sku", "advanceSource",
     "descriptions", "icons", "insurances", "shipment", "taxes",
@@ -196,6 +196,9 @@ class SalesStream(DateWindowedStream):
         th.Property("project", th.CustomType({"type": ["object", "null"]})),
         th.Property("foreignVat", th.CustomType({"type": ["object", "null"]})),
         th.Property("invoiceRequested", th.CustomType({"type": ["object", "null"]})),
+        th.Property("deliveryPromise", th.CustomType({"type": ["object", "null"]})),
+        th.Property("collectMethod", th.CustomType({"type": ["object", "null"]})),
+        th.Property("returnReason", th.CustomType({"type": ["object", "null"]})),
 
         # Discount fields
         th.Property("transactionDiscountPercentage", th.NumberType),
