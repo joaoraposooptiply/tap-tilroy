@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import typing as t
 from datetime import datetime
 from decimal import Decimal
@@ -97,14 +98,22 @@ def _convert_types_recursive(obj: t.Any, string_fields: frozenset = STRING_FIELD
                 # Convert Decimal - use string for fields in string_fields
                 result[key] = _convert_decimal(val, force_string=(key in string_fields))
             elif isinstance(val, float):
-                # Convert whole number floats to int
-                if val == int(val):
+                # Handle infinity and NaN - keep as float (or convert to None)
+                if math.isinf(val) or math.isnan(val):
+                    result[key] = None  # Convert inf/nan to null for JSON compatibility
+                elif val == int(val):
+                    # Convert whole number floats to int
                     result[key] = int(val)
                 else:
                     result[key] = val
             elif isinstance(val, str) and _is_numeric_string(val) and key not in string_fields:
                 num = float(val)
-                result[key] = int(num) if num == int(num) else num
+                if math.isinf(num) or math.isnan(num):
+                    result[key] = None
+                elif num == int(num):
+                    result[key] = int(num)
+                else:
+                    result[key] = num
             elif isinstance(val, (list, dict)):
                 result[key] = _convert_types_recursive(val, string_fields)
             else:
@@ -113,9 +122,11 @@ def _convert_types_recursive(obj: t.Any, string_fields: frozenset = STRING_FIELD
     elif isinstance(obj, list):
         return [_convert_types_recursive(item, string_fields) for item in obj]
     elif isinstance(obj, Decimal):
-        return _convert_decimal(val)
+        return _convert_decimal(obj)
     elif isinstance(obj, str) and _is_numeric_string(obj):
         num = float(obj)
+        if math.isinf(num) or math.isnan(num):
+            return None
         return int(num) if num == int(num) else num
     return obj
 
