@@ -16,9 +16,11 @@ if t.TYPE_CHECKING:
 
 
 # Fields that should remain as strings even if they look numeric
+# Includes ID fields that have schema ['string', 'integer', 'null'] - must be string if decimal
 STRING_FIELDS = frozenset({
     "idTilroySale", "idTenant", "idSession", "idSourceCustomer",
     "idTilroySaleLine", "idTilroySalePayment", "idTilroy", "idSource",
+    "idSourceShop", "idSourceTill", "idSourceLegalEntity",
     "code", "ean", "paymentReference", "advanceReference",
     "comments", "description", "webDescription", "colour", "size",
     "serialNumberSale", "serialNumberSaleActivator", "promotionName",
@@ -60,6 +62,24 @@ def _is_numeric_string(value: str) -> bool:
         return False
 
 
+def _convert_decimal(val: Decimal, force_string: bool = False) -> t.Union[int, float, str]:
+    """Convert a Decimal to int, float, or string.
+    
+    Args:
+        val: The Decimal value to convert.
+        force_string: If True, always convert to string.
+    
+    Returns:
+        int if whole number, float for decimals, or string if force_string.
+    """
+    if force_string:
+        return str(int(val)) if val == val.to_integral_value() else str(val)
+    elif val == val.to_integral_value():
+        return int(val)
+    else:
+        return float(val)
+
+
 def _convert_types_recursive(obj: t.Any, string_fields: frozenset = STRING_FIELDS) -> t.Any:
     """Recursively convert Decimals and string numbers to appropriate types.
 
@@ -74,16 +94,14 @@ def _convert_types_recursive(obj: t.Any, string_fields: frozenset = STRING_FIELD
         result = {}
         for key, val in obj.items():
             if isinstance(val, Decimal):
-                if key in string_fields:
-                    result[key] = str(int(val)) if val == val.to_integral_value() else str(val)
-                elif val == val.to_integral_value():
-                    # Convert whole number Decimals to int (for ID fields, etc.)
+                # Convert Decimal - use string for fields in string_fields
+                result[key] = _convert_decimal(val, force_string=(key in string_fields))
+            elif isinstance(val, float):
+                # Convert whole number floats to int
+                if val == int(val):
                     result[key] = int(val)
                 else:
-                    result[key] = float(val)
-            elif isinstance(val, float) and val == int(val):
-                # Convert whole number floats to int
-                result[key] = int(val)
+                    result[key] = val
             elif isinstance(val, str) and _is_numeric_string(val) and key not in string_fields:
                 num = float(val)
                 result[key] = int(num) if num == int(num) else num
@@ -95,7 +113,7 @@ def _convert_types_recursive(obj: t.Any, string_fields: frozenset = STRING_FIELD
     elif isinstance(obj, list):
         return [_convert_types_recursive(item, string_fields) for item in obj]
     elif isinstance(obj, Decimal):
-        return int(obj) if obj == obj.to_integral_value() else float(obj)
+        return _convert_decimal(val)
     elif isinstance(obj, str) and _is_numeric_string(obj):
         num = float(obj)
         return int(num) if num == int(num) else num
