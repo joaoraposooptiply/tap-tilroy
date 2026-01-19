@@ -108,7 +108,44 @@ class PurchaseOrdersStream(DynamicRoutingStream):
             params["orderDateFrom"] = start_date.strftime("%Y-%m-%d")
             params["orderDateTo"] = datetime.now().strftime("%Y-%m-%d")
 
+        # Add warehouse and status filters from context if provided
+        # Note: API requires status filter when using warehouseNumber
+        warehouse_number = (context or {}).get("warehouse_number")
+        status = (context or {}).get("status")
+        if warehouse_number:
+            params["warehouseNumber"] = warehouse_number
+        if status:
+            params["status"] = status
+
         return params
+
+    @property
+    def partitions(self) -> list[dict] | None:
+        """Return partitions for each warehouse number and status if configured.
+        
+        If purchase_orders_warehouse_numbers is configured, creates partitions
+        for each warehouse + status combination. The API requires a status filter
+        when using warehouseNumber, so we query for all common statuses.
+        """
+        warehouse_numbers = self.config.get("purchase_orders_warehouse_numbers", [])
+        
+        if not warehouse_numbers:
+            return None  # No filter - get all warehouses
+        
+        # API requires status filter with warehouseNumber
+        # Query each warehouse with each status to get complete data
+        statuses = ["draft", "open", "delivered", "cancelled"]
+        
+        partitions = []
+        for wh in warehouse_numbers:
+            for status in statuses:
+                partitions.append({"warehouse_number": wh, "status": status})
+        
+        self.logger.info(
+            f"[{self.name}] Filtering by warehouse numbers: {warehouse_numbers} "
+            f"with statuses: {statuses}"
+        )
+        return partitions
 
     def post_process(
         self,

@@ -91,6 +91,11 @@ class TapTilroy(Tap):
             th.IntegerType,
             description="Shop number filter for stock_changes (optional)",
         ),
+        th.Property(
+            "purchase_orders_warehouse_numbers",
+            th.ArrayType(th.IntegerType),
+            description="Warehouse numbers to filter purchase_orders (optional, empty = all)",
+        ),
     ).to_dict()
 
     def __init__(self, *args, **kwargs) -> None:
