@@ -226,11 +226,16 @@ class SalesStream(DateFilteredStream):
 
         Uses dateFrom for filtering (required by the export endpoint).
         """
+        start_date = self._get_start_date(context)
+        date_from = start_date.strftime("%Y-%m-%d")
+        
         params = {
             "count": self.default_count,
             "page": next_page_token or 1,
-            "dateFrom": self._get_start_date(context).strftime("%Y-%m-%d"),
+            "dateFrom": date_from,
         }
+
+        self.logger.info(f"[{self.name}] Requesting sales with dateFrom={date_from}, page={params['page']}")
 
         return params
 
