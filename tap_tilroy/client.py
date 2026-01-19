@@ -378,6 +378,144 @@ class LastIdPaginatedStream(DateFilteredStream):
         self.logger.info(f"[{self.name}] Pagination complete")
 
 
+class DateWindowedStream(DateFilteredStream):
+    """Base class for streams that need date windowing to avoid API timeouts.
+
+    Breaks large date ranges into smaller chunks (windows) to prevent the API
+    from timing out on heavy queries.
+    """
+
+    # Size of each date window in days (can be overridden)
+    date_window_days: int = 7
+    # Whether to use dateTo parameter (some APIs require it)
+    use_date_to: bool = True
+    date_to_param_name: str = "dateTo"
+
+    def request_records(self, context: Context | None) -> t.Iterable[dict]:
+        """Request records using date windowing with pagination.
+
+        Breaks the date range into windows of `date_window_days` size,
+        and paginates through each window before moving to the next.
+
+        Args:
+            context: Stream partition context.
+
+        Yields:
+            Records from the API.
+        """
+        start_date = self._get_start_date(context)
+        end_date = datetime.now()
+
+        self.logger.info(
+            f"[{self.name}] Starting date-windowed sync from {start_date.date()} "
+            f"to {end_date.date()} with {self.date_window_days}-day windows"
+        )
+
+        window_start = start_date
+        total_records = 0
+
+        while window_start < end_date:
+            # Calculate window end (don't exceed today)
+            window_end = min(
+                window_start + timedelta(days=self.date_window_days),
+                end_date
+            )
+
+            self.logger.info(
+                f"[{self.name}] Processing window: {window_start.date()} to {window_end.date()}"
+            )
+
+            # Paginate through this window
+            page = 1
+            window_records = 0
+
+            while True:
+                params = self._get_window_params(window_start, window_end, page)
+
+                self.logger.debug(f"[{self.name}] Window request params: {params}")
+
+                prepared_request = self.build_prepared_request(
+                    method="GET",
+                    url=self.get_url(context),
+                    params=params,
+                    headers=self.http_headers,
+                )
+
+                try:
+                    response = self._request(prepared_request, context)
+                except Exception as e:
+                    self.logger.error(f"[{self.name}] Request failed: {e}")
+                    break
+
+                if response.status_code != 200:
+                    self.logger.error(
+                        f"[{self.name}] API error {response.status_code}: {response.text[:500]}"
+                    )
+                    break
+
+                records = list(self.parse_response(response))
+                page_count = len(records)
+                window_records += page_count
+
+                self.logger.info(
+                    f"[{self.name}] Window {window_start.date()}-{window_end.date()} "
+                    f"page {page}: {page_count} records"
+                )
+
+                for record in records:
+                    processed = self.post_process(record, context)
+                    if processed:
+                        total_records += 1
+                        yield processed
+
+                # Check if more pages in this window
+                try:
+                    current_page = int(response.headers.get("X-Paging-CurrentPage", 1))
+                    total_pages = int(response.headers.get("X-Paging-PageCount", 1))
+                    if current_page >= total_pages:
+                        break
+                    page += 1
+                except (ValueError, TypeError):
+                    # If we got fewer than count, assume no more pages
+                    if page_count < self.default_count:
+                        break
+                    page += 1
+
+            self.logger.info(
+                f"[{self.name}] Window {window_start.date()}-{window_end.date()} "
+                f"complete: {window_records} records"
+            )
+
+            # Move to next window
+            window_start = window_end
+
+        self.logger.info(f"[{self.name}] Date-windowed sync complete: {total_records} total records")
+
+    def _get_window_params(
+        self, window_start: datetime, window_end: datetime, page: int
+    ) -> dict[str, t.Any]:
+        """Get URL parameters for a specific date window and page.
+
+        Args:
+            window_start: Start of the date window.
+            window_end: End of the date window.
+            page: Current page number.
+
+        Returns:
+            Dictionary of URL parameters.
+        """
+        params = {
+            "count": self.default_count,
+            "page": page,
+            self.date_param_name: window_start.strftime("%Y-%m-%d"),
+        }
+
+        if self.use_date_to:
+            params[self.date_to_param_name] = window_end.strftime("%Y-%m-%d")
+
+        return params
+
+
 class DynamicRoutingStream(DateFilteredStream):
     """Base class for streams that switch between historical and incremental endpoints.
 

@@ -8,7 +8,7 @@ from decimal import Decimal
 
 from singer_sdk import typing as th
 
-from tap_tilroy.client import DateFilteredStream
+from tap_tilroy.client import DateWindowedStream
 
 if t.TYPE_CHECKING:
     from singer_sdk.helpers.types import Context
@@ -93,11 +93,12 @@ def _convert_types_recursive(obj: t.Any, string_fields: frozenset = STRING_FIELD
     return obj
 
 
-class SalesStream(DateFilteredStream):
+class SalesStream(DateWindowedStream):
     """Stream for Tilroy sales transactions.
 
     Uses /export/sales endpoint which supports date filtering without
-    requiring customer filters. Uses page-based pagination.
+    requiring customer filters. Uses date windowing to avoid API timeouts
+    on large date ranges.
     """
 
     name = "sales"
@@ -107,6 +108,11 @@ class SalesStream(DateFilteredStream):
     replication_method = "INCREMENTAL"
     records_jsonpath = "$[*]"
     default_count = 100
+
+    # Date windowing configuration - 7 days at a time to avoid timeouts
+    date_window_days = 7
+    use_date_to = True
+    date_to_param_name = "dateTo"
 
     # Sales schema - comprehensive but with flexible types
     schema = th.PropertiesList(
@@ -217,27 +223,8 @@ class SalesStream(DateFilteredStream):
         th.Property("cashDiscountDays", th.IntegerType),
     ).to_dict()
 
-    def get_url_params(
-        self,
-        context: Context | None,
-        next_page_token: int | None,
-    ) -> dict[str, t.Any]:
-        """Return URL parameters for Sales Export API.
-
-        Uses dateFrom for filtering (required by the export endpoint).
-        """
-        start_date = self._get_start_date(context)
-        date_from = start_date.strftime("%Y-%m-%d")
-        
-        params = {
-            "count": self.default_count,
-            "page": next_page_token or 1,
-            "dateFrom": date_from,
-        }
-
-        self.logger.info(f"[{self.name}] Requesting sales with dateFrom={date_from}, page={params['page']}")
-
-        return params
+    # Note: get_url_params is not used - DateWindowedStream.request_records
+    # handles date windowing via _get_window_params instead
 
     def post_process(
         self,
