@@ -242,3 +242,5 @@ venv.bak/
 wheels/
 # Windows
 # *.xlsx
+test_config.json
+test_sales_catalog.json

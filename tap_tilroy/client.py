@@ -544,8 +544,8 @@ class DateWindowedStream(DateFilteredStream):
             params[self.date_to_param_name] = window_end.strftime("%Y-%m-%d")
 
         if self.use_last_id_pagination:
-            # Use lastId for pagination (empty string to start, then actual ID)
-            params[self.last_id_param] = last_id if last_id else ""
+            # Use lastId for pagination (0 to start, then actual ID)
+            params[self.last_id_param] = last_id if last_id else "0"
         else:
             params["page"] = page
 

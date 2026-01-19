@@ -96,13 +96,14 @@ def _convert_types_recursive(obj: t.Any, string_fields: frozenset = STRING_FIELD
 class SalesStream(DateWindowedStream):
     """Stream for Tilroy sales transactions.
 
-    Uses /export/sales endpoint which supports date filtering without
-    requiring customer filters. Uses date windowing to avoid API timeouts
-    on large date ranges.
+    Uses /sales endpoint with lastId pagination. Date windowing is applied
+    to avoid API timeouts on large date ranges.
+    
+    Note: The /sales endpoint requires lastId=0 to start (not empty string).
     """
 
     name = "sales"
-    path = "/saleapi/production/export/sales"
+    path = "/saleapi/production/sales"
     primary_keys: t.ClassVar[list[str]] = ["idTilroySale"]
     replication_key = "saleDate"
     replication_method = "INCREMENTAL"
@@ -114,8 +115,10 @@ class SalesStream(DateWindowedStream):
     use_date_to = True
     date_to_param_name = "dateTo"
 
-    # Use page-based pagination for /export/sales
-    use_last_id_pagination = False
+    # Use lastId pagination for /sales endpoint
+    use_last_id_pagination = True
+    last_id_field: str = "idTilroySale"
+    last_id_param: str = "lastId"
 
     # Sales schema - comprehensive but with flexible types
     schema = th.PropertiesList(
