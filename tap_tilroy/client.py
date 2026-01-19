@@ -382,7 +382,8 @@ class DateWindowedStream(DateFilteredStream):
     """Base class for streams that need date windowing to avoid API timeouts.
 
     Breaks large date ranges into smaller chunks (windows) to prevent the API
-    from timing out on heavy queries.
+    from timing out on heavy queries. Supports both page-based and lastId-based
+    pagination.
     """
 
     # Size of each date window in days (can be overridden)
@@ -390,6 +391,10 @@ class DateWindowedStream(DateFilteredStream):
     # Whether to use dateTo parameter (some APIs require it)
     use_date_to: bool = True
     date_to_param_name: str = "dateTo"
+    # Whether to use lastId pagination instead of page pagination
+    use_last_id_pagination: bool = False
+    last_id_field: str = "idTilroySale"
+    last_id_param: str = "lastId"
 
     def request_records(self, context: Context | None) -> t.Iterable[dict]:
         """Request records using date windowing with pagination.
@@ -406,9 +411,11 @@ class DateWindowedStream(DateFilteredStream):
         start_date = self._get_start_date(context)
         end_date = datetime.now()
 
+        pagination_type = "lastId" if self.use_last_id_pagination else "page"
         self.logger.info(
             f"[{self.name}] Starting date-windowed sync from {start_date.date()} "
-            f"to {end_date.date()} with {self.date_window_days}-day windows"
+            f"to {end_date.date()} with {self.date_window_days}-day windows "
+            f"using {pagination_type} pagination"
         )
 
         window_start = start_date
@@ -427,10 +434,11 @@ class DateWindowedStream(DateFilteredStream):
 
             # Paginate through this window
             page = 1
+            last_id: str | None = None
             window_records = 0
 
             while True:
-                params = self._get_window_params(window_start, window_end, page)
+                params = self._get_window_params(window_start, window_end, page, last_id)
 
                 self.logger.debug(f"[{self.name}] Window request params: {params}")
 
@@ -469,17 +477,35 @@ class DateWindowedStream(DateFilteredStream):
                         yield processed
 
                 # Check if more pages in this window
-                try:
-                    current_page = int(response.headers.get("X-Paging-CurrentPage", 1))
-                    total_pages = int(response.headers.get("X-Paging-PageCount", 1))
-                    if current_page >= total_pages:
-                        break
-                    page += 1
-                except (ValueError, TypeError):
-                    # If we got fewer than count, assume no more pages
+                if self.use_last_id_pagination:
+                    # lastId pagination - get ID from last record
                     if page_count < self.default_count:
+                        break  # No more records
+                    if records:
+                        last_record = records[-1]
+                        if isinstance(last_record, dict) and self.last_id_field in last_record:
+                            last_id = str(last_record[self.last_id_field])
+                            page += 1
+                        else:
+                            self.logger.warning(
+                                f"[{self.name}] Could not find {self.last_id_field} in last record"
+                            )
+                            break
+                    else:
                         break
-                    page += 1
+                else:
+                    # Page-based pagination - check headers
+                    try:
+                        current_page = int(response.headers.get("X-Paging-CurrentPage", 1))
+                        total_pages = int(response.headers.get("X-Paging-PageCount", 1))
+                        if current_page >= total_pages:
+                            break
+                        page += 1
+                    except (ValueError, TypeError):
+                        # If we got fewer than count, assume no more pages
+                        if page_count < self.default_count:
+                            break
+                        page += 1
 
             self.logger.info(
                 f"[{self.name}] Window {window_start.date()}-{window_end.date()} "
@@ -492,26 +518,36 @@ class DateWindowedStream(DateFilteredStream):
         self.logger.info(f"[{self.name}] Date-windowed sync complete: {total_records} total records")
 
     def _get_window_params(
-        self, window_start: datetime, window_end: datetime, page: int
+        self,
+        window_start: datetime,
+        window_end: datetime,
+        page: int,
+        last_id: str | None = None,
     ) -> dict[str, t.Any]:
         """Get URL parameters for a specific date window and page.
 
         Args:
             window_start: Start of the date window.
             window_end: End of the date window.
-            page: Current page number.
+            page: Current page number (used for page-based pagination).
+            last_id: Last record ID (used for lastId pagination).
 
         Returns:
             Dictionary of URL parameters.
         """
-        params = {
+        params: dict[str, t.Any] = {
             "count": self.default_count,
-            "page": page,
             self.date_param_name: window_start.strftime("%Y-%m-%d"),
         }
 
         if self.use_date_to:
             params[self.date_to_param_name] = window_end.strftime("%Y-%m-%d")
+
+        if self.use_last_id_pagination:
+            # Use lastId for pagination (empty string to start, then actual ID)
+            params[self.last_id_param] = last_id if last_id else ""
+        else:
+            params["page"] = page
 
         return params
 
