@@ -1,0 +1,33 @@
+{
+  "streams": [
+    {
+      "tap_stream_id": "purchase_orders",
+      "stream": "purchase_orders",
+      "replication_key": "orderDate",
+      "replication_method": "INCREMENTAL",
+      "key_properties": ["tilroyId"],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "tilroyId": {"type": ["string", "integer"]},
+          "number": {"type": ["string", "number", "null"]},
+          "orderDate": {"format": "date-time", "type": ["string", "null"]},
+          "supplier": {"type": ["object", "string", "null"]},
+          "warehouse": {"type": ["object", "string", "null"]},
+          "status": {"type": ["string", "number", "null"]},
+          "lines": {"type": ["array", "null"]}
+        }
+      },
+      "metadata": [
+        {
+          "breadcrumb": [],
+          "metadata": {
+            "selected": true,
+            "replication-method": "INCREMENTAL",
+            "replication-key": "orderDate"
+          }
+        }
+      ]
+    }
+  ]
+}

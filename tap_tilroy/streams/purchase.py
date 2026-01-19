@@ -90,7 +90,8 @@ class PurchaseOrdersStream(DynamicRoutingStream):
     ) -> dict[str, t.Any]:
         """Return URL parameters with appropriate date parameter name.
 
-        Historical endpoint uses 'orderDateFrom', incremental uses 'dateFrom'.
+        Historical endpoint uses 'orderDateFrom' + 'orderDateTo', incremental uses 'dateFrom'.
+        Note: The historical endpoint REQUIRES orderDateTo to return any records.
         """
         params = {
             "count": self.default_count,
@@ -103,7 +104,9 @@ class PurchaseOrdersStream(DynamicRoutingStream):
         if self._has_existing_state():
             params["dateFrom"] = start_date.strftime("%Y-%m-%d")
         else:
+            # Historical endpoint requires both orderDateFrom AND orderDateTo
             params["orderDateFrom"] = start_date.strftime("%Y-%m-%d")
+            params["orderDateTo"] = datetime.now().strftime("%Y-%m-%d")
 
         return params
 
