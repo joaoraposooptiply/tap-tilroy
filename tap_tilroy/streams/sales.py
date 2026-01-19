@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import typing as t
 from datetime import datetime
 from decimal import Decimal
@@ -263,9 +264,46 @@ class SalesStream(DateWindowedStream):
         # Flatten shop object for easier filtering
         row = self._flatten_shop(row, "shop", "shop")
 
+        # Stringify object fields inside lines to match catalog schema
+        # These fields can be objects but catalog defines them as strings
+        row = self._stringify_lines_objects(row)
+
         # Ensure ID fields are strings
         for field in ("idTilroySale", "idTenant", "idSession", "idSourceCustomer"):
             if field in row and row[field] is not None:
                 row[field] = str(row[field])
+
+        return row
+
+    def _stringify_lines_objects(self, row: dict) -> dict:
+        """Convert object fields inside lines array to JSON strings.
+
+        The Tilroy API returns some line item fields as objects, but the
+        catalog schema expects them as strings. This converts them to
+        JSON strings for compatibility.
+        """
+        # Fields in lines that can be objects but catalog expects strings
+        object_fields = {
+            "deliveryPromise", "collectMethod", "returnReason", "discountReason",
+            "vatDiscountReason", "sku", "order", "collectShop", "icons",
+            "insurances", "shipment", "taxes", "advanceSource", "descriptions",
+        }
+
+        lines = row.get("lines")
+        if isinstance(lines, list):
+            for line in lines:
+                if isinstance(line, dict):
+                    for field in object_fields:
+                        if field in line and isinstance(line[field], (dict, list)):
+                            line[field] = json.dumps(line[field])
+
+        # Also handle payments array similarly
+        payments = row.get("payments")
+        if isinstance(payments, list):
+            for payment in payments:
+                if isinstance(payment, dict):
+                    for key, value in list(payment.items()):
+                        if isinstance(value, (dict, list)) and key not in ("taxes",):
+                            payment[key] = json.dumps(value)
 
         return row
