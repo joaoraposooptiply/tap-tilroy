@@ -110,10 +110,11 @@ class PurchaseOrdersStream(DynamicRoutingStream):
 
         # Add warehouse and status filters from context if provided
         # Note: API requires status filter when using warehouseNumber
-        warehouse_number = (context or {}).get("warehouse_number")
+        # warehouseNumber expects the shop's tilroyId, not the shop number
+        warehouse_id = (context or {}).get("warehouse_id")
         status = (context or {}).get("status")
-        if warehouse_number:
-            params["warehouseNumber"] = warehouse_number
+        if warehouse_id:
+            params["warehouseNumber"] = warehouse_id
         if status:
             params["status"] = status
 
@@ -121,15 +122,15 @@ class PurchaseOrdersStream(DynamicRoutingStream):
 
     @property
     def partitions(self) -> list[dict] | None:
-        """Return partitions for each warehouse number and status if configured.
+        """Return partitions for each warehouse ID and status if configured.
         
-        If purchase_orders_warehouse_numbers is configured, creates partitions
+        If purchase_orders_warehouse_ids is configured, creates partitions
         for each warehouse + status combination. The API requires a status filter
-        when using warehouseNumber, so we query for all common statuses.
+        when using warehouseNumber (which expects the shop's tilroyId).
         """
-        warehouse_numbers = self.config.get("purchase_orders_warehouse_numbers", [])
+        warehouse_ids = self.config.get("purchase_orders_warehouse_ids", [])
         
-        if not warehouse_numbers:
+        if not warehouse_ids:
             return None  # No filter - get all warehouses
         
         # API requires status filter with warehouseNumber
@@ -137,12 +138,12 @@ class PurchaseOrdersStream(DynamicRoutingStream):
         statuses = ["draft", "open", "delivered", "cancelled"]
         
         partitions = []
-        for wh in warehouse_numbers:
+        for wh_id in warehouse_ids:
             for status in statuses:
-                partitions.append({"warehouse_number": wh, "status": status})
+                partitions.append({"warehouse_id": wh_id, "status": status})
         
         self.logger.info(
-            f"[{self.name}] Filtering by warehouse numbers: {warehouse_numbers} "
+            f"[{self.name}] Filtering by warehouse tilroyIds: {warehouse_ids} "
             f"with statuses: {statuses}"
         )
         return partitions

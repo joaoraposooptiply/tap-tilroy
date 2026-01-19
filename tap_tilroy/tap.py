@@ -92,9 +92,9 @@ class TapTilroy(Tap):
             description="Shop number filter for stock_changes (optional)",
         ),
         th.Property(
-            "purchase_orders_warehouse_numbers",
+            "purchase_orders_warehouse_ids",
             th.ArrayType(th.IntegerType),
-            description="Warehouse numbers to filter purchase_orders (optional, empty = all)",
+            description="Shop tilroyIds to filter purchase_orders by warehouse (optional, empty = all)",
         ),
     ).to_dict()
 
