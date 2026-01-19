@@ -276,34 +276,25 @@ class SalesStream(DateWindowedStream):
         return row
 
     def _stringify_lines_objects(self, row: dict) -> dict:
-        """Convert object fields inside lines array to JSON strings.
+        """Convert specific object fields inside lines array to JSON strings.
 
-        The Tilroy API returns some line item fields as objects, but the
-        catalog schema expects them as strings. This converts them to
-        JSON strings for compatibility.
+        The Tilroy API returns deliveryPromise as an object, but the
+        catalog schema expects it as a string. This converts it to
+        a JSON string for compatibility.
+        
+        Only stringify fields that the catalog expects as strings but API
+        returns as objects. Most fields should remain as objects.
         """
-        # Fields in lines that can be objects but catalog expects strings
-        object_fields = {
-            "deliveryPromise", "collectMethod", "returnReason", "discountReason",
-            "vatDiscountReason", "sku", "order", "collectShop", "icons",
-            "insurances", "shipment", "taxes", "advanceSource", "descriptions",
-        }
+        # Only deliveryPromise needs to be stringified - catalog expects string
+        # All other fields (sku, collectMethod, etc.) are expected as objects
+        stringify_fields = {"deliveryPromise"}
 
         lines = row.get("lines")
         if isinstance(lines, list):
             for line in lines:
                 if isinstance(line, dict):
-                    for field in object_fields:
+                    for field in stringify_fields:
                         if field in line and isinstance(line[field], (dict, list)):
                             line[field] = json.dumps(line[field])
-
-        # Also handle payments array similarly
-        payments = row.get("payments")
-        if isinstance(payments, list):
-            for payment in payments:
-                if isinstance(payment, dict):
-                    for key, value in list(payment.items()):
-                        if isinstance(value, (dict, list)) and key not in ("taxes",):
-                            payment[key] = json.dumps(value)
 
         return row
