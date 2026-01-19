@@ -76,10 +76,17 @@ def _convert_types_recursive(obj: t.Any, string_fields: frozenset = STRING_FIELD
             if isinstance(val, Decimal):
                 if key in string_fields:
                     result[key] = str(int(val)) if val == val.to_integral_value() else str(val)
+                elif val == val.to_integral_value():
+                    # Convert whole number Decimals to int (for ID fields, etc.)
+                    result[key] = int(val)
                 else:
                     result[key] = float(val)
+            elif isinstance(val, float) and val == int(val):
+                # Convert whole number floats to int
+                result[key] = int(val)
             elif isinstance(val, str) and _is_numeric_string(val) and key not in string_fields:
-                result[key] = float(val)
+                num = float(val)
+                result[key] = int(num) if num == int(num) else num
             elif isinstance(val, (list, dict)):
                 result[key] = _convert_types_recursive(val, string_fields)
             else:
@@ -88,9 +95,10 @@ def _convert_types_recursive(obj: t.Any, string_fields: frozenset = STRING_FIELD
     elif isinstance(obj, list):
         return [_convert_types_recursive(item, string_fields) for item in obj]
     elif isinstance(obj, Decimal):
-        return float(obj)
+        return int(obj) if obj == obj.to_integral_value() else float(obj)
     elif isinstance(obj, str) and _is_numeric_string(obj):
-        return float(obj)
+        num = float(obj)
+        return int(num) if num == int(num) else num
     return obj
 
 
