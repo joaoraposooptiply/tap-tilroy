@@ -73,13 +73,28 @@ class PricesStream(LastIdPaginatedStream):
         if next_page_token:
             params["lastId"] = next_page_token
 
-        # Optional shop filter (required for large tenants to avoid timeout)
+        # Optional shop filter from context (set via partitions)
         # API accepts shopId (tilroyId) - see /price/rules endpoint docs
-        shop_id = self.config.get("prices_shop_id")
+        shop_id = (context or {}).get("shop_id")
         if shop_id:
             params["shopId"] = shop_id
 
         return params
+
+    @property
+    def partitions(self) -> list[dict] | None:
+        """Return partitions for each shop ID if configured.
+        
+        If prices_shop_ids is configured, creates a partition for each shop
+        to fetch prices separately. If empty, returns None to fetch all.
+        """
+        shop_ids = self.config.get("prices_shop_ids", [])
+        
+        if not shop_ids:
+            return None  # No filter - get all shops
+        
+        self.logger.info(f"[{self.name}] Filtering by shop tilroyIds: {shop_ids}")
+        return [{"shop_id": sid} for sid in shop_ids]
 
     def request_records(self, context: Context | None) -> t.Iterable[dict]:
         """Request and flatten price rule records.
