@@ -165,12 +165,27 @@ class StockChangesStream(DateFilteredStream):
         # Stock changes API requires dateTo parameter
         params["dateTo"] = datetime.now().strftime("%Y-%m-%d")
 
-        # Optional shop number filter
-        shop_number = self.config.get("stock_changes_shop_number")
+        # Optional shop number filter from context (set via partitions)
+        shop_number = (context or {}).get("shop_number")
         if shop_number:
             params["shopNumber"] = shop_number
 
         return params
+
+    @property
+    def partitions(self) -> list[dict] | None:
+        """Return partitions for each shop number if configured.
+        
+        If stock_changes_shop_numbers is configured, creates a partition for each shop
+        to fetch stock changes separately. If empty, returns None to fetch all.
+        """
+        shop_numbers = self.config.get("stock_changes_shop_numbers", [])
+        
+        if not shop_numbers:
+            return None  # No filter - get all shops
+        
+        self.logger.info(f"[{self.name}] Filtering by shop numbers: {shop_numbers}")
+        return [{"shop_number": num} for num in shop_numbers]
 
     def post_process(
         self,
