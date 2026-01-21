@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import typing as t
 
@@ -55,6 +56,9 @@ class TapTilroy(Tap):
     """
 
     name = "tap-tilroy"
+    
+    # Path to config file for persisting config changes
+    config_file: str | None = None
 
     config_jsonschema = th.PropertiesList(
         th.Property(
@@ -98,13 +102,33 @@ class TapTilroy(Tap):
     _resolved_shop_ids: list[int] = []
     _resolved_shop_numbers: list[int] = []
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        config: dict | list[str] | None = None,
+        catalog: dict | str | None = None,
+        state: dict | str | None = None,
+        parse_env_config: bool = False,
+        validate_config: bool = True,
+    ) -> None:
         """Initialize the tap.
 
         Suppresses excessive schema warnings for streams that return
         many undocumented fields. Also resolves shop ID/number mappings.
+        Stores config file path for persisting config changes.
         """
-        super().__init__(*args, **kwargs)
+        # Store config file path for later writes (tap-exact pattern)
+        if isinstance(config, list) and config:
+            self.config_file = config[0]
+        elif isinstance(config, str):
+            self.config_file = config
+        
+        super().__init__(
+            config=config,
+            catalog=catalog,
+            state=state,
+            parse_env_config=parse_env_config,
+            validate_config=validate_config,
+        )
 
         # Suppress schema mismatch warnings for verbose streams
         for stream_name in ("sales", "products"):
@@ -113,18 +137,50 @@ class TapTilroy(Tap):
         # Resolve shop mappings if filters are configured
         self._resolve_shop_mappings()
 
+    def _write_config(self) -> None:
+        """Write current config back to the config file.
+        
+        This persists any runtime config changes (e.g., resolved shop IDs,
+        refreshed tokens, etc.) so they're available on the next run.
+        """
+        if not self.config_file:
+            self.logger.debug("No config file path stored, skipping config write")
+            return
+        
+        try:
+            with open(self.config_file, "w") as outfile:
+                json.dump(dict(self._config), outfile, indent=4)
+            self.logger.info(f"Config saved to {self.config_file}")
+        except Exception as e:
+            self.logger.warning(f"Failed to write config to {self.config_file}: {e}")
+
     def _resolve_shop_mappings(self) -> None:
         """Fetch shops and resolve ID/number mappings.
         
         If filter_shop_ids or filter_shop_numbers is configured, fetches
         the shops list and populates both _resolved_shop_ids and 
         _resolved_shop_numbers for use by streams.
+        
+        Uses cached resolved values from config if available.
         """
         filter_ids = self.config.get("shop_ids", [])
         filter_numbers = self.config.get("shop_numbers", [])
         
         if not filter_ids and not filter_numbers:
             self.logger.info("No shop filters configured - streams will fetch all data")
+            return
+        
+        # Check if we have previously resolved values in config
+        cached_ids = self.config.get("_resolved_shop_ids", [])
+        cached_numbers = self.config.get("_resolved_shop_numbers", [])
+        
+        if cached_ids and cached_numbers:
+            self._resolved_shop_ids = list(cached_ids)
+            self._resolved_shop_numbers = list(cached_numbers)
+            self.logger.info(
+                f"Using cached shop mappings: IDs {self._resolved_shop_ids} -> "
+                f"numbers {self._resolved_shop_numbers}"
+            )
             return
         
         # Fetch shops from API
@@ -178,6 +234,12 @@ class TapTilroy(Tap):
             self.logger.info(
                 f"Resolved from shop numbers {filter_numbers} -> IDs {self._resolved_shop_ids}"
             )
+        
+        # Persist resolved mappings to config file
+        if self._resolved_shop_ids or self._resolved_shop_numbers:
+            self._config["_resolved_shop_ids"] = self._resolved_shop_ids
+            self._config["_resolved_shop_numbers"] = self._resolved_shop_numbers
+            self._write_config()
 
     def discover_streams(self) -> list[Stream]:
         """Return list of discovered streams.
