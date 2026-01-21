@@ -166,27 +166,29 @@ class StockChangesStream(DateFilteredStream):
         params["dateTo"] = datetime.now().strftime("%Y-%m-%d")
 
         # Optional shop filter from context (set via partitions)
-        # API accepts shopId (tilroyId)
-        shop_id = (context or {}).get("shop_id")
-        if shop_id:
-            params["shopId"] = shop_id
+        # NOTE: This API only works with shopNumber, not shopId/tilroyId
+        shop_number = (context or {}).get("shop_number")
+        if shop_number:
+            params["shopNumber"] = shop_number
 
         return params
 
     @property
     def partitions(self) -> list[dict] | None:
-        """Return partitions for each shop ID if configured.
+        """Return partitions for each shop number if configured.
         
-        If stock_changes_shop_ids is configured, creates a partition for each shop
+        If stock_changes_shop_numbers is configured, creates a partition for each shop
         to fetch stock changes separately. If empty, returns None to fetch all.
-        """
-        shop_ids = self.config.get("stock_changes_shop_ids", [])
         
-        if not shop_ids:
+        NOTE: This API requires shop number, not tilroyId.
+        """
+        shop_numbers = self.config.get("stock_changes_shop_numbers", [])
+        
+        if not shop_numbers:
             return None  # No filter - get all shops
         
-        self.logger.info(f"[{self.name}] Filtering by shop tilroyIds: {shop_ids}")
-        return [{"shop_id": sid} for sid in shop_ids]
+        self.logger.info(f"[{self.name}] Filtering by shop numbers: {shop_numbers}")
+        return [{"shop_number": num} for num in shop_numbers]
 
     def post_process(
         self,
