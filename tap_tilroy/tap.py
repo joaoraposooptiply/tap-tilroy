@@ -87,9 +87,9 @@ class TapTilroy(Tap):
             description="Shop tilroyIds to filter prices (optional, empty = all)",
         ),
         th.Property(
-            "stock_changes_shop_numbers",
+            "stock_changes_shop_ids",
             th.ArrayType(th.IntegerType),
-            description="Shop numbers to filter stock_changes (optional, empty = all)",
+            description="Shop tilroyIds to filter stock_changes (optional, empty = all)",
         ),
         th.Property(
             "purchase_orders_warehouse_ids",
