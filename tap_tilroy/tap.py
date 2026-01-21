@@ -83,12 +83,12 @@ class TapTilroy(Tap):
             description="The earliest date to sync data from (ISO 8601 format)",
         ),
         th.Property(
-            "filter_shop_ids",
+            "shop_ids",
             th.ArrayType(th.IntegerType),
             description="Shop tilroyIds to filter streams (optional). Tap will auto-resolve shop numbers.",
         ),
         th.Property(
-            "filter_shop_numbers",
+            "shop_numbers",
             th.ArrayType(th.IntegerType),
             description="Shop numbers to filter streams (optional). Tap will auto-resolve tilroyIds.",
         ),
@@ -120,8 +120,8 @@ class TapTilroy(Tap):
         the shops list and populates both _resolved_shop_ids and 
         _resolved_shop_numbers for use by streams.
         """
-        filter_ids = self.config.get("filter_shop_ids", [])
-        filter_numbers = self.config.get("filter_shop_numbers", [])
+        filter_ids = self.config.get("shop_ids", [])
+        filter_numbers = self.config.get("shop_numbers", [])
         
         if not filter_ids and not filter_numbers:
             self.logger.info("No shop filters configured - streams will fetch all data")
