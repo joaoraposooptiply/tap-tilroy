@@ -157,11 +157,9 @@ class TapTilroy(Tap):
     def _resolve_shop_mappings(self) -> None:
         """Fetch shops and resolve ID/number mappings.
         
-        If filter_shop_ids or filter_shop_numbers is configured, fetches
-        the shops list and populates both _resolved_shop_ids and 
-        _resolved_shop_numbers for use by streams.
-        
-        Uses cached resolved values from config if available.
+        If shop_ids or shop_numbers is configured, ensures both are populated.
+        If only one is provided, fetches shops from API to resolve the other
+        and persists both back to config.
         """
         filter_ids = self.config.get("shop_ids", [])
         filter_numbers = self.config.get("shop_numbers", [])
@@ -170,20 +168,17 @@ class TapTilroy(Tap):
             self.logger.info("No shop filters configured - streams will fetch all data")
             return
         
-        # Check if we have previously resolved values in config
-        cached_ids = self.config.get("_resolved_shop_ids", [])
-        cached_numbers = self.config.get("_resolved_shop_numbers", [])
-        
-        if cached_ids and cached_numbers:
-            self._resolved_shop_ids = list(cached_ids)
-            self._resolved_shop_numbers = list(cached_numbers)
+        # If both are already populated, use them directly
+        if filter_ids and filter_numbers:
+            self._resolved_shop_ids = list(filter_ids)
+            self._resolved_shop_numbers = list(filter_numbers)
             self.logger.info(
-                f"Using cached shop mappings: IDs {self._resolved_shop_ids} -> "
+                f"Using configured shop mappings: IDs {self._resolved_shop_ids}, "
                 f"numbers {self._resolved_shop_numbers}"
             )
             return
         
-        # Fetch shops from API
+        # Fetch shops from API to resolve the missing values
         self.logger.info("Fetching shops to resolve ID/number mappings...")
         try:
             response = requests.get(
@@ -198,12 +193,11 @@ class TapTilroy(Tap):
             shops = response.json()
         except Exception as e:
             self.logger.error(f"Failed to fetch shops for mapping: {e}")
-            # Fall back to using provided values directly
             self._resolved_shop_ids = list(filter_ids)
             self._resolved_shop_numbers = list(filter_numbers)
             return
         
-        # Build lookup dicts (convert to int for consistent comparison)
+        # Build lookup dicts
         id_to_number = {}
         number_to_id = {}
         for s in shops:
@@ -215,30 +209,30 @@ class TapTilroy(Tap):
             except (ValueError, TypeError):
                 continue
         
-        # Resolve from IDs
-        if filter_ids:
+        # Resolve from IDs -> numbers
+        if filter_ids and not filter_numbers:
             self._resolved_shop_ids = list(filter_ids)
             self._resolved_shop_numbers = [
                 id_to_number[sid] for sid in filter_ids if sid in id_to_number
             ]
             self.logger.info(
-                f"Resolved from shop IDs {filter_ids} -> numbers {self._resolved_shop_numbers}"
+                f"Resolved shop IDs {filter_ids} -> numbers {self._resolved_shop_numbers}"
             )
         
-        # Resolve from numbers
-        elif filter_numbers:
+        # Resolve from numbers -> IDs
+        elif filter_numbers and not filter_ids:
             self._resolved_shop_numbers = list(filter_numbers)
             self._resolved_shop_ids = [
                 number_to_id[num] for num in filter_numbers if num in number_to_id
             ]
             self.logger.info(
-                f"Resolved from shop numbers {filter_numbers} -> IDs {self._resolved_shop_ids}"
+                f"Resolved shop numbers {filter_numbers} -> IDs {self._resolved_shop_ids}"
             )
         
-        # Persist resolved mappings to config file
-        if self._resolved_shop_ids or self._resolved_shop_numbers:
-            self._config["_resolved_shop_ids"] = self._resolved_shop_ids
-            self._config["_resolved_shop_numbers"] = self._resolved_shop_numbers
+        # Persist both to config file
+        if self._resolved_shop_ids and self._resolved_shop_numbers:
+            self._config["shop_ids"] = self._resolved_shop_ids
+            self._config["shop_numbers"] = self._resolved_shop_numbers
             self._write_config()
 
     def discover_streams(self) -> list[Stream]:
