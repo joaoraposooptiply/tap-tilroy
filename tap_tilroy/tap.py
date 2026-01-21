@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import typing as t
 
+import requests
 from singer_sdk import Tap
 from singer_sdk import typing as th
 from singer_sdk.streams import Stream
@@ -82,33 +83,101 @@ class TapTilroy(Tap):
             description="The earliest date to sync data from (ISO 8601 format)",
         ),
         th.Property(
-            "prices_shop_ids",
+            "filter_shop_ids",
             th.ArrayType(th.IntegerType),
-            description="Shop tilroyIds to filter prices (optional, empty = all)",
+            description="Shop tilroyIds to filter streams (optional). Tap will auto-resolve shop numbers.",
         ),
         th.Property(
-            "stock_changes_shop_numbers",
+            "filter_shop_numbers",
             th.ArrayType(th.IntegerType),
-            description="Shop numbers to filter stock_changes (optional, empty = all) - NOTE: uses shop number, not tilroyId",
-        ),
-        th.Property(
-            "purchase_orders_warehouse_ids",
-            th.ArrayType(th.IntegerType),
-            description="Shop tilroyIds to filter purchase_orders by warehouse (optional, empty = all)",
+            description="Shop numbers to filter streams (optional). Tap will auto-resolve tilroyIds.",
         ),
     ).to_dict()
+
+    # Resolved shop mappings (populated in __init__)
+    _resolved_shop_ids: list[int] = []
+    _resolved_shop_numbers: list[int] = []
 
     def __init__(self, *args, **kwargs) -> None:
         """Initialize the tap.
 
         Suppresses excessive schema warnings for streams that return
-        many undocumented fields.
+        many undocumented fields. Also resolves shop ID/number mappings.
         """
         super().__init__(*args, **kwargs)
 
         # Suppress schema mismatch warnings for verbose streams
         for stream_name in ("sales", "products"):
             logging.getLogger(f"tap-tilroy.{stream_name}").setLevel(logging.ERROR)
+
+        # Resolve shop mappings if filters are configured
+        self._resolve_shop_mappings()
+
+    def _resolve_shop_mappings(self) -> None:
+        """Fetch shops and resolve ID/number mappings.
+        
+        If filter_shop_ids or filter_shop_numbers is configured, fetches
+        the shops list and populates both _resolved_shop_ids and 
+        _resolved_shop_numbers for use by streams.
+        """
+        filter_ids = self.config.get("filter_shop_ids", [])
+        filter_numbers = self.config.get("filter_shop_numbers", [])
+        
+        if not filter_ids and not filter_numbers:
+            self.logger.info("No shop filters configured - streams will fetch all data")
+            return
+        
+        # Fetch shops from API
+        self.logger.info("Fetching shops to resolve ID/number mappings...")
+        try:
+            response = requests.get(
+                f"{self.config['api_url']}/shopapi/production/shops",
+                headers={
+                    "Tilroy-Api-Key": self.config["tilroy_api_key"],
+                    "x-api-key": self.config["x_api_key"],
+                },
+                timeout=30,
+            )
+            response.raise_for_status()
+            shops = response.json()
+        except Exception as e:
+            self.logger.error(f"Failed to fetch shops for mapping: {e}")
+            # Fall back to using provided values directly
+            self._resolved_shop_ids = list(filter_ids)
+            self._resolved_shop_numbers = list(filter_numbers)
+            return
+        
+        # Build lookup dicts (convert to int for consistent comparison)
+        id_to_number = {}
+        number_to_id = {}
+        for s in shops:
+            try:
+                tid = int(s.get("tilroyId", 0))
+                num = int(s.get("number", 0))
+                id_to_number[tid] = num
+                number_to_id[num] = tid
+            except (ValueError, TypeError):
+                continue
+        
+        # Resolve from IDs
+        if filter_ids:
+            self._resolved_shop_ids = list(filter_ids)
+            self._resolved_shop_numbers = [
+                id_to_number[sid] for sid in filter_ids if sid in id_to_number
+            ]
+            self.logger.info(
+                f"Resolved from shop IDs {filter_ids} -> numbers {self._resolved_shop_numbers}"
+            )
+        
+        # Resolve from numbers
+        elif filter_numbers:
+            self._resolved_shop_numbers = list(filter_numbers)
+            self._resolved_shop_ids = [
+                number_to_id[num] for num in filter_numbers if num in number_to_id
+            ]
+            self.logger.info(
+                f"Resolved from shop numbers {filter_numbers} -> IDs {self._resolved_shop_ids}"
+            )
 
     def discover_streams(self) -> list[Stream]:
         """Return list of discovered streams.

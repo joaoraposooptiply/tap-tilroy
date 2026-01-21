@@ -124,11 +124,10 @@ class PurchaseOrdersStream(DynamicRoutingStream):
     def partitions(self) -> list[dict] | None:
         """Return partitions for each warehouse ID and status if configured.
         
-        If purchase_orders_warehouse_ids is configured, creates partitions
-        for each warehouse + status combination. The API requires a status filter
-        when using warehouseNumber (which expects the shop's tilroyId).
+        Uses resolved shop IDs from tap's _resolved_shop_ids.
+        The API requires a status filter when using warehouseNumber.
         """
-        warehouse_ids = self.config.get("purchase_orders_warehouse_ids", [])
+        warehouse_ids = getattr(self._tap, "_resolved_shop_ids", [])
         
         if not warehouse_ids:
             return None  # No filter - get all warehouses

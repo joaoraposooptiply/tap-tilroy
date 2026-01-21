@@ -85,10 +85,9 @@ class PricesStream(LastIdPaginatedStream):
     def partitions(self) -> list[dict] | None:
         """Return partitions for each shop ID if configured.
         
-        If prices_shop_ids is configured, creates a partition for each shop
-        to fetch prices separately. If empty, returns None to fetch all.
+        Uses resolved shop IDs from tap's _resolved_shop_ids.
         """
-        shop_ids = self.config.get("prices_shop_ids", [])
+        shop_ids = getattr(self._tap, "_resolved_shop_ids", [])
         
         if not shop_ids:
             return None  # No filter - get all shops

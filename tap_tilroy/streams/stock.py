@@ -177,12 +177,10 @@ class StockChangesStream(DateFilteredStream):
     def partitions(self) -> list[dict] | None:
         """Return partitions for each shop number if configured.
         
-        If stock_changes_shop_numbers is configured, creates a partition for each shop
-        to fetch stock changes separately. If empty, returns None to fetch all.
-        
+        Uses resolved shop numbers from tap's _resolved_shop_numbers.
         NOTE: This API requires shop number, not tilroyId.
         """
-        shop_numbers = self.config.get("stock_changes_shop_numbers", [])
+        shop_numbers = getattr(self._tap, "_resolved_shop_numbers", [])
         
         if not shop_numbers:
             return None  # No filter - get all shops
