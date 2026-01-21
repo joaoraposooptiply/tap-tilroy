@@ -1,7 +1,16 @@
-# Local documentation and test outputs (not tracked)
+# Local documentation and research (not needed for tap)
 docs/
 tilroy_docs/
+TILROY_API_RESEARCH.md
+openapi.json
+
+# Test files and outputs
 test_output/
+test_output_csv/
+test_*.json
+full_catalog.json
+sync_output.log
+tap_errors.log
 
 # ==================================
 
