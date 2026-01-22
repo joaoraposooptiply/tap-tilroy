@@ -17,7 +17,7 @@ class PurchaseOrdersStream(DynamicRoutingStream):
     """Stream for Tilroy purchase orders.
 
     Uses dynamic routing:
-    - First sync: /purchaseorders with orderDateFrom for historical data
+    - First sync (no state): /purchaseorders with orderDateFrom + orderDateTo
     - Subsequent syncs: /export/orders with dateFrom for delta updates
     """
 
@@ -30,7 +30,6 @@ class PurchaseOrdersStream(DynamicRoutingStream):
     records_jsonpath = "$[*]"
     default_count = 500
 
-    # Historical endpoint uses different date parameter
     date_param_name = "orderDateFrom"
 
     schema = th.PropertiesList(
@@ -88,10 +87,10 @@ class PurchaseOrdersStream(DynamicRoutingStream):
         context: Context | None,
         next_page_token: int | None,
     ) -> dict[str, t.Any]:
-        """Return URL parameters with appropriate date parameter name.
+        """Return URL parameters based on which endpoint is being used.
 
-        Historical endpoint uses 'orderDateFrom' + 'orderDateTo', incremental uses 'dateFrom'.
-        Note: The historical endpoint REQUIRES orderDateTo to return any records.
+        Historical (/purchaseorders): orderDateFrom + orderDateTo + warehouseNumber + status
+        Incremental (/export/orders): dateFrom + warehouseNumber + status
         """
         params = {
             "count": self.default_count,
@@ -100,17 +99,15 @@ class PurchaseOrdersStream(DynamicRoutingStream):
 
         start_date = self._get_start_date(context)
 
-        # Use different parameter name based on which path we're using
         if self._has_existing_state():
+            # Incremental endpoint uses dateFrom
             params["dateFrom"] = start_date.strftime("%Y-%m-%d")
         else:
             # Historical endpoint requires both orderDateFrom AND orderDateTo
             params["orderDateFrom"] = start_date.strftime("%Y-%m-%d")
             params["orderDateTo"] = datetime.now().strftime("%Y-%m-%d")
 
-        # Add warehouse and status filters from context if provided
-        # Note: API requires status filter when using warehouseNumber
-        # warehouseNumber expects the shop's tilroyId, not the shop number
+        # Both endpoints use warehouseNumber and status
         warehouse_id = (context or {}).get("warehouse_id")
         status = (context or {}).get("status")
         if warehouse_id:
