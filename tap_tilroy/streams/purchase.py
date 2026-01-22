@@ -18,7 +18,10 @@ class PurchaseOrdersStream(DynamicRoutingStream):
 
     Uses dynamic routing:
     - First sync (no state): /purchaseorders with orderDateFrom + orderDateTo
-    - Subsequent syncs: /export/orders with dateFrom for delta updates
+    - Subsequent syncs: /export/orders with dateExportedSince for delta updates
+    
+    Note: warehouseNumber filter requires status filter on /purchaseorders.
+    The /export/orders endpoint doesn't support warehouse filtering.
     """
 
     name = "purchase_orders"
@@ -29,8 +32,6 @@ class PurchaseOrdersStream(DynamicRoutingStream):
     replication_method = "INCREMENTAL"
     records_jsonpath = "$[*]"
     default_count = 500
-
-    date_param_name = "orderDateFrom"
 
     schema = th.PropertiesList(
         th.Property("tilroyId", th.CustomType({"type": ["string", "integer"]})),
@@ -90,7 +91,7 @@ class PurchaseOrdersStream(DynamicRoutingStream):
         """Return URL parameters based on which endpoint is being used.
 
         Historical (/purchaseorders): orderDateFrom + orderDateTo + warehouseNumber + status
-        Incremental (/export/orders): dateFrom + warehouseNumber + status
+        Incremental (/export/orders): dateExportedSince (no warehouse filtering)
         """
         params = {
             "count": self.default_count,
@@ -100,33 +101,51 @@ class PurchaseOrdersStream(DynamicRoutingStream):
         start_date = self._get_start_date(context)
 
         if self._has_existing_state():
-            # Incremental endpoint uses dateFrom
-            params["dateFrom"] = start_date.strftime("%Y-%m-%d")
+            # Incremental endpoint uses dateExportedSince (dateFrom is deprecated)
+            params["dateExportedSince"] = start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
         else:
             # Historical endpoint requires both orderDateFrom AND orderDateTo
             params["orderDateFrom"] = start_date.strftime("%Y-%m-%d")
             params["orderDateTo"] = datetime.now().strftime("%Y-%m-%d")
-
-        # Add warehouseNumber filter if configured
-        warehouse_id = (context or {}).get("warehouse_id")
-        if warehouse_id:
-            params["warehouseNumber"] = warehouse_id
+            
+            # Add warehouseNumber + status filters (must be used together)
+            warehouse_id = (context or {}).get("warehouse_id")
+            status = (context or {}).get("status")
+            if warehouse_id and status:
+                params["warehouseNumber"] = warehouse_id
+                params["status"] = status
 
         return params
 
     @property
     def partitions(self) -> list[dict] | None:
-        """Return partitions for each warehouse ID if configured.
+        """Return partitions for each warehouse ID and status if configured.
         
-        Uses resolved shop IDs from tap's _resolved_shop_ids.
+        Only applies to historical endpoint - export endpoint doesn't support filtering.
+        API requires status when using warehouseNumber.
         """
+        # Incremental endpoint doesn't support warehouse filtering
+        if self._has_existing_state():
+            return None
+        
         warehouse_ids = getattr(self._tap, "_resolved_shop_ids", [])
         
         if not warehouse_ids:
             return None  # No filter - get all warehouses
         
-        self.logger.info(f"[{self.name}] Filtering by warehouse tilroyIds: {warehouse_ids}")
-        return [{"warehouse_id": wh_id} for wh_id in warehouse_ids]
+        # Must use status with warehouseNumber
+        statuses = ["draft", "open", "delivered", "cancelled"]
+        
+        partitions = []
+        for wh_id in warehouse_ids:
+            for status in statuses:
+                partitions.append({"warehouse_id": wh_id, "status": status})
+        
+        self.logger.info(
+            f"[{self.name}] Historical sync: filtering by warehouses {warehouse_ids} "
+            f"with statuses {statuses}"
+        )
+        return partitions
 
     def post_process(
         self,
