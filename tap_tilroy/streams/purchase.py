@@ -107,42 +107,26 @@ class PurchaseOrdersStream(DynamicRoutingStream):
             params["orderDateFrom"] = start_date.strftime("%Y-%m-%d")
             params["orderDateTo"] = datetime.now().strftime("%Y-%m-%d")
 
-        # Both endpoints use warehouseNumber and status
+        # Add warehouseNumber filter if configured
         warehouse_id = (context or {}).get("warehouse_id")
-        status = (context or {}).get("status")
         if warehouse_id:
             params["warehouseNumber"] = warehouse_id
-        if status:
-            params["status"] = status
 
         return params
 
     @property
     def partitions(self) -> list[dict] | None:
-        """Return partitions for each warehouse ID and status if configured.
+        """Return partitions for each warehouse ID if configured.
         
         Uses resolved shop IDs from tap's _resolved_shop_ids.
-        The API requires a status filter when using warehouseNumber.
         """
         warehouse_ids = getattr(self._tap, "_resolved_shop_ids", [])
         
         if not warehouse_ids:
             return None  # No filter - get all warehouses
         
-        # API requires status filter with warehouseNumber
-        # Query each warehouse with each status to get complete data
-        statuses = ["draft", "open", "delivered", "cancelled"]
-        
-        partitions = []
-        for wh_id in warehouse_ids:
-            for status in statuses:
-                partitions.append({"warehouse_id": wh_id, "status": status})
-        
-        self.logger.info(
-            f"[{self.name}] Filtering by warehouse tilroyIds: {warehouse_ids} "
-            f"with statuses: {statuses}"
-        )
-        return partitions
+        self.logger.info(f"[{self.name}] Filtering by warehouse tilroyIds: {warehouse_ids}")
+        return [{"warehouse_id": wh_id} for wh_id in warehouse_ids]
 
     def post_process(
         self,

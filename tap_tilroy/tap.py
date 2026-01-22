@@ -109,6 +109,7 @@ class TapTilroy(Tap):
         state: dict | str | None = None,
         parse_env_config: bool = False,
         validate_config: bool = True,
+        **kwargs,
     ) -> None:
         """Initialize the tap.
 
@@ -128,6 +129,7 @@ class TapTilroy(Tap):
             state=state,
             parse_env_config=parse_env_config,
             validate_config=validate_config,
+            **kwargs,
         )
 
         # Suppress schema mismatch warnings for verbose streams
