@@ -3,30 +3,28 @@
 from __future__ import annotations
 
 import typing as t
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from singer_sdk import typing as th
 
-from tap_tilroy.client import DynamicRoutingStream
+from tap_tilroy.client import TilroyStream
 
 if t.TYPE_CHECKING:
     from singer_sdk.helpers.types import Context
 
 
-class PurchaseOrdersStream(DynamicRoutingStream):
+class PurchaseOrdersStream(TilroyStream):
     """Stream for Tilroy purchase orders.
 
-    Uses dynamic routing:
-    - First sync (no state): /purchaseorders with orderDateFrom + orderDateTo
-    - Subsequent syncs: /export/orders with dateExportedSince for delta updates
+    Always uses /purchaseorders endpoint with orderDateFrom + orderDateTo.
+    The /export/orders endpoint is for orders "created for export" which is
+    a different concept - not suitable for general incremental extraction.
     
-    Note: warehouseNumber filter requires status filter on /purchaseorders.
-    The /export/orders endpoint doesn't support warehouse filtering.
+    Note: warehouseNumber filter requires status filter.
     """
 
     name = "purchase_orders"
-    historical_path = "/purchaseapi/production/purchaseorders"
-    incremental_path = "/purchaseapi/production/export/orders"
+    path = "/purchaseapi/production/purchaseorders"
     primary_keys: t.ClassVar[list[str]] = ["tilroyId"]
     replication_key = "orderDate"
     replication_method = "INCREMENTAL"
@@ -83,15 +81,39 @@ class PurchaseOrdersStream(DynamicRoutingStream):
         ),
     ).to_dict()
 
+    def _get_start_date(self, context: Context | None) -> datetime:
+        """Determine the start date for filtering.
+
+        Args:
+            context: Stream partition context.
+
+        Returns:
+            The start date for the query.
+        """
+        # Try to get from bookmark
+        bookmark_date = self.get_starting_timestamp(context)
+
+        if bookmark_date:
+            # Go back 1 day to avoid missing records at boundary
+            if hasattr(bookmark_date, "date"):
+                date_only = bookmark_date.date()
+            else:
+                date_only = bookmark_date
+            return datetime.combine(date_only - timedelta(days=1), datetime.min.time())
+
+        # Fall back to config start_date
+        config_start = self.config.get("start_date", "2010-01-01T00:00:00Z")
+        date_part = config_start.split("T")[0]
+        return datetime.strptime(date_part, "%Y-%m-%d")
+
     def get_url_params(
         self,
         context: Context | None,
         next_page_token: int | None,
     ) -> dict[str, t.Any]:
-        """Return URL parameters based on which endpoint is being used.
+        """Return URL parameters for /purchaseorders endpoint.
 
-        Historical (/purchaseorders): orderDateFrom + orderDateTo + warehouseNumber + status
-        Incremental (/export/orders): dateExportedSince (no warehouse filtering)
+        Always uses orderDateFrom + orderDateTo + optional warehouseNumber + status.
         """
         params = {
             "count": self.default_count,
@@ -99,21 +121,17 @@ class PurchaseOrdersStream(DynamicRoutingStream):
         }
 
         start_date = self._get_start_date(context)
-
-        if self._has_existing_state():
-            # Incremental endpoint uses dateExportedSince (dateFrom is deprecated)
-            params["dateExportedSince"] = start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
-        else:
-            # Historical endpoint requires both orderDateFrom AND orderDateTo
-            params["orderDateFrom"] = start_date.strftime("%Y-%m-%d")
-            params["orderDateTo"] = datetime.now().strftime("%Y-%m-%d")
-            
-            # Add warehouseNumber + status filters (must be used together)
-            warehouse_id = (context or {}).get("warehouse_id")
-            status = (context or {}).get("status")
-            if warehouse_id and status:
-                params["warehouseNumber"] = warehouse_id
-                params["status"] = status
+        
+        # Always use orderDateFrom and orderDateTo
+        params["orderDateFrom"] = start_date.strftime("%Y-%m-%d")
+        params["orderDateTo"] = datetime.now().strftime("%Y-%m-%d")
+        
+        # Add warehouseNumber + status filters (must be used together)
+        warehouse_id = (context or {}).get("warehouse_id")
+        status = (context or {}).get("status")
+        if warehouse_id and status:
+            params["warehouseNumber"] = warehouse_id
+            params["status"] = status
 
         return params
 
@@ -121,13 +139,8 @@ class PurchaseOrdersStream(DynamicRoutingStream):
     def partitions(self) -> list[dict] | None:
         """Return partitions for each warehouse ID and status if configured.
         
-        Only applies to historical endpoint - export endpoint doesn't support filtering.
         API requires status when using warehouseNumber.
         """
-        # Incremental endpoint doesn't support warehouse filtering
-        if self._has_existing_state():
-            return None
-        
         warehouse_ids = getattr(self._tap, "_resolved_shop_ids", [])
         
         if not warehouse_ids:
@@ -142,7 +155,7 @@ class PurchaseOrdersStream(DynamicRoutingStream):
                 partitions.append({"warehouse_id": wh_id, "status": status})
         
         self.logger.info(
-            f"[{self.name}] Historical sync: filtering by warehouses {warehouse_ids} "
+            f"[{self.name}] Filtering by warehouses {warehouse_ids} "
             f"with statuses {statuses}"
         )
         return partitions
