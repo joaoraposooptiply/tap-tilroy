@@ -88,13 +88,13 @@ class TapTilroy(Tap):
         ),
         th.Property(
             "shop_ids",
-            th.ArrayType(th.IntegerType),
-            description="Shop tilroyIds to filter streams (optional). Tap will auto-resolve shop numbers.",
+            th.StringType,
+            description="Comma-separated shop tilroyIds to filter streams (e.g., '1,2,3'). Tap will auto-resolve shop numbers.",
         ),
         th.Property(
             "shop_numbers",
-            th.ArrayType(th.IntegerType),
-            description="Shop numbers to filter streams (optional). Tap will auto-resolve tilroyIds.",
+            th.StringType,
+            description="Comma-separated shop numbers to filter streams (e.g., '1672,1673'). Tap will auto-resolve tilroyIds.",
         ),
     ).to_dict()
 
@@ -156,15 +156,50 @@ class TapTilroy(Tap):
         except Exception as e:
             self.logger.warning(f"Failed to write config to {self.config_file}: {e}")
 
+    def _parse_csv_ids(self, value: str | list | None) -> list[int]:
+        """Parse comma-separated string or list into list of integers.
+        
+        Args:
+            value: Comma-separated string like "1,2,3" or list of ints.
+            
+        Returns:
+            List of integers.
+        """
+        if not value:
+            return []
+        
+        # Already a list (e.g., from state or programmatic config)
+        if isinstance(value, list):
+            return [int(v) for v in value if v]
+        
+        # Parse comma-separated string
+        if isinstance(value, str):
+            return [int(x.strip()) for x in value.split(",") if x.strip()]
+        
+        return []
+
+    def _format_csv_ids(self, values: list[int]) -> str:
+        """Format list of integers as comma-separated string.
+        
+        Args:
+            values: List of integers.
+            
+        Returns:
+            Comma-separated string like "1,2,3".
+        """
+        return ",".join(str(v) for v in values)
+
     def _resolve_shop_mappings(self) -> None:
         """Fetch shops and resolve ID/number mappings.
         
         If shop_ids or shop_numbers is configured, ensures both are populated.
         If only one is provided, fetches shops from API to resolve the other
         and persists both back to config.
+        
+        Config values are comma-separated strings like "1,2,3".
         """
-        filter_ids = self.config.get("shop_ids", [])
-        filter_numbers = self.config.get("shop_numbers", [])
+        filter_ids = self._parse_csv_ids(self.config.get("shop_ids"))
+        filter_numbers = self._parse_csv_ids(self.config.get("shop_numbers"))
         
         if not filter_ids and not filter_numbers:
             self.logger.info("No shop filters configured - streams will fetch all data")
@@ -172,8 +207,8 @@ class TapTilroy(Tap):
         
         # If both are already populated, use them directly
         if filter_ids and filter_numbers:
-            self._resolved_shop_ids = list(filter_ids)
-            self._resolved_shop_numbers = list(filter_numbers)
+            self._resolved_shop_ids = filter_ids
+            self._resolved_shop_numbers = filter_numbers
             self.logger.info(
                 f"Using configured shop mappings: IDs {self._resolved_shop_ids}, "
                 f"numbers {self._resolved_shop_numbers}"
@@ -195,8 +230,8 @@ class TapTilroy(Tap):
             shops = response.json()
         except Exception as e:
             self.logger.error(f"Failed to fetch shops for mapping: {e}")
-            self._resolved_shop_ids = list(filter_ids)
-            self._resolved_shop_numbers = list(filter_numbers)
+            self._resolved_shop_ids = filter_ids
+            self._resolved_shop_numbers = filter_numbers
             return
         
         # Build lookup dicts
@@ -213,7 +248,7 @@ class TapTilroy(Tap):
         
         # Resolve from IDs -> numbers
         if filter_ids and not filter_numbers:
-            self._resolved_shop_ids = list(filter_ids)
+            self._resolved_shop_ids = filter_ids
             self._resolved_shop_numbers = [
                 id_to_number[sid] for sid in filter_ids if sid in id_to_number
             ]
@@ -223,7 +258,7 @@ class TapTilroy(Tap):
         
         # Resolve from numbers -> IDs
         elif filter_numbers and not filter_ids:
-            self._resolved_shop_numbers = list(filter_numbers)
+            self._resolved_shop_numbers = filter_numbers
             self._resolved_shop_ids = [
                 number_to_id[num] for num in filter_numbers if num in number_to_id
             ]
@@ -231,10 +266,10 @@ class TapTilroy(Tap):
                 f"Resolved shop numbers {filter_numbers} -> IDs {self._resolved_shop_ids}"
             )
         
-        # Persist both to config file
+        # Persist both to config file as comma-separated strings
         if self._resolved_shop_ids and self._resolved_shop_numbers:
-            self._config["shop_ids"] = self._resolved_shop_ids
-            self._config["shop_numbers"] = self._resolved_shop_numbers
+            self._config["shop_ids"] = self._format_csv_ids(self._resolved_shop_ids)
+            self._config["shop_numbers"] = self._format_csv_ids(self._resolved_shop_numbers)
             self._write_config()
 
     def discover_streams(self) -> list[Stream]:
