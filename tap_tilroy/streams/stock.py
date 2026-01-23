@@ -151,7 +151,7 @@ class StockChangesStream(TilroyStream):
         th.Property("location2", th.CustomType({"type": ["string", "null"]})),
         th.Property("pickupLocation", th.CustomType({"type": ["string", "null"]})),
         th.Property("inAssortment", th.BooleanType),
-        th.Property("lastExternalDelivery", th.CustomType({"type": ["string", "null"]})),
+        th.Property("lastExternalDelivery", th.CustomType({"type": ["object", "string", "null"]})),
     ).to_dict()
 
     def _get_start_date(self) -> datetime:
@@ -197,8 +197,6 @@ class StockChangesStream(TilroyStream):
         
         url = f"{self.url_base}{self.path}"
         
-        self.logger.info(f"[{self.name}] Fetching: {url} params={params}")
-        
         response = requests.get(
             url,
             params=params,
@@ -212,15 +210,7 @@ class StockChangesStream(TilroyStream):
         has_more = current_page < total_pages
         
         data = response.json()
-        
-        # Debug: log response structure
-        if isinstance(data, list):
-            self.logger.info(f"[{self.name}] Response is list with {len(data)} items")
-        elif isinstance(data, dict):
-            self.logger.info(f"[{self.name}] Response is dict with keys: {list(data.keys())[:5]}")
-        
         records = list(extract_jsonpath(self.records_jsonpath, input=data))
-        self.logger.info(f"[{self.name}] Extracted {len(records)} records (page {current_page}/{total_pages})")
         
         return records, has_more
 

@@ -82,6 +82,8 @@ class PurchaseOrdersStream(TilroyStream):
                     th.Property("prices", th.CustomType({"type": ["object", "string", "null"]})),
                     th.Property("discount", th.CustomType({"type": ["object", "string", "null"]})),
                     th.Property("id", th.CustomType({"type": ["string", "number", "null"]})),
+                    th.Property("created", th.CustomType({"type": ["object", "string", "null"]})),
+                    th.Property("modified", th.CustomType({"type": ["object", "string", "null"]})),
                 )
             ),
         ),
@@ -140,8 +142,6 @@ class PurchaseOrdersStream(TilroyStream):
         
         url = f"{self.url_base}{self.path}"
         
-        self.logger.info(f"[{self.name}] Fetching: {url} params={params}")
-        
         response = requests.get(
             url,
             params=params,
@@ -156,15 +156,7 @@ class PurchaseOrdersStream(TilroyStream):
         has_more = current_page < total_pages
         
         data = response.json()
-        
-        # Debug: log response structure
-        if isinstance(data, list):
-            self.logger.info(f"[{self.name}] Response is list with {len(data)} items")
-        elif isinstance(data, dict):
-            self.logger.info(f"[{self.name}] Response is dict with keys: {list(data.keys())[:5]}")
-        
         records = list(extract_jsonpath(self.records_jsonpath, input=data))
-        self.logger.info(f"[{self.name}] Extracted {len(records)} records (page {current_page}/{total_pages})")
         
         return records, has_more
 
@@ -207,24 +199,17 @@ class PurchaseOrdersStream(TilroyStream):
         start_date = self._get_start_date()
         warehouse_ids = getattr(self._tap, "_resolved_shop_ids", [])
         
-        self.logger.info(f"[{self.name}] _resolved_shop_ids from tap: {warehouse_ids}")
-        self.logger.info(f"[{self.name}] Config shop_ids: {self.config.get('shop_ids')}")
-        
         if not warehouse_ids:
-            # No warehouse filter - fetch all (API may require warehouseNumber+status)
-            self.logger.warning(
-                f"[{self.name}] No warehouse_ids resolved! Fetching without filter from {start_date.date()}"
-            )
+            # No warehouse filter - fetch all
+            self.logger.info(f"[{self.name}] Fetching all purchase orders from {start_date.date()}")
             yield from self._fetch_all_for_filter(None, None, start_date)
         else:
             # Iterate through each warehouse + status combination
             self.logger.info(
-                f"[{self.name}] Fetching purchase orders for warehouses {warehouse_ids} "
-                f"with statuses {PURCHASE_ORDER_STATUSES} from {start_date.date()}"
+                f"[{self.name}] Fetching for warehouses {warehouse_ids} from {start_date.date()}"
             )
             for wh_id in warehouse_ids:
                 for status in PURCHASE_ORDER_STATUSES:
-                    self.logger.info(f"[{self.name}] Fetching warehouse={wh_id} status={status}")
                     yield from self._fetch_all_for_filter(wh_id, status, start_date)
 
     def post_process(
