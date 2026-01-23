@@ -3,21 +3,22 @@
 from __future__ import annotations
 
 import typing as t
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from singer_sdk import typing as th
 
-from tap_tilroy.client import LastIdPaginatedStream
+from tap_tilroy.client import TilroyStream
 
 if t.TYPE_CHECKING:
     from singer_sdk.helpers.types import Context
 
 
-class PricesStream(LastIdPaginatedStream):
+class PricesStream(TilroyStream):
     """Stream for Tilroy price rules.
 
     Uses /price/rules endpoint with lastId pagination.
     Flattens nested price structures into individual records.
+    Iterates through shop_ids internally to avoid per-partition state bloat.
     """
 
     name = "prices"
@@ -29,9 +30,7 @@ class PricesStream(LastIdPaginatedStream):
     default_count = 100
 
     # Price API uses dateModified instead of dateFrom
-    date_param_name = "dateModified"
     last_id_field = "tilroyId"  # Top-level rule ID
-    last_id_param = "lastId"
 
     schema = th.PropertiesList(
         th.Property("sku_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
@@ -54,74 +53,63 @@ class PricesStream(LastIdPaginatedStream):
         th.Property("country_code", th.CustomType({"type": ["string", "number", "null"]})),
     ).to_dict()
 
-    def get_url_params(
+    def _get_start_date(self) -> datetime:
+        """Determine the start date for filtering from global bookmark.
+
+        Returns:
+            The start date for the query.
+        """
+        bookmark_date = self.get_starting_timestamp(None)
+
+        if bookmark_date:
+            if hasattr(bookmark_date, "date"):
+                date_only = bookmark_date.date()
+            else:
+                date_only = bookmark_date
+            return datetime.combine(date_only - timedelta(days=1), datetime.min.time())
+
+        config_start = self.config.get("start_date", "2010-01-01T00:00:00Z")
+        date_part = config_start.split("T")[0]
+        return datetime.strptime(date_part, "%Y-%m-%d")
+
+    def _fetch_all_for_shop(
         self,
-        context: Context | None,
-        next_page_token: str | None,
-    ) -> dict[str, t.Any]:
-        """Return URL parameters for Price API.
-
-        Price API uses dateModified (datetime) instead of dateFrom (date).
-        """
-        start_date = self._get_start_date(context)
-
-        params = {
-            "count": self.default_count,
-            "dateModified": start_date.strftime("%Y-%m-%dT%H:%M:%S"),
-        }
-
-        if next_page_token:
-            params["lastId"] = next_page_token
-
-        # Optional shop filter from context (set via partitions)
-        # API accepts shopId (tilroyId) - see /price/rules endpoint docs
-        shop_id = (context or {}).get("shop_id")
-        if shop_id:
-            params["shopId"] = shop_id
-
-        return params
-
-    @property
-    def partitions(self) -> list[dict] | None:
-        """Return partitions for each shop ID if configured.
+        shop_id: int | None,
+        start_date: datetime,
+    ) -> t.Iterable[dict]:
+        """Fetch all price rules for a shop using lastId pagination.
         
-        Uses resolved shop IDs from tap's _resolved_shop_ids.
-        """
-        shop_ids = getattr(self._tap, "_resolved_shop_ids", [])
-        
-        if not shop_ids:
-            return None  # No filter - get all shops
-        
-        self.logger.info(f"[{self.name}] Filtering by shop tilroyIds: {shop_ids}")
-        return [{"shop_id": sid} for sid in shop_ids]
-
-    def request_records(self, context: Context | None) -> t.Iterable[dict]:
-        """Request and flatten price rule records.
-
-        Each price rule can contain multiple prices, which we flatten
-        into individual records.
-
         Args:
-            context: Stream partition context.
-
+            shop_id: Shop tilroyId filter (optional).
+            start_date: Start date for filtering.
+            
         Yields:
             Flattened price records.
         """
         last_id: str | None = None
 
         while True:
-            params = self.get_url_params(context, last_id)
+            params = {
+                "count": self.default_count,
+                "dateModified": start_date.strftime("%Y-%m-%dT%H:%M:%S"),
+            }
+            
+            if last_id:
+                params["lastId"] = last_id
+            
+            if shop_id:
+                params["shopId"] = shop_id
 
-            self.logger.info(f"[{self.name}] Requesting with params: {params}")
+            self.logger.debug(f"[{self.name}] Requesting with params: {params}")
 
             prepared_request = self.build_prepared_request(
                 method="GET",
-                url=self.get_url(context),
+                url=self.get_url(None),
                 params=params,
                 headers=self.http_headers,
             )
 
-            response = self._request(prepared_request, context)
+            response = self._request(prepared_request, None)
 
             if response.status_code != 200:
                 self.logger.error(
@@ -130,14 +118,14 @@ class PricesStream(LastIdPaginatedStream):
                 break
 
             records = list(self.parse_response(response))
-            self.logger.info(f"[{self.name}] Retrieved {len(records)} price rules")
+            self.logger.debug(f"[{self.name}] Retrieved {len(records)} price rules")
 
             if not records:
                 break
 
             # Flatten and yield each price rule
             for price_rule in records:
-                yield from self._flatten_price_rule(price_rule, context)
+                yield from self._flatten_price_rule(price_rule)
 
             # Get lastId for next page
             last_record = records[-1]
@@ -152,18 +140,32 @@ class PricesStream(LastIdPaginatedStream):
             if len(records) < self.default_count:
                 break
 
-        self.logger.info(f"[{self.name}] Pagination complete")
+    def get_records(self, context: Context | None) -> t.Iterable[dict]:
+        """Fetch prices, iterating through shops internally.
+        
+        This avoids partition-based state. Single global bookmark is maintained.
+        """
+        start_date = self._get_start_date()
+        shop_ids = getattr(self._tap, "_resolved_shop_ids", [])
+        
+        if not shop_ids:
+            # No shop filter - fetch all
+            self.logger.info(f"[{self.name}] Fetching all prices from {start_date.date()}")
+            yield from self._fetch_all_for_shop(None, start_date)
+        else:
+            # Iterate through each shop
+            self.logger.info(
+                f"[{self.name}] Fetching prices for shops {shop_ids} from {start_date.date()}"
+            )
+            for shop_id in shop_ids:
+                self.logger.debug(f"[{self.name}] Fetching shop_id={shop_id}")
+                yield from self._fetch_all_for_shop(shop_id, start_date)
 
-    def _flatten_price_rule(
-        self,
-        price_rule: dict,
-        context: Context | None,
-    ) -> t.Iterable[dict]:
+    def _flatten_price_rule(self, price_rule: dict) -> t.Iterable[dict]:
         """Flatten a price rule into individual price records.
 
         Args:
             price_rule: The price rule containing SKU and prices.
-            context: Stream partition context.
 
         Yields:
             Flattened price records.
@@ -208,7 +210,7 @@ class PricesStream(LastIdPaginatedStream):
                     record.get("date_created") or datetime.utcnow().isoformat()
                 )
 
-            processed = self.post_process(record, context)
+            processed = self.post_process(record, None)
             if processed:
                 yield processed
 

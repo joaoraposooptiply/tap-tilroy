@@ -117,11 +117,11 @@ class StockDeltasStream(DateFilteredStream):
         return row
 
 
-class StockChangesStream(DateFilteredStream):
+class StockChangesStream(TilroyStream):
     """Stream for Tilroy stock changes.
 
     Tracks inventory changes over time with date-based filtering.
-    Requires both dateFrom and dateTo parameters.
+    Iterates through shop numbers internally to avoid per-partition state bloat.
     """
 
     name = "stock_changes"
@@ -154,39 +154,111 @@ class StockChangesStream(DateFilteredStream):
         th.Property("lastExternalDelivery", th.CustomType({"type": ["string", "null"]})),
     ).to_dict()
 
-    def get_url_params(
+    def _get_start_date(self) -> datetime:
+        """Determine the start date for filtering from global bookmark."""
+        bookmark_date = self.get_starting_timestamp(None)
+
+        if bookmark_date:
+            if hasattr(bookmark_date, "date"):
+                date_only = bookmark_date.date()
+            else:
+                date_only = bookmark_date
+            return datetime.combine(date_only - timedelta(days=1), datetime.min.time())
+
+        config_start = self.config.get("start_date", "2010-01-01T00:00:00Z")
+        date_part = config_start.split("T")[0]
+        return datetime.strptime(date_part, "%Y-%m-%d")
+
+    def _fetch_page(
         self,
-        context: Context | None,
-        next_page_token: int | None,
-    ) -> dict[str, t.Any]:
-        """Return URL parameters including dateTo (required by API)."""
-        params = super().get_url_params(context, next_page_token)
-
-        # Stock changes API requires dateTo parameter
-        params["dateTo"] = datetime.now().strftime("%Y-%m-%d")
-
-        # Optional shop filter from context (set via partitions)
-        # NOTE: This API only works with shopNumber, not shopId/tilroyId
-        shop_number = (context or {}).get("shop_number")
+        shop_number: int | None,
+        page: int,
+        start_date: datetime,
+    ) -> tuple[list[dict], bool]:
+        """Fetch a single page of stock changes.
+        
+        Args:
+            shop_number: Shop number filter (optional).
+            page: Page number.
+            start_date: Start date for dateFrom.
+            
+        Returns:
+            Tuple of (records, has_more_pages).
+        """
+        params = {
+            "count": self.default_count,
+            "page": page,
+            "dateFrom": start_date.strftime("%Y-%m-%d"),
+            "dateTo": datetime.now().strftime("%Y-%m-%d"),
+        }
+        
         if shop_number:
             params["shopNumber"] = shop_number
-
-        return params
-
-    @property
-    def partitions(self) -> list[dict] | None:
-        """Return partitions for each shop number if configured.
         
-        Uses resolved shop numbers from tap's _resolved_shop_numbers.
-        NOTE: This API requires shop number, not tilroyId.
+        url = f"{self.url_base}{self.path}"
+        
+        response = requests.get(
+            url,
+            params=params,
+            headers=self.http_headers,
+            timeout=60,
+        )
+        response.raise_for_status()
+        
+        current_page = int(response.headers.get("X-Paging-CurrentPage", 1))
+        total_pages = int(response.headers.get("X-Paging-PageCount", 1))
+        has_more = current_page < total_pages
+        
+        data = response.json()
+        records = list(extract_jsonpath(self.records_jsonpath, input=data))
+        
+        return records, has_more
+
+    def _fetch_all_for_shop(
+        self,
+        shop_number: int | None,
+        start_date: datetime,
+    ) -> t.Iterable[dict]:
+        """Fetch all pages for a shop number.
+        
+        Args:
+            shop_number: Shop number filter.
+            start_date: Start date for filtering.
+            
+        Yields:
+            Stock change records.
         """
+        page = 1
+        while True:
+            records, has_more = self._fetch_page(shop_number, page, start_date)
+            
+            for record in records:
+                yield record
+            
+            if not has_more:
+                break
+            page += 1
+
+    def get_records(self, context: Context | None) -> t.Iterable[dict]:
+        """Fetch stock changes, iterating through shops internally.
+        
+        This avoids partition-based state. Single global bookmark is maintained.
+        """
+        start_date = self._get_start_date()
         shop_numbers = getattr(self._tap, "_resolved_shop_numbers", [])
         
         if not shop_numbers:
-            return None  # No filter - get all shops
-        
-        self.logger.info(f"[{self.name}] Filtering by shop numbers: {shop_numbers}")
-        return [{"shop_number": num} for num in shop_numbers]
+            # No shop filter - fetch all
+            self.logger.info(f"[{self.name}] Fetching all stock changes from {start_date.date()}")
+            yield from self._fetch_all_for_shop(None, start_date)
+        else:
+            # Iterate through each shop
+            self.logger.info(
+                f"[{self.name}] Fetching stock changes for shops {shop_numbers} from {start_date.date()}"
+            )
+            for shop_num in shop_numbers:
+                self.logger.debug(f"[{self.name}] Fetching shop_number={shop_num}")
+                yield from self._fetch_all_for_shop(shop_num, start_date)
 
     def post_process(
         self,
