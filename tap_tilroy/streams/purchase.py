@@ -178,6 +178,10 @@ class PurchaseOrdersStream(TilroyStream):
         while True:
             records, has_more = self._fetch_page(warehouse_id, status, page, start_date)
             
+            # Break if no records returned (avoid infinite loop)
+            if not records:
+                break
+            
             for record in records:
                 yield record
             
