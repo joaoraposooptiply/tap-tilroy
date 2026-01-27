@@ -3,22 +3,24 @@
 from __future__ import annotations
 
 import typing as t
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from singer_sdk import typing as th
 
-from tap_tilroy.client import TilroyStream
+from tap_tilroy.client import DateWindowedStream
 
 if t.TYPE_CHECKING:
     from singer_sdk.helpers.types import Context
 
 
-class PricesStream(TilroyStream):
+class PricesStream(DateWindowedStream):
     """Stream for Tilroy price rules.
 
-    Uses /price/rules endpoint with lastId pagination.
+    Uses /price/rules endpoint with lastId pagination and date windowing.
     Flattens nested price structures into individual records.
     Iterates through shop_ids internally to avoid per-partition state bloat.
+    
+    Uses date windowing to prevent API timeouts on large date ranges.
     """
 
     name = "prices"
@@ -29,8 +31,15 @@ class PricesStream(TilroyStream):
     records_jsonpath = "$[*]"
     default_count = 100
 
-    # Price API uses dateModified instead of dateFrom
+    # Date windowing configuration - 7 days at a time to avoid timeouts
+    date_window_days = 7
+    use_date_to = False  # Price API doesn't support dateTo, only dateModified
+    date_param_name = "dateModified"  # Price API uses dateModified instead of dateFrom
+    
+    # Use lastId pagination for /price/rules endpoint
+    use_last_id_pagination = True
     last_id_field = "tilroyId"  # Top-level rule ID
+    last_id_param = "lastId"
 
     schema = th.PropertiesList(
         th.Property("sku_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
@@ -53,113 +62,202 @@ class PricesStream(TilroyStream):
         th.Property("country_code", th.CustomType({"type": ["string", "number", "null"]})),
     ).to_dict()
 
-    def _get_start_date(self) -> datetime:
-        """Determine the start date for filtering from global bookmark.
-
-        Returns:
-            The start date for the query.
-        """
-        bookmark_date = self.get_starting_timestamp(None)
-
-        if bookmark_date:
-            if hasattr(bookmark_date, "date"):
-                date_only = bookmark_date.date()
-            else:
-                date_only = bookmark_date
-            return datetime.combine(date_only - timedelta(days=1), datetime.min.time())
-
-        config_start = self.config.get("start_date", "2010-01-01T00:00:00Z")
-        date_part = config_start.split("T")[0]
-        return datetime.strptime(date_part, "%Y-%m-%d")
-
-    def _fetch_all_for_shop(
-        self,
-        shop_id: int | None,
-        start_date: datetime,
-    ) -> t.Iterable[dict]:
-        """Fetch all price rules for a shop using lastId pagination.
+    def request_records(self, context: Context | None) -> t.Iterable[dict]:
+        """Request records using date windowing with shop iteration.
+        
+        Overrides DateWindowedStream.request_records to handle shop filtering,
+        proper replication key filtering on flattened records, and correct
+        lastId pagination (which needs to come from price rules, not flattened records).
         
         Args:
-            shop_id: Shop tilroyId filter (optional).
-            start_date: Start date for filtering.
+            context: Stream partition context.
             
         Yields:
-            Flattened price records.
+            Records from the API that meet replication key criteria.
         """
-        last_id: str | None = None
-
-        while True:
-            params = {
-                "count": self.default_count,
-                "dateModified": start_date.strftime("%Y-%m-%dT%H:%M:%S"),
-            }
-            
-            if last_id:
-                params["lastId"] = last_id
-            
-            if shop_id:
-                params["shopId"] = shop_id
-
-            self.logger.debug(f"[{self.name}] Requesting with params: {params}")
-
-            prepared_request = self.build_prepared_request(
-                method="GET",
-                url=self.get_url(None),
-                params=params,
-                headers=self.http_headers,
-            )
-
-            response = self._request(prepared_request, None)
-
-            if response.status_code != 200:
-                self.logger.error(
-                    f"[{self.name}] API error {response.status_code}: {response.text[:500]}"
-                )
-                break
-
-            records = list(self.parse_response(response))
-            self.logger.debug(f"[{self.name}] Retrieved {len(records)} price rules")
-
-            if not records:
-                break
-
-            # Flatten and yield each price rule
-            for price_rule in records:
-                yield from self._flatten_price_rule(price_rule)
-
-            # Get lastId for next page
-            last_record = records[-1]
-            if isinstance(last_record, dict) and self.last_id_field in last_record:
-                last_id = str(last_record[self.last_id_field])
-            else:
-                self.logger.warning(
-                    f"[{self.name}] Could not find {self.last_id_field} in last record"
-                )
-                break
-
-            if len(records) < self.default_count:
-                break
-
-    def get_records(self, context: Context | None) -> t.Iterable[dict]:
-        """Fetch prices, iterating through shops internally.
+        from datetime import timedelta
         
-        This avoids partition-based state. Single global bookmark is maintained.
-        """
-        start_date = self._get_start_date()
+        # Get shop IDs to iterate through
         shop_ids = getattr(self._tap, "_resolved_shop_ids", [])
-        
         if not shop_ids:
-            # No shop filter - fetch all
-            self.logger.info(f"[{self.name}] Fetching all prices from {start_date.date()}")
-            yield from self._fetch_all_for_shop(None, start_date)
-        else:
-            # Iterate through each shop
+            shop_ids = [None]  # None means fetch all shops
+        
+        # Get bookmark for replication key filtering
+        bookmark_date = self.get_starting_timestamp(context)
+        start_date = self._get_start_date(context)
+        end_date = datetime.now()
+        
+        self.logger.info(
+            f"[{self.name}] Starting date-windowed sync from {start_date.date()} "
+            f"to {end_date.date()} with {self.date_window_days}-day windows"
+        )
+        
+        # Iterate through shops
+        for shop_id in shop_ids:
+            if shop_id:
+                self.logger.info(f"[{self.name}] Processing shop_id={shop_id}")
+            else:
+                self.logger.info(f"[{self.name}] Processing all shops")
+            
+            # Date windowing
+            window_start = start_date
+            total_records = 0
+            
+            while window_start < end_date:
+                # Calculate window end (don't exceed today)
+                window_end = min(
+                    window_start + timedelta(days=self.date_window_days),
+                    end_date
+                )
+                
+                self.logger.info(
+                    f"[{self.name}] Processing window: {window_start.date()} to {window_end.date()}"
+                )
+                
+                # Paginate through this window with lastId
+                last_id: str | None = None
+                window_records = 0
+                
+                while True:
+                    params = self._get_window_params(window_start, window_end, 1, last_id)
+                    if shop_id:
+                        params["shopId"] = shop_id
+                    
+                    self.logger.debug(f"[{self.name}] Window request params: {params}")
+                    
+                    prepared_request = self.build_prepared_request(
+                        method="GET",
+                        url=self.get_url(context),
+                        params=params,
+                        headers=self.http_headers,
+                    )
+                    
+                    try:
+                        response = self._request(prepared_request, context)
+                    except Exception as e:
+                        self.logger.error(f"[{self.name}] Request failed: {e}")
+                        break
+                    
+                    if response.status_code != 200:
+                        self.logger.error(
+                            f"[{self.name}] API error {response.status_code}: {response.text[:500]}"
+                        )
+                        break
+                    
+                    # Parse response to get price rules (before flattening)
+                    price_rules = list(super(DateWindowedStream, self).parse_response(response))
+                    page_count = len(price_rules)
+                    
+                    if not price_rules:
+                        break
+                    
+                    # Flatten and filter records
+                    for price_rule in price_rules:
+                        for record in self._flatten_price_rule(price_rule):
+                            # Filter by replication key
+                            if self._should_include_record(record, bookmark_date):
+                                total_records += 1
+                                window_records += 1
+                                yield record
+                    
+                    # Get lastId from last price rule (not flattened record)
+                    last_rule = price_rules[-1]
+                    if isinstance(last_rule, dict) and self.last_id_field in last_rule:
+                        last_id = str(last_rule[self.last_id_field])
+                    else:
+                        self.logger.warning(
+                            f"[{self.name}] Could not find {self.last_id_field} in last rule"
+                        )
+                        break
+                    
+                    # If we got fewer than count, we're done with this window
+                    if page_count < self.default_count:
+                        break
+                
+                self.logger.info(
+                    f"[{self.name}] Window {window_start.date()}-{window_end.date()} "
+                    f"complete: {window_records} records"
+                )
+                
+                # Move to next window
+                window_start = window_end
+            
             self.logger.info(
-                f"[{self.name}] Fetching prices for shops {shop_ids} from {start_date.date()}"
+                f"[{self.name}] Shop {shop_id or 'all'} complete: {total_records} total records"
             )
-            for shop_id in shop_ids:
-                self.logger.debug(f"[{self.name}] Fetching shop_id={shop_id}")
-                yield from self._fetch_all_for_shop(shop_id, start_date)
+
+    def _should_include_record(self, record: dict, bookmark_date: datetime | None) -> bool:
+        """Check if record should be included based on replication key.
+        
+        Args:
+            record: The flattened price record.
+            bookmark_date: The bookmark date from state.
+            
+        Returns:
+            True if record should be included (newer than bookmark or no bookmark).
+        """
+        if not bookmark_date:
+            return True  # No bookmark, include all
+        
+        record_date = record.get(self.replication_key)
+        if not record_date:
+            # If no date_modified, include it (will be set to current time in post_process)
+            return True
+        
+        # Parse record date if it's a string
+        if isinstance(record_date, str):
+            try:
+                # Try ISO format first
+                if "T" in record_date or "+" in record_date or "Z" in record_date:
+                    record_date = datetime.fromisoformat(record_date.replace("Z", "+00:00"))
+                else:
+                    # Try date-only format
+                    record_date = datetime.strptime(record_date, "%Y-%m-%d")
+            except (ValueError, TypeError):
+                # If we can't parse it, include it to be safe
+                return True
+        
+        # Compare dates - include if record is newer than bookmark
+        if isinstance(bookmark_date, str):
+            try:
+                bookmark_date = datetime.fromisoformat(bookmark_date.replace("Z", "+00:00"))
+            except (ValueError, TypeError):
+                return True
+        
+        # Include if record date is >= bookmark date
+        return record_date >= bookmark_date
+
+    def _get_window_params(
+        self,
+        window_start: datetime,
+        window_end: datetime,
+        page: int,
+        last_id: str | None = None,
+    ) -> dict[str, t.Any]:
+        """Get URL parameters for a specific date window and page.
+        
+        Overrides DateWindowedStream._get_window_params to use dateModified
+        instead of dateFrom, and handle lastId pagination.
+        
+        Args:
+            window_start: Start of the date window.
+            window_end: End of the date window (not used for price API).
+            page: Current page number (not used for lastId pagination).
+            last_id: Last record ID (used for lastId pagination).
+            
+        Returns:
+            Dictionary of URL parameters.
+        """
+        params: dict[str, t.Any] = {
+            "count": self.default_count,
+            self.date_param_name: window_start.strftime("%Y-%m-%dT%H:%M:%S"),
+        }
+        
+        # Price API uses lastId pagination
+        if self.use_last_id_pagination:
+            params[self.last_id_param] = last_id if last_id else "0"
+        
+        return params
 
     def _flatten_price_rule(self, price_rule: dict) -> t.Iterable[dict]:
         """Flatten a price rule into individual price records.
