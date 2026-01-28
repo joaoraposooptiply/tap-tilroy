@@ -94,8 +94,9 @@ class PricesStream(DateWindowedStream):
                 self.logger.warning(f"[{self.name}] Could not parse bookmark: {bookmark_raw}")
                 bookmark_date = None
         
-        # For API query, use bookmark date (or go back 1 day for safety to catch boundary records)
-        # But we'll filter records strictly by bookmark in _should_include_record
+        # For API query, use bookmark date directly (not going back 1 day)
+        # Since the API's dateModified filter may not work reliably (many rules have dateModified=None),
+        # we rely on client-side filtering. Using the bookmark directly reduces unnecessary API calls.
         if bookmark_date:
             # Remove timezone for API query (API expects naive datetime)
             if hasattr(bookmark_date, "tzinfo") and bookmark_date.tzinfo:
@@ -103,10 +104,9 @@ class PricesStream(DateWindowedStream):
             else:
                 bookmark_date_naive = bookmark_date
             
-            # Go back 1 day for API query to catch records at boundary, but filter strictly
-            from datetime import timedelta
-            start_date = bookmark_date_naive - timedelta(days=1)
-            start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            # Use bookmark date directly for API query (no going back 1 day)
+            # Client-side filtering will handle edge cases
+            start_date = bookmark_date_naive.replace(hour=0, minute=0, second=0, microsecond=0)
         else:
             start_date = self._get_start_date(context)
         
