@@ -108,6 +108,7 @@ class PricesStream(DateWindowedStream):
             # Client-side filtering will handle edge cases
             start_date = bookmark_date_naive.replace(hour=0, minute=0, second=0, microsecond=0)
         else:
+            bookmark_date_naive = None
             start_date = self._get_start_date(context)
         
         end_date = datetime.now()
@@ -186,10 +187,21 @@ class PricesStream(DateWindowedStream):
                     # Flatten and filter records
                     filtered_count = 0
                     included_count = 0
+                    # Use current time as date_modified for records to ensure bookmark advances
+                    # Since the API doesn't track dateModified for price rules, we use sync time
+                    current_sync_time = datetime.utcnow()
+                    current_sync_time_str = current_sync_time.isoformat() + "Z"
+                    
                     for price_rule in price_rules:
                         for record in self._flatten_price_rule(price_rule):
-                            # Filter by replication key
+                            # Filter by replication key (using dateCreated/dateModified from API)
                             if self._should_include_record(record, bookmark_date):
+                                # CRITICAL: Since price rules don't have dateModified and prices have old dateCreated,
+                                # we use the current sync time as date_modified to ensure the bookmark advances.
+                                # This means we'll re-fetch these records on the next sync, which is acceptable
+                                # since we can't track actual modifications.
+                                record["date_modified"] = current_sync_time_str
+                                
                                 included_count += 1
                                 total_records += 1
                                 window_records += 1
@@ -363,13 +375,11 @@ class PricesStream(DateWindowedStream):
         if not prices:
             return
 
-        # Get rule-level dateModified (if available) - use for API filtering
+        # Get rule-level dateModified (if available)
+        # This is the actual modification date of the price rule
         rule_date_modified = price_rule.get("dateModified")
         
         for price in prices:
-            # Use price's dateCreated as date_modified since prices don't have dateModified
-            # The rule's dateModified is used for API filtering, but individual prices
-            # use their dateCreated for replication key comparison
             price_date_created = price.get("dateCreated")
             price_date_modified = price.get("dateModified")
             
@@ -386,9 +396,10 @@ class PricesStream(DateWindowedStream):
                 "end_date": price.get("endDate"),
                 "start_date": price.get("startDate"),
                 "date_created": price_date_created,
-                # Use price's dateModified if available, otherwise use dateCreated
-                # (prices typically don't have dateModified, so this will be dateCreated)
-                "date_modified": price_date_modified or price_date_created,
+                # Use rule's dateModified as date_modified for replication key
+                # This ensures the bookmark advances when price rules are modified
+                # Fall back to price's dateModified, then dateCreated if rule has no dateModified
+                "date_modified": rule_date_modified or price_date_modified or price_date_created,
                 "tenant_id": tenant_id,
                 "shop_tilroy_id": shop.get("tilroyId"),
                 "shop_number": shop.get("number"),
