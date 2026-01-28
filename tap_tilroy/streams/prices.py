@@ -16,11 +16,10 @@ if t.TYPE_CHECKING:
 class PricesStream(DateWindowedStream):
     """Stream for Tilroy price rules.
 
-    Uses /price/rules endpoint with lastId pagination and date windowing.
+    Uses /price/rules endpoint with lastId pagination. One full pagination
+    pass per shop (no date windowing) to avoid re-fetching the same data.
     Flattens nested price structures into individual records.
-    Iterates through shop_ids internally to avoid per-partition state bloat.
-    
-    Uses date windowing to prevent API timeouts on large date ranges.
+    Iterates through shop_ids from tap config (shopId per request).
     """
 
     name = "prices"
@@ -78,8 +77,6 @@ class PricesStream(DateWindowedStream):
         Yields:
             Records from the API that meet replication key criteria.
         """
-        from datetime import timedelta
-        
         # Get shop IDs to iterate through
         shop_ids = getattr(self._tap, "_resolved_shop_ids", [])
         if not shop_ids:
@@ -97,10 +94,9 @@ class PricesStream(DateWindowedStream):
                 self.logger.warning(f"[{self.name}] Could not parse bookmark: {bookmark_raw}")
                 bookmark_date = None
         
-        # For API query, limit to recent date range when we have a bookmark
-        # Since the API doesn't track dateModified, we can't do true incremental sync.
-        # Instead, we query for a limited recent window (e.g., last 7 days) to avoid
-        # fetching all historical data on every sync.
+        # Get start date for API query
+        # - No bookmark: Use _get_start_date (from config or default 2010-01-01) = full sync
+        # - With bookmark: Use bookmark date as start = incremental sync since bookmark
         if bookmark_date:
             # Remove timezone for API query (API expects naive datetime)
             if hasattr(bookmark_date, "tzinfo") and bookmark_date.tzinfo:
@@ -108,27 +104,25 @@ class PricesStream(DateWindowedStream):
             else:
                 bookmark_date_naive = bookmark_date
             
-            # CRITICAL: Since the API doesn't track dateModified, we can't do true incremental sync.
-            # Instead, we only query the last 7 days on each sync to keep it fast.
-            # This means we'll re-fetch recent records, but that's acceptable.
-            from datetime import timedelta
-            max_lookback_days = 7  # Only query last 7 days to keep syncs fast
-            start_date = datetime.now() - timedelta(days=max_lookback_days)
-            start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            # Use bookmark date as start date for incremental sync
+            start_date = bookmark_date_naive.replace(hour=0, minute=0, second=0, microsecond=0)
             
             self.logger.info(
                 f"[{self.name}] Bookmark exists ({bookmark_date_naive.date()}), "
-                f"but API doesn't track modifications. Limiting query to last {max_lookback_days} days: {start_date.date()} to {datetime.now().date()}"
+                f"starting sync from bookmark date: {start_date.date()}"
             )
         else:
             bookmark_date_naive = None
+            # No bookmark = full sync, use config start_date or default
             start_date = self._get_start_date(context)
-        
-        end_date = datetime.now()
+            
+            self.logger.info(
+                f"[{self.name}] No bookmark found - full sync from {start_date.date()}"
+            )
         
         self.logger.info(
-            f"[{self.name}] Starting date-windowed sync from {start_date.date()} "
-            f"to {end_date.date()} with {self.date_window_days}-day windows"
+            f"[{self.name}] Single pass per shop (no date windowing). "
+            f"Start date for API: {start_date.date()}"
         )
         if bookmark_date:
             bookmark_str = bookmark_date.isoformat() if hasattr(bookmark_date, 'isoformat') else str(bookmark_date)
@@ -136,117 +130,93 @@ class PricesStream(DateWindowedStream):
                 f"[{self.name}] Bookmark date: {bookmark_str}, filtering records >= bookmark"
             )
         else:
-            self.logger.info(f"[{self.name}] No bookmark found - will fetch all records")
+            self.logger.info(f"[{self.name}] No bookmark - full sync, all records included")
         
-        # Iterate through shops
+        # Single pass per shop: paginate with count + shopId + lastId only.
+        # No date windowing - API returns full set per shop; windowing caused
+        # re-fetching the same data hundreds of times (millions of duplicate records).
         for shop_id in shop_ids:
             if shop_id:
                 self.logger.info(f"[{self.name}] Processing shop_id={shop_id}")
             else:
                 self.logger.info(f"[{self.name}] Processing all shops")
             
-            # Date windowing
-            window_start = start_date
             total_records = 0
+            last_id: str | None = None
+            page_num = 0
             
-            while window_start < end_date:
-                # Calculate window end (don't exceed today)
-                window_end = min(
-                    window_start + timedelta(days=self.date_window_days),
-                    end_date
+            while True:
+                params: dict[str, t.Any] = {
+                    "count": self.default_count,
+                }
+                if last_id:
+                    params[self.last_id_param] = last_id
+                if shop_id:
+                    params["shopId"] = shop_id
+                # Only send dateModified when we have a bookmark (incremental)
+                if bookmark_date:
+                    params[self.date_param_name] = start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+                
+                self.logger.debug(f"[{self.name}] Request params: {params}")
+                
+                prepared_request = self.build_prepared_request(
+                    method="GET",
+                    url=self.get_url(context),
+                    params=params,
+                    headers=self.http_headers,
                 )
                 
-                self.logger.info(
-                    f"[{self.name}] Processing window: {window_start.date()} to {window_end.date()}"
-                )
+                try:
+                    response = self._request(prepared_request, context)
+                except Exception as e:
+                    self.logger.error(f"[{self.name}] Request failed: {e}")
+                    break
                 
-                # Paginate through this window with lastId
-                last_id: str | None = None
-                window_records = 0
-                
-                while True:
-                    params = self._get_window_params(window_start, window_end, 1, last_id)
-                    if shop_id:
-                        params["shopId"] = shop_id
-                    
-                    self.logger.debug(f"[{self.name}] Window request params: {params}")
-                    
-                    prepared_request = self.build_prepared_request(
-                        method="GET",
-                        url=self.get_url(context),
-                        params=params,
-                        headers=self.http_headers,
+                if response.status_code != 200:
+                    self.logger.error(
+                        f"[{self.name}] API error {response.status_code}: {response.text[:500]}"
                     )
-                    
-                    try:
-                        response = self._request(prepared_request, context)
-                    except Exception as e:
-                        self.logger.error(f"[{self.name}] Request failed: {e}")
-                        break
-                    
-                    if response.status_code != 200:
-                        self.logger.error(
-                            f"[{self.name}] API error {response.status_code}: {response.text[:500]}"
-                        )
-                        break
-                    
-                    # Parse response to get price rules (before flattening)
-                    price_rules = list(super(DateWindowedStream, self).parse_response(response))
-                    page_count = len(price_rules)
-                    
-                    if not price_rules:
-                        break
-                    
-                    # Flatten and filter records
-                    filtered_count = 0
-                    included_count = 0
-                    # Use current sync time as extraction_timestamp for replication key
-                    # Since the API doesn't track dateModified, we use a synthetic timestamp
-                    current_sync_time = datetime.utcnow()
-                    current_sync_time_str = current_sync_time.isoformat() + "Z"
-                    
-                    for price_rule in price_rules:
-                        for record in self._flatten_price_rule(price_rule):
-                            # Set date_modified to current sync time for replication key
-                            # Since API doesn't track modifications, we use sync time
-                            record["date_modified"] = current_sync_time_str
-                            
-                            # Filter by date_modified (bookmark tracks when we last saw records)
-                            if self._should_include_record(record, bookmark_date):
-                                included_count += 1
-                                total_records += 1
-                                window_records += 1
-                                yield record
-                            else:
-                                filtered_count += 1
-                    
-                    if filtered_count > 0 or (bookmark_date and included_count > 0):
-                        self.logger.info(
-                            f"[{self.name}] Page: included {included_count}, filtered {filtered_count} "
-                            f"(bookmark: {bookmark_date.isoformat() if bookmark_date and hasattr(bookmark_date, 'isoformat') else bookmark_date})"
-                        )
-                    
-                    # Get lastId from last price rule (not flattened record)
-                    last_rule = price_rules[-1]
-                    if isinstance(last_rule, dict) and self.last_id_field in last_rule:
-                        last_id = str(last_rule[self.last_id_field])
-                    else:
-                        self.logger.warning(
-                            f"[{self.name}] Could not find {self.last_id_field} in last rule"
-                        )
-                        break
-                    
-                    # If we got fewer than count, we're done with this window
-                    if page_count < self.default_count:
-                        break
+                    break
                 
-                self.logger.info(
-                    f"[{self.name}] Window {window_start.date()}-{window_end.date()} "
-                    f"complete: {window_records} records"
-                )
+                price_rules = list(super(DateWindowedStream, self).parse_response(response))
+                page_count = len(price_rules)
+                page_num += 1
                 
-                # Move to next window
-                window_start = window_end
+                if not price_rules:
+                    break
+                
+                current_sync_time = datetime.utcnow()
+                current_sync_time_str = current_sync_time.isoformat() + "Z"
+                included_count = 0
+                filtered_count = 0
+                
+                for price_rule in price_rules:
+                    for record in self._flatten_price_rule(price_rule):
+                        record["date_modified"] = current_sync_time_str
+                        if self._should_include_record(record, bookmark_date):
+                            included_count += 1
+                            total_records += 1
+                            yield record
+                        else:
+                            filtered_count += 1
+                
+                if page_num <= 3 or page_num % 50 == 0 or page_count < self.default_count:
+                    self.logger.info(
+                        f"[{self.name}] Shop {shop_id} page {page_num}: "
+                        f"{page_count} rules, yielded {included_count} (filtered {filtered_count})"
+                    )
+                
+                last_rule = price_rules[-1]
+                if isinstance(last_rule, dict) and self.last_id_field in last_rule:
+                    last_id = str(last_rule[self.last_id_field])
+                else:
+                    self.logger.warning(
+                        f"[{self.name}] Could not find {self.last_id_field} in last rule"
+                    )
+                    break
+                
+                if page_count < self.default_count:
+                    break
             
             self.logger.info(
                 f"[{self.name}] Shop {shop_id or 'all'} complete: {total_records} total records"
