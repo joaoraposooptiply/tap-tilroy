@@ -26,6 +26,9 @@ class PricesStream(DateWindowedStream):
     name = "prices"
     path = "/priceapi/production/price/rules"
     primary_keys: t.ClassVar[list[str]] = ["sku_tilroy_id", "price_tilroy_id", "type"]
+    # Note: The API doesn't track dateModified for price rules, so we can't do true incremental sync.
+    # We keep using date_modified but set it to current sync time to ensure bookmark advances.
+    # This means we'll re-fetch records on each sync, but only from a limited recent window.
     replication_key = "date_modified"
     replication_method = "INCREMENTAL"
     records_jsonpath = "$[*]"
@@ -94,9 +97,10 @@ class PricesStream(DateWindowedStream):
                 self.logger.warning(f"[{self.name}] Could not parse bookmark: {bookmark_raw}")
                 bookmark_date = None
         
-        # For API query, use bookmark date directly (not going back 1 day)
-        # Since the API's dateModified filter may not work reliably (many rules have dateModified=None),
-        # we rely on client-side filtering. Using the bookmark directly reduces unnecessary API calls.
+        # For API query, limit to recent date range when we have a bookmark
+        # Since the API doesn't track dateModified, we can't do true incremental sync.
+        # Instead, we query for a limited recent window (e.g., last 7 days) to avoid
+        # fetching all historical data on every sync.
         if bookmark_date:
             # Remove timezone for API query (API expects naive datetime)
             if hasattr(bookmark_date, "tzinfo") and bookmark_date.tzinfo:
@@ -104,9 +108,18 @@ class PricesStream(DateWindowedStream):
             else:
                 bookmark_date_naive = bookmark_date
             
-            # Use bookmark date directly for API query (no going back 1 day)
-            # Client-side filtering will handle edge cases
-            start_date = bookmark_date_naive.replace(hour=0, minute=0, second=0, microsecond=0)
+            # CRITICAL: Since the API doesn't track dateModified, we can't do true incremental sync.
+            # Instead, we only query the last 7 days on each sync to keep it fast.
+            # This means we'll re-fetch recent records, but that's acceptable.
+            from datetime import timedelta
+            max_lookback_days = 7  # Only query last 7 days to keep syncs fast
+            start_date = datetime.now() - timedelta(days=max_lookback_days)
+            start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            
+            self.logger.info(
+                f"[{self.name}] Bookmark exists ({bookmark_date_naive.date()}), "
+                f"but API doesn't track modifications. Limiting query to last {max_lookback_days} days: {start_date.date()} to {datetime.now().date()}"
+            )
         else:
             bookmark_date_naive = None
             start_date = self._get_start_date(context)
@@ -187,21 +200,19 @@ class PricesStream(DateWindowedStream):
                     # Flatten and filter records
                     filtered_count = 0
                     included_count = 0
-                    # Use current time as date_modified for records to ensure bookmark advances
-                    # Since the API doesn't track dateModified for price rules, we use sync time
+                    # Use current sync time as extraction_timestamp for replication key
+                    # Since the API doesn't track dateModified, we use a synthetic timestamp
                     current_sync_time = datetime.utcnow()
                     current_sync_time_str = current_sync_time.isoformat() + "Z"
                     
                     for price_rule in price_rules:
                         for record in self._flatten_price_rule(price_rule):
-                            # Filter by replication key (using dateCreated/dateModified from API)
+                            # Set date_modified to current sync time for replication key
+                            # Since API doesn't track modifications, we use sync time
+                            record["date_modified"] = current_sync_time_str
+                            
+                            # Filter by date_modified (bookmark tracks when we last saw records)
                             if self._should_include_record(record, bookmark_date):
-                                # CRITICAL: Since price rules don't have dateModified and prices have old dateCreated,
-                                # we use the current sync time as date_modified to ensure the bookmark advances.
-                                # This means we'll re-fetch these records on the next sync, which is acceptable
-                                # since we can't track actual modifications.
-                                record["date_modified"] = current_sync_time_str
-                                
                                 included_count += 1
                                 total_records += 1
                                 window_records += 1
@@ -254,10 +265,10 @@ class PricesStream(DateWindowedStream):
         if not bookmark_date:
             return True  # No bookmark, include all
         
-        record_date = record.get(self.replication_key)
+        record_date = record.get(self.replication_key)  # date_modified
         if not record_date:
             # If no date_modified, exclude it (shouldn't happen, but be safe)
-            self.logger.debug(f"[{self.name}] Record missing date_modified, excluding")
+            self.logger.debug(f"[{self.name}] Record missing {self.replication_key}, excluding")
             return False
         
         # Parse bookmark date if it's a string
@@ -345,12 +356,15 @@ class PricesStream(DateWindowedStream):
         """
         params: dict[str, t.Any] = {
             "count": self.default_count,
-            self.date_param_name: window_start.strftime("%Y-%m-%dT%H:%M:%S"),
+            # dateModified should be ISO 8601 format with timezone (Z for UTC)
+            self.date_param_name: window_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
         
         # Price API uses lastId pagination
-        if self.use_last_id_pagination:
-            params[self.last_id_param] = last_id if last_id else "0"
+        # According to docs: "the ID of the last item from the previous page"
+        # For first page, omit lastId parameter (don't send "0")
+        if self.use_last_id_pagination and last_id:
+            params[self.last_id_param] = last_id
         
         return params
 
