@@ -83,14 +83,46 @@ class PricesStream(DateWindowedStream):
             shop_ids = [None]  # None means fetch all shops
         
         # Get bookmark for replication key filtering
-        bookmark_date = self.get_starting_timestamp(context)
-        start_date = self._get_start_date(context)
+        bookmark_raw = self.get_starting_timestamp(context)
+        bookmark_date = bookmark_raw
+        
+        # Parse bookmark if it's a string
+        if bookmark_date and isinstance(bookmark_date, str):
+            try:
+                bookmark_date = datetime.fromisoformat(bookmark_date.replace("Z", "+00:00"))
+            except (ValueError, TypeError):
+                self.logger.warning(f"[{self.name}] Could not parse bookmark: {bookmark_raw}")
+                bookmark_date = None
+        
+        # For API query, use bookmark date (or go back 1 day for safety to catch boundary records)
+        # But we'll filter records strictly by bookmark in _should_include_record
+        if bookmark_date:
+            # Remove timezone for API query (API expects naive datetime)
+            if hasattr(bookmark_date, "tzinfo") and bookmark_date.tzinfo:
+                bookmark_date_naive = bookmark_date.replace(tzinfo=None)
+            else:
+                bookmark_date_naive = bookmark_date
+            
+            # Go back 1 day for API query to catch records at boundary, but filter strictly
+            from datetime import timedelta
+            start_date = bookmark_date_naive - timedelta(days=1)
+            start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        else:
+            start_date = self._get_start_date(context)
+        
         end_date = datetime.now()
         
         self.logger.info(
             f"[{self.name}] Starting date-windowed sync from {start_date.date()} "
             f"to {end_date.date()} with {self.date_window_days}-day windows"
         )
+        if bookmark_date:
+            bookmark_str = bookmark_date.isoformat() if hasattr(bookmark_date, 'isoformat') else str(bookmark_date)
+            self.logger.info(
+                f"[{self.name}] Bookmark date: {bookmark_str}, filtering records >= bookmark"
+            )
+        else:
+            self.logger.info(f"[{self.name}] No bookmark found - will fetch all records")
         
         # Iterate through shops
         for shop_id in shop_ids:
@@ -152,13 +184,24 @@ class PricesStream(DateWindowedStream):
                         break
                     
                     # Flatten and filter records
+                    filtered_count = 0
+                    included_count = 0
                     for price_rule in price_rules:
                         for record in self._flatten_price_rule(price_rule):
                             # Filter by replication key
                             if self._should_include_record(record, bookmark_date):
+                                included_count += 1
                                 total_records += 1
                                 window_records += 1
                                 yield record
+                            else:
+                                filtered_count += 1
+                    
+                    if filtered_count > 0 or (bookmark_date and included_count > 0):
+                        self.logger.info(
+                            f"[{self.name}] Page: included {included_count}, filtered {filtered_count} "
+                            f"(bookmark: {bookmark_date.isoformat() if bookmark_date and hasattr(bookmark_date, 'isoformat') else bookmark_date})"
+                        )
                     
                     # Get lastId from last price rule (not flattened record)
                     last_rule = price_rules[-1]
@@ -186,7 +229,7 @@ class PricesStream(DateWindowedStream):
                 f"[{self.name}] Shop {shop_id or 'all'} complete: {total_records} total records"
             )
 
-    def _should_include_record(self, record: dict, bookmark_date: datetime | None) -> bool:
+    def _should_include_record(self, record: dict, bookmark_date: datetime | str | None) -> bool:
         """Check if record should be included based on replication key.
         
         Args:
@@ -201,31 +244,67 @@ class PricesStream(DateWindowedStream):
         
         record_date = record.get(self.replication_key)
         if not record_date:
-            # If no date_modified, include it (will be set to current time in post_process)
-            return True
+            # If no date_modified, exclude it (shouldn't happen, but be safe)
+            self.logger.debug(f"[{self.name}] Record missing date_modified, excluding")
+            return False
+        
+        # Parse bookmark date if it's a string
+        if isinstance(bookmark_date, str):
+            try:
+                bookmark_date = datetime.fromisoformat(bookmark_date.replace("Z", "+00:00"))
+            except (ValueError, TypeError):
+                self.logger.warning(f"[{self.name}] Could not parse bookmark date: {bookmark_date}")
+                return True  # Include if we can't parse bookmark
+        
+        # Remove timezone from bookmark for comparison (make naive)
+        if hasattr(bookmark_date, "tzinfo") and bookmark_date.tzinfo:
+            bookmark_date_naive = bookmark_date.replace(tzinfo=None)
+        else:
+            bookmark_date_naive = bookmark_date
         
         # Parse record date if it's a string
         if isinstance(record_date, str):
             try:
                 # Try ISO format first
                 if "T" in record_date or "+" in record_date or "Z" in record_date:
-                    record_date = datetime.fromisoformat(record_date.replace("Z", "+00:00"))
+                    record_date_parsed = datetime.fromisoformat(record_date.replace("Z", "+00:00"))
                 else:
                     # Try date-only format
-                    record_date = datetime.strptime(record_date, "%Y-%m-%d")
+                    record_date_parsed = datetime.strptime(record_date, "%Y-%m-%d")
             except (ValueError, TypeError):
-                # If we can't parse it, include it to be safe
-                return True
+                self.logger.debug(f"[{self.name}] Could not parse record date: {record_date}, excluding")
+                return False
+        else:
+            record_date_parsed = record_date
         
-        # Compare dates - include if record is newer than bookmark
-        if isinstance(bookmark_date, str):
-            try:
-                bookmark_date = datetime.fromisoformat(bookmark_date.replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                return True
+        # Remove timezone from record date for comparison (make naive)
+        if hasattr(record_date_parsed, "tzinfo") and record_date_parsed.tzinfo:
+            record_date_naive = record_date_parsed.replace(tzinfo=None)
+        else:
+            record_date_naive = record_date_parsed
         
-        # Include if record date is >= bookmark date
-        return record_date >= bookmark_date
+        # Include if record date is >= bookmark date (strict comparison)
+        should_include = record_date_naive >= bookmark_date_naive
+        
+        # Log first few comparisons for debugging
+        if hasattr(self, '_debug_count'):
+            self._debug_count += 1
+        else:
+            self._debug_count = 1
+        
+        if self._debug_count <= 5:
+            self.logger.info(
+                f"[{self.name}] Record comparison #{self._debug_count}: "
+                f"record_date={record_date_naive}, bookmark={bookmark_date_naive}, "
+                f"include={should_include}"
+            )
+        
+        if not should_include:
+            self.logger.debug(
+                f"[{self.name}] Excluding record: {record_date_naive} < {bookmark_date_naive}"
+            )
+        
+        return should_include
 
     def _get_window_params(
         self,
@@ -238,6 +317,10 @@ class PricesStream(DateWindowedStream):
         
         Overrides DateWindowedStream._get_window_params to use dateModified
         instead of dateFrom, and handle lastId pagination.
+        
+        Note: The API's dateModified filter filters by rule-level dateModified,
+        but many rules have dateModified=None. We still use it for the API query,
+        but rely on client-side filtering of individual prices by their dateCreated.
         
         Args:
             window_start: Start of the date window.
@@ -280,7 +363,16 @@ class PricesStream(DateWindowedStream):
         if not prices:
             return
 
+        # Get rule-level dateModified (if available) - use for API filtering
+        rule_date_modified = price_rule.get("dateModified")
+        
         for price in prices:
+            # Use price's dateCreated as date_modified since prices don't have dateModified
+            # The rule's dateModified is used for API filtering, but individual prices
+            # use their dateCreated for replication key comparison
+            price_date_created = price.get("dateCreated")
+            price_date_modified = price.get("dateModified")
+            
             record = {
                 "sku_tilroy_id": sku.get("tilroyId"),
                 "sku_source_id": sku.get("sourceId"),
@@ -293,8 +385,10 @@ class PricesStream(DateWindowedStream):
                 "label_type": price.get("labelType"),
                 "end_date": price.get("endDate"),
                 "start_date": price.get("startDate"),
-                "date_created": price.get("dateCreated"),
-                "date_modified": price.get("dateModified"),
+                "date_created": price_date_created,
+                # Use price's dateModified if available, otherwise use dateCreated
+                # (prices typically don't have dateModified, so this will be dateCreated)
+                "date_modified": price_date_modified or price_date_created,
                 "tenant_id": tenant_id,
                 "shop_tilroy_id": shop.get("tilroyId"),
                 "shop_number": shop.get("number"),
@@ -303,10 +397,14 @@ class PricesStream(DateWindowedStream):
             }
 
             # Ensure date_modified is set (required for replication)
+            # This should only happen if both dateModified and dateCreated are missing
             if not record["date_modified"]:
-                record["date_modified"] = (
-                    record.get("date_created") or datetime.utcnow().isoformat()
+                # If no date at all, exclude this record (shouldn't happen in real data)
+                self.logger.warning(
+                    f"[{self.name}] Price {record['price_tilroy_id']} has no date_created or date_modified, "
+                    "setting to current time (will be included)"
                 )
+                record["date_modified"] = datetime.utcnow().isoformat()
 
             processed = self.post_process(record, None)
             if processed:
