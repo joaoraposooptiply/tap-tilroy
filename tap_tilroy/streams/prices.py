@@ -135,9 +135,13 @@ class PricesStream(DateWindowedStream):
         # Single pass per shop: paginate with count + shopId + lastId only.
         # No date windowing - API returns full set per shop; windowing caused
         # re-fetching the same data hundreds of times (millions of duplicate records).
-        for shop_id in shop_ids:
-            if shop_id:
-                self.logger.info(f"[{self.name}] Processing shop_id={shop_id}")
+        shop_numbers = getattr(self._tap, "_resolved_shop_numbers", []) or []
+        for idx, shop_id in enumerate(shop_ids):
+            shop_number = shop_numbers[idx] if idx < len(shop_numbers) else None
+            if shop_id is not None:
+                self.logger.info(
+                    f"[{self.name}] Starting shop_id={shop_id} (shop_number={shop_number})"
+                )
             else:
                 self.logger.info(f"[{self.name}] Processing all shops")
             
@@ -151,8 +155,8 @@ class PricesStream(DateWindowedStream):
                 }
                 if last_id:
                     params[self.last_id_param] = last_id
-                if shop_id:
-                    params["shopId"] = shop_id
+                if shop_id is not None:
+                    params["shopId"] = int(shop_id)
                 # Only send dateModified when we have a bookmark (incremental)
                 if bookmark_date:
                     params[self.date_param_name] = start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -193,6 +197,10 @@ class PricesStream(DateWindowedStream):
                 for price_rule in price_rules:
                     for record in self._flatten_price_rule(price_rule):
                         record["date_modified"] = current_sync_time_str
+                        # Tag record with the shop we requested (API may omit shop in response)
+                        if shop_id is not None:
+                            record["shop_tilroy_id"] = shop_id
+                            record["shop_number"] = shop_number
                         if self._should_include_record(record, bookmark_date):
                             included_count += 1
                             total_records += 1
