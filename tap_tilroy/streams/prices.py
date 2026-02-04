@@ -157,9 +157,9 @@ class PricesStream(DateWindowedStream):
                     params[self.last_id_param] = last_id
                 if shop_id is not None:
                     params["shopId"] = int(shop_id)
-                # Only send dateModified when we have a bookmark (incremental)
-                if bookmark_date:
-                    params[self.date_param_name] = start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+                # Do NOT send dateModified: the API returns empty for some shops (e.g. 1672)
+                # when dateModified is set. We always fetch full data per shop and filter
+                # by bookmark client-side in _should_include_record.
                 
                 self.logger.debug(f"[{self.name}] Request params: {params}")
                 
