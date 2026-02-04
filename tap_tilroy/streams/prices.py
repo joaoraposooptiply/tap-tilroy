@@ -135,6 +135,10 @@ class PricesStream(DateWindowedStream):
         # Single pass per shop: paginate with count + shopId + lastId only.
         # No date windowing - API returns full set per shop; windowing caused
         # re-fetching the same data hundreds of times (millions of duplicate records).
+        #
+        # For each shop we RESET pagination (last_id=None), fetch ALL pages for that
+        # shop, yield records, then move to the next shop. Final output = concat of
+        # all shops (1656 records, then 1672 records, etc.).
         shop_numbers = getattr(self._tap, "_resolved_shop_numbers", []) or []
         for idx, shop_id in enumerate(shop_ids):
             shop_number = shop_numbers[idx] if idx < len(shop_numbers) else None
@@ -144,7 +148,8 @@ class PricesStream(DateWindowedStream):
                 )
             else:
                 self.logger.info(f"[{self.name}] Processing all shops")
-            
+
+            # Reset pagination for this shop (do not carry lastId from previous shop).
             total_records = 0
             last_id: str | None = None
             page_num = 0
@@ -160,33 +165,52 @@ class PricesStream(DateWindowedStream):
                 # Do NOT send dateModified: the API returns empty for some shops (e.g. 1672)
                 # when dateModified is set. We always fetch full data per shop and filter
                 # by bookmark client-side in _should_include_record.
-                
+
+                # Log exact first request per shop so we can verify what is sent (no dateModified).
+                if page_num == 0:
+                    base = self.url_base.rstrip("/")
+                    path = self.path
+                    qs = "&".join(f"{k}={v}" for k, v in sorted(params.items()))
+                    self.logger.info(
+                        f"[{self.name}] First request for shop_id={shop_id}: "
+                        f"GET {base}{path}?{qs}"
+                    )
+
                 self.logger.debug(f"[{self.name}] Request params: {params}")
-                
+
                 prepared_request = self.build_prepared_request(
                     method="GET",
                     url=self.get_url(context),
                     params=params,
                     headers=self.http_headers,
                 )
-                
+
                 try:
                     response = self._request(prepared_request, context)
                 except Exception as e:
                     self.logger.error(f"[{self.name}] Request failed: {e}")
                     break
-                
+
                 if response.status_code != 200:
                     self.logger.error(
                         f"[{self.name}] API error {response.status_code}: {response.text[:500]}"
                     )
                     break
-                
-                price_rules = list(super(DateWindowedStream, self).parse_response(response))
+
+                price_rules = list(self._parse_price_rules_response(response))
                 page_count = len(price_rules)
                 page_num += 1
-                
+
                 if not price_rules:
+                    # Log response body when API returns 0 rules so we can see if it's [] or a wrapper/error.
+                    try:
+                        body_preview = (response.text or "")[:500]
+                        self.logger.warning(
+                            f"[{self.name}] Shop {shop_id} returned 0 rules. "
+                            f"Response body (first 500 chars): {body_preview!r}"
+                        )
+                    except Exception:
+                        pass
                     break
                 
                 current_sync_time = datetime.utcnow()
@@ -229,6 +253,25 @@ class PricesStream(DateWindowedStream):
             self.logger.info(
                 f"[{self.name}] Shop {shop_id or 'all'} complete: {total_records} total records"
             )
+
+    def _parse_price_rules_response(self, response) -> t.Iterable[dict]:
+        """Parse price rules from response; handle both raw array and wrapped {data: [...]}."""
+        parsed = list(super(DateWindowedStream, self).parse_response(response))
+        if parsed:
+            return parsed
+        try:
+            data = response.json()
+        except Exception:
+            return []
+        if isinstance(data, dict):
+            for key in ("data", "items", "results", "rules"):
+                arr = data.get(key)
+                if isinstance(arr, list):
+                    self.logger.info(
+                        f"[{self.name}] Response was wrapped in key {key!r}, using {len(arr)} items"
+                    )
+                    return arr
+        return []
 
     def _should_include_record(self, record: dict, bookmark_date: datetime | str | None) -> bool:
         """Check if record should be included based on replication key.
