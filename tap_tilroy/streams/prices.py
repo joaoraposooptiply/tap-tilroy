@@ -25,9 +25,8 @@ class PricesStream(DateWindowedStream):
     name = "prices"
     path = "/priceapi/production/price/rules"
     primary_keys: t.ClassVar[list[str]] = ["sku_tilroy_id", "price_tilroy_id", "type"]
-    # Note: The API doesn't track dateModified for price rules, so we can't do true incremental sync.
-    # We keep using date_modified but set it to current sync time to ensure bookmark advances.
-    # This means we'll re-fetch records on each sync, but only from a limited recent window.
+    # We use the API's dateModified (or dateCreated) as date_modified; filter client-side by
+    # bookmark so only records with date_modified >= bookmark are emitted (incremental).
     replication_key = "date_modified"
     replication_method = "INCREMENTAL"
     records_jsonpath = "$[*]"
@@ -213,14 +212,13 @@ class PricesStream(DateWindowedStream):
                         pass
                     break
                 
-                current_sync_time = datetime.utcnow()
-                current_sync_time_str = current_sync_time.isoformat() + "Z"
                 included_count = 0
                 filtered_count = 0
                 
                 for price_rule in price_rules:
                     for record in self._flatten_price_rule(price_rule):
-                        record["date_modified"] = current_sync_time_str
+                        # Use API's date_modified from _flatten_price_rule for replication key
+                        # (do not overwrite with sync time — that caused full sync every run)
                         # Tag record with the shop we requested (API may omit shop in response)
                         if shop_id is not None:
                             record["shop_tilroy_id"] = shop_id

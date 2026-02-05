@@ -42,6 +42,10 @@ STREAM_TYPES: list[type[Stream]] = [
 class TapTilroy(Tap):
     """Tilroy tap for extracting data from the Tilroy API.
 
+    When loading state from a file (e.g. for testing), the file may contain
+    either the state value only ({"bookmarks": {...}}) or a full STATE message
+    ({"type": "STATE", "value": {"bookmarks": {...}}}). Both are accepted.
+
     This tap supports the following streams:
     - products: Product catalog with SKU information
     - shops: Store/location data
@@ -138,6 +142,17 @@ class TapTilroy(Tap):
 
         # Resolve shop mappings if filters are configured
         self._resolve_shop_mappings()
+
+    def load_state(self, state: dict[str, t.Any]) -> None:
+        """Load state, accepting both value-only and full STATE message format.
+
+        When state is read from a file that was saved from a STATE message
+        (e.g. for local testing), it may be {"type": "STATE", "value": {...}}.
+        The SDK expects {"bookmarks": {...}}. We unwrap so both work.
+        """
+        if isinstance(state, dict) and "value" in state and "bookmarks" not in state:
+            state = state.get("value") or state
+        super().load_state(state)
 
     def _write_config(self) -> None:
         """Write current config back to the config file.
