@@ -16,11 +16,9 @@ if t.TYPE_CHECKING:
 class PricesStream(DateWindowedStream):
     """Stream for Tilroy price rules.
 
-    Uses GET /price/rules with lastId pagination and no shopId filter, so we get
-    all rules (tenant-level standard prices and shop-specific promos). One full
-    pagination pass, no date windowing. Flattens nested price structures into
-    individual records; shop_tilroy_id/shop_number come from the API (null for
-    tenant-level rules).
+    Uses GET /price/rules with lastId pagination, no shopId (always unfiltered).
+    One pass for all rules (tenant-level standard + shop-specific promos).
+    shop_tilroy_id/shop_number come from the API (null for tenant-level rules).
     """
 
     name = "prices"
@@ -65,95 +63,55 @@ class PricesStream(DateWindowedStream):
     ).to_dict()
 
     def request_records(self, context: Context | None) -> t.Iterable[dict]:
-        """Request records using date windowing with shop iteration.
-        
-        Overrides DateWindowedStream.request_records to handle shop filtering,
-        proper replication key filtering on flattened records, and correct
-        lastId pagination (which needs to come from price rules, not flattened records).
-        
-        Args:
-            context: Stream partition context.
-            
-        Yields:
-            Records from the API that meet replication key criteria.
-        """
-        # Do not filter by shopId: GET /price/rules with no shopId returns all price rules
-        # (tenant-level standard prices and shop-specific promos). Filtering by shopId
-        # would exclude tenant-level rules, so we use a single pass with no shop filter.
-
-        # Get bookmark for replication key filtering
+        """Request all price rules (unfiltered): GET /price/rules with lastId pagination."""
         bookmark_raw = self.get_starting_timestamp(context)
         bookmark_date = bookmark_raw
-        
-        # Parse bookmark if it's a string
+
         if bookmark_date and isinstance(bookmark_date, str):
             try:
                 bookmark_date = datetime.fromisoformat(bookmark_date.replace("Z", "+00:00"))
             except (ValueError, TypeError):
                 self.logger.warning(f"[{self.name}] Could not parse bookmark: {bookmark_raw}")
                 bookmark_date = None
-        
-        # Get start date for API query
-        # - No bookmark: Use _get_start_date (from config or default 2010-01-01) = full sync
-        # - With bookmark: Use bookmark date as start = incremental sync since bookmark
+
         if bookmark_date:
-            # Remove timezone for API query (API expects naive datetime)
             if hasattr(bookmark_date, "tzinfo") and bookmark_date.tzinfo:
                 bookmark_date_naive = bookmark_date.replace(tzinfo=None)
             else:
                 bookmark_date_naive = bookmark_date
-            
-            # Use bookmark date as start date for incremental sync
             start_date = bookmark_date_naive.replace(hour=0, minute=0, second=0, microsecond=0)
-            
             self.logger.info(
                 f"[{self.name}] Bookmark exists ({bookmark_date_naive.date()}), "
                 f"starting sync from bookmark date: {start_date.date()}"
             )
         else:
-            bookmark_date_naive = None
-            # No bookmark = full sync, use config start_date or default
             start_date = self._get_start_date(context)
-            
-            self.logger.info(
-                f"[{self.name}] No bookmark found - full sync from {start_date.date()}"
-            )
-        
-        self.logger.info(
-            f"[{self.name}] Single pass, no shop filter (all price rules). "
-            f"Start date for API: {start_date.date()}"
-        )
+            self.logger.info(f"[{self.name}] No bookmark found - full sync from {start_date.date()}")
+
         if bookmark_date:
-            bookmark_str = bookmark_date.isoformat() if hasattr(bookmark_date, 'isoformat') else str(bookmark_date)
-            self.logger.info(
-                f"[{self.name}] Bookmark date: {bookmark_str}, filtering records >= bookmark"
-            )
+            bookmark_str = bookmark_date.isoformat() if hasattr(bookmark_date, "isoformat") else str(bookmark_date)
+            self.logger.info(f"[{self.name}] Bookmark date: {bookmark_str}, filtering records >= bookmark")
         else:
             self.logger.info(f"[{self.name}] No bookmark - full sync, all records included")
 
-        self.logger.info(f"[{self.name}] Fetching all price rules (no shopId) for standard + shop-specific prices")
+        self.logger.info(f"[{self.name}] GET /price/rules (unfiltered, no shopId), lastId pagination")
 
         total_records = 0
         last_id: str | None = None
         page_num = 0
-        retried_this_shop = False
+        retried = False
 
         while True:
-            params: dict[str, t.Any] = {
-                "count": self.default_count,
-            }
+            params: dict[str, t.Any] = {"count": self.default_count}
             if last_id:
                 params[self.last_id_param] = last_id
-            # Do NOT send shopId: we need tenant-level (standard) prices; API only returns those when not filtering by shop.
-            # Do NOT send dateModified: the API returns empty for some shops when dateModified is set.
+            # Do NOT send shopId or dateModified.
 
             if page_num == 0:
                 base = self.url_base.rstrip("/")
                 path = self.path
                 qs = "&".join(f"{k}={v}" for k, v in sorted(params.items()))
-                self.logger.info(
-                    f"[{self.name}] First request: GET {base}{path}?{qs}"
-                )
+                self.logger.info(f"[{self.name}] First request: GET {base}{path}?{qs}")
 
             self.logger.debug(f"[{self.name}] Request params: {params}")
 
@@ -189,8 +147,8 @@ class PricesStream(DateWindowedStream):
                     )
                 except Exception:
                     pass
-                if page_num == 1 and not retried_this_shop:
-                    retried_this_shop = True
+                if page_num == 1 and not retried:
+                    retried = True
                     self.logger.warning(f"[{self.name}] Retrying request once")
                     continue
                 break
@@ -225,9 +183,7 @@ class PricesStream(DateWindowedStream):
             if page_count < self.default_count:
                 break
 
-        self.logger.info(
-            f"[{self.name}] Complete: {total_records} total records"
-        )
+        self.logger.info(f"[{self.name}] Complete: {total_records} total records")
 
     def _parse_price_rules_response(self, response) -> t.Iterable[dict]:
         """Parse price rules from response; handle both raw array and wrapped {data: [...]}."""
