@@ -16,10 +16,11 @@ if t.TYPE_CHECKING:
 class PricesStream(DateWindowedStream):
     """Stream for Tilroy price rules.
 
-    Uses /price/rules endpoint with lastId pagination. One full pagination
-    pass per shop (no date windowing) to avoid re-fetching the same data.
-    Flattens nested price structures into individual records.
-    Iterates through shop_ids from tap config (shopId per request).
+    Uses GET /price/rules with lastId pagination and no shopId filter, so we get
+    all rules (tenant-level standard prices and shop-specific promos). One full
+    pagination pass, no date windowing. Flattens nested price structures into
+    individual records; shop_tilroy_id/shop_number come from the API (null for
+    tenant-level rules).
     """
 
     name = "prices"
@@ -76,11 +77,10 @@ class PricesStream(DateWindowedStream):
         Yields:
             Records from the API that meet replication key criteria.
         """
-        # Get shop IDs to iterate through
-        shop_ids = getattr(self._tap, "_resolved_shop_ids", [])
-        if not shop_ids:
-            shop_ids = [None]  # None means fetch all shops
-        
+        # Do not filter by shopId: GET /price/rules with no shopId returns all price rules
+        # (tenant-level standard prices and shop-specific promos). Filtering by shopId
+        # would exclude tenant-level rules, so we use a single pass with no shop filter.
+
         # Get bookmark for replication key filtering
         bookmark_raw = self.get_starting_timestamp(context)
         bookmark_date = bookmark_raw
@@ -120,7 +120,7 @@ class PricesStream(DateWindowedStream):
             )
         
         self.logger.info(
-            f"[{self.name}] Single pass per shop (no date windowing). "
+            f"[{self.name}] Single pass, no shop filter (all price rules). "
             f"Start date for API: {start_date.date()}"
         )
         if bookmark_date:
@@ -130,127 +130,104 @@ class PricesStream(DateWindowedStream):
             )
         else:
             self.logger.info(f"[{self.name}] No bookmark - full sync, all records included")
-        
-        # Single pass per shop: paginate with count + shopId + lastId only.
-        # No date windowing - API returns full set per shop; windowing caused
-        # re-fetching the same data hundreds of times (millions of duplicate records).
-        #
-        # For each shop we RESET pagination (last_id=None), fetch ALL pages for that
-        # shop, yield records, then move to the next shop. Final output = concat of
-        # all shops (1656 records, then 1672 records, etc.).
-        shop_numbers = getattr(self._tap, "_resolved_shop_numbers", []) or []
-        for idx, shop_id in enumerate(shop_ids):
-            shop_number = shop_numbers[idx] if idx < len(shop_numbers) else None
-            if shop_id is not None:
+
+        self.logger.info(f"[{self.name}] Fetching all price rules (no shopId) for standard + shop-specific prices")
+
+        total_records = 0
+        last_id: str | None = None
+        page_num = 0
+        retried_this_shop = False
+
+        while True:
+            params: dict[str, t.Any] = {
+                "count": self.default_count,
+            }
+            if last_id:
+                params[self.last_id_param] = last_id
+            # Do NOT send shopId: we need tenant-level (standard) prices; API only returns those when not filtering by shop.
+            # Do NOT send dateModified: the API returns empty for some shops when dateModified is set.
+
+            if page_num == 0:
+                base = self.url_base.rstrip("/")
+                path = self.path
+                qs = "&".join(f"{k}={v}" for k, v in sorted(params.items()))
                 self.logger.info(
-                    f"[{self.name}] Starting shop_id={shop_id} (shop_number={shop_number})"
-                )
-            else:
-                self.logger.info(f"[{self.name}] Processing all shops")
-
-            # Reset pagination for this shop (do not carry lastId from previous shop).
-            total_records = 0
-            last_id: str | None = None
-            page_num = 0
-            
-            while True:
-                params: dict[str, t.Any] = {
-                    "count": self.default_count,
-                }
-                if last_id:
-                    params[self.last_id_param] = last_id
-                if shop_id is not None:
-                    params["shopId"] = int(shop_id)
-                # Do NOT send dateModified: the API returns empty for some shops (e.g. 1672)
-                # when dateModified is set. We always fetch full data per shop and filter
-                # by bookmark client-side in _should_include_record.
-
-                # Log exact first request per shop so we can verify what is sent (no dateModified).
-                if page_num == 0:
-                    base = self.url_base.rstrip("/")
-                    path = self.path
-                    qs = "&".join(f"{k}={v}" for k, v in sorted(params.items()))
-                    self.logger.info(
-                        f"[{self.name}] First request for shop_id={shop_id}: "
-                        f"GET {base}{path}?{qs}"
-                    )
-
-                self.logger.debug(f"[{self.name}] Request params: {params}")
-
-                prepared_request = self.build_prepared_request(
-                    method="GET",
-                    url=self.get_url(context),
-                    params=params,
-                    headers=self.http_headers,
+                    f"[{self.name}] First request: GET {base}{path}?{qs}"
                 )
 
-                try:
-                    response = self._request(prepared_request, context)
-                except Exception as e:
-                    self.logger.error(f"[{self.name}] Request failed: {e}")
-                    break
+            self.logger.debug(f"[{self.name}] Request params: {params}")
 
-                if response.status_code != 200:
-                    self.logger.error(
-                        f"[{self.name}] API error {response.status_code}: {response.text[:500]}"
-                    )
-                    break
-
-                price_rules = list(self._parse_price_rules_response(response))
-                page_count = len(price_rules)
-                page_num += 1
-
-                if not price_rules:
-                    # Log response body when API returns 0 rules so we can see if it's [] or a wrapper/error.
-                    try:
-                        body_preview = (response.text or "")[:500]
-                        self.logger.warning(
-                            f"[{self.name}] Shop {shop_id} returned 0 rules. "
-                            f"Response body (first 500 chars): {body_preview!r}"
-                        )
-                    except Exception:
-                        pass
-                    break
-                
-                included_count = 0
-                filtered_count = 0
-                
-                for price_rule in price_rules:
-                    for record in self._flatten_price_rule(price_rule):
-                        # Use API's date_modified from _flatten_price_rule for replication key
-                        # (do not overwrite with sync time — that caused full sync every run)
-                        # Tag record with the shop we requested (API may omit shop in response)
-                        if shop_id is not None:
-                            record["shop_tilroy_id"] = shop_id
-                            record["shop_number"] = shop_number
-                        if self._should_include_record(record, bookmark_date):
-                            included_count += 1
-                            total_records += 1
-                            yield record
-                        else:
-                            filtered_count += 1
-                
-                if page_num <= 3 or page_num % 50 == 0 or page_count < self.default_count:
-                    self.logger.info(
-                        f"[{self.name}] Shop {shop_id} page {page_num}: "
-                        f"{page_count} rules, yielded {included_count} (filtered {filtered_count})"
-                    )
-                
-                last_rule = price_rules[-1]
-                if isinstance(last_rule, dict) and self.last_id_field in last_rule:
-                    last_id = str(last_rule[self.last_id_field])
-                else:
-                    self.logger.warning(
-                        f"[{self.name}] Could not find {self.last_id_field} in last rule"
-                    )
-                    break
-                
-                if page_count < self.default_count:
-                    break
-            
-            self.logger.info(
-                f"[{self.name}] Shop {shop_id or 'all'} complete: {total_records} total records"
+            prepared_request = self.build_prepared_request(
+                method="GET",
+                url=self.get_url(context),
+                params=params,
+                headers=self.http_headers,
             )
+            self.logger.info(f"[{self.name}] Request URL: {prepared_request.url}")
+
+            try:
+                response = self._request(prepared_request, context)
+            except Exception as e:
+                self.logger.error(f"[{self.name}] Request failed: {e}")
+                break
+
+            if response.status_code != 200:
+                self.logger.error(
+                    f"[{self.name}] API error {response.status_code}: {response.text[:500]}"
+                )
+                break
+
+            price_rules = list(self._parse_price_rules_response(response))
+            page_count = len(price_rules)
+            page_num += 1
+
+            if not price_rules:
+                try:
+                    body_preview = (response.text or "")[:500]
+                    self.logger.warning(
+                        f"[{self.name}] Returned 0 rules. Response body (first 500 chars): {body_preview!r}"
+                    )
+                except Exception:
+                    pass
+                if page_num == 1 and not retried_this_shop:
+                    retried_this_shop = True
+                    self.logger.warning(f"[{self.name}] Retrying request once")
+                    continue
+                break
+
+            included_count = 0
+            filtered_count = 0
+
+            for price_rule in price_rules:
+                for record in self._flatten_price_rule(price_rule):
+                    if self._should_include_record(record, bookmark_date):
+                        included_count += 1
+                        total_records += 1
+                        yield record
+                    else:
+                        filtered_count += 1
+
+            if page_num <= 3 or page_num % 50 == 0 or page_count < self.default_count:
+                self.logger.info(
+                    f"[{self.name}] Page {page_num}: {page_count} rules, "
+                    f"yielded {included_count} (filtered {filtered_count})"
+                )
+
+            last_rule = price_rules[-1]
+            if isinstance(last_rule, dict) and self.last_id_field in last_rule:
+                last_id = str(last_rule[self.last_id_field])
+            else:
+                self.logger.warning(
+                    f"[{self.name}] Could not find {self.last_id_field} in last rule"
+                )
+                break
+
+            if page_count < self.default_count:
+                break
+
+        self.logger.info(
+            f"[{self.name}] Complete: {total_records} total records"
+        )
 
     def _parse_price_rules_response(self, response) -> t.Iterable[dict]:
         """Parse price rules from response; handle both raw array and wrapped {data: [...]}."""
