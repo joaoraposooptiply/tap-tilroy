@@ -13,13 +13,17 @@ if t.TYPE_CHECKING:
     from singer_sdk.helpers.types import Context
 
 
+# Full product detail (including sku.code) only from single-product endpoint
+PRODUCT_V2_PATH = "/product-bulk/production/v2/products"
+
+
 class ProductsStream(DynamicRoutingStream):
     """Stream for Tilroy products.
 
-    Uses dynamic routing to switch between historical and incremental endpoints:
-    - First sync (no state): Uses /products for full historical data
-    - Subsequent syncs: Uses /export/products for delta updates
-    
+    Fetches product list from bulk/export, then each product from v2 single-product
+    endpoint so we get full schema including colours[].skus[].code.
+    - First sync (no state): list from /products, then GET v2/products/{id} per product
+    - Subsequent syncs: list from /export/products, then GET v2/products/{id} per product
     Also collects SKU IDs for use by the StockStream.
     """
 
@@ -32,7 +36,8 @@ class ProductsStream(DynamicRoutingStream):
     records_jsonpath = "$[*]"
     default_count = 1000  # Product API allows up to 1000 per page
 
-    # Class-level storage for SKU IDs (shared across instances)
+    # Class-level storage for SKU tilroyIds (shared across instances).
+    # These are colours[].skus[].tilroyId (SKU-level), NOT product tilroyId. Used by prices and stock.
     _collected_sku_ids: t.ClassVar[list[str]] = []
 
     schema = th.PropertiesList(
@@ -63,6 +68,7 @@ class ProductsStream(DynamicRoutingStream):
                             th.ObjectType(
                                 th.Property("tilroyId", th.CustomType({"type": ["string", "integer"]})),
                                 th.Property("sourceId", th.CustomType({"type": ["string", "number", "null"]})),
+                                th.Property("code", th.CustomType({"type": ["string", "number", "null"]})),
                                 th.Property("costPrice", th.NumberType),
                                 th.Property(
                                     "barcodes",
@@ -92,6 +98,77 @@ class ProductsStream(DynamicRoutingStream):
         th.Property("suppliers", th.CustomType({"type": ["array", "object", "string", "null"]})),
         th.Property("extraction_timestamp", th.DateTimeType),
     ).to_dict()
+
+    def request_records(self, context: Context | None) -> t.Iterable[dict]:
+        """Paginate list endpoint, then fetch each product from v2/products/{id} for full schema (incl. sku.code)."""
+        page = 1
+        total_yielded = 0
+        list_path = self.path  # historical or incremental from DynamicRoutingStream
+
+        while True:
+            params = self.get_url_params(context, page)
+            list_url = f"{self.url_base.rstrip('/')}{list_path}"
+            prepared = self.build_prepared_request(
+                method="GET",
+                url=list_url,
+                params=params,
+                headers=self.http_headers,
+            )
+            self.logger.info(
+                f"[{self.name}] List page {page}: GET {list_url} (params: count, page, date)"
+            )
+            try:
+                response = self._request(prepared, context)
+            except Exception as e:
+                self.logger.error(f"[{self.name}] List request failed: {e}")
+                break
+            if response.status_code != 200:
+                self.logger.error(
+                    f"[{self.name}] List API error {response.status_code}: {response.text[:500]}"
+                )
+                break
+
+            records = list(self.parse_response(response))
+            page_count = len(records)
+
+            for product in records:
+                tilroy_id = product.get("tilroyId")
+                if tilroy_id is None:
+                    continue
+                single_url = f"{self.url_base.rstrip('/')}{PRODUCT_V2_PATH}/{tilroy_id}"
+                single_prepared = self.build_prepared_request(
+                    method="GET",
+                    url=single_url,
+                    params={},
+                    headers=self.http_headers,
+                )
+                try:
+                    single_response = self._request(single_prepared, context)
+                except Exception as e:
+                    self.logger.warning(
+                        f"[{self.name}] Single product {tilroy_id} failed: {e}"
+                    )
+                    continue
+                if single_response.status_code != 200:
+                    self.logger.warning(
+                        f"[{self.name}] Single product {tilroy_id}: {single_response.status_code}"
+                    )
+                    continue
+                try:
+                    full_product = single_response.json()
+                except Exception:
+                    continue
+                if isinstance(full_product, dict) and full_product.get("tilroyId") is not None:
+                    processed = self.post_process(full_product, context)
+                    if processed:
+                        total_yielded += 1
+                        yield processed
+
+            if page_count < self.default_count:
+                break
+            page += 1
+
+        self.logger.info(f"[{self.name}] Fetched {total_yielded} products (full detail from v2/products/{{id}})")
 
     def post_process(
         self,
@@ -129,6 +206,7 @@ class ProductsStream(DynamicRoutingStream):
                 continue
 
             for sku in skus:
+                # SKU-level tilroyId (required for /price/rules/{skuTilroyId} and stock)
                 sku_id = sku.get("tilroyId")
                 if sku_id:
                     sku_id_str = str(sku_id)
