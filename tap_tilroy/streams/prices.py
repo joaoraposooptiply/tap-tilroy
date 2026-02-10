@@ -42,10 +42,6 @@ class PricesStream(DateWindowedStream):
     last_id_field = "tilroyId"
     last_id_param = "lastId"
 
-    # Safety caps
-    max_records: int = 500_000
-    max_pages: int = 10_000
-
     schema = th.PropertiesList(
         th.Property("sku_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
         th.Property("sku_source_id", th.CustomType({"type": ["string", "number", "null"]})),
@@ -99,29 +95,13 @@ class PricesStream(DateWindowedStream):
         else:
             self.logger.info(f"[{self.name}] No bookmark - full sync, all records included")
 
-        self.logger.info(
-            f"[{self.name}] GET /price/rules (unfiltered, no shopId), page pagination "
-            f"(max_records={self.max_records}, max_pages={self.max_pages})"
-        )
+        self.logger.info(f"[{self.name}] GET /price/rules (unfiltered, no shopId), page pagination")
 
         total_records = 0
         page_num = 1  # API page is 1-based
         retried = False
 
         while True:
-            if page_num > self.max_pages:
-                self.logger.error(
-                    f"[{self.name}] Stopping: hit max_pages={self.max_pages}. "
-                    "Increase PricesStream.max_pages if needed."
-                )
-                break
-            if total_records >= self.max_records:
-                self.logger.error(
-                    f"[{self.name}] Stopping: hit max_records={self.max_records}. "
-                    "Increase PricesStream.max_records if needed."
-                )
-                break
-
             params: dict[str, t.Any] = {"count": self.default_count, "page": page_num}
             # Do NOT send shopId or dateModified.
 
