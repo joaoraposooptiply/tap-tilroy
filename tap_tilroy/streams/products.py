@@ -240,6 +240,229 @@ class ProductsStream(DynamicRoutingStream):
         )
 
 
+class ProductDetailsStream(DynamicRoutingStream):
+    """Stream for full product detail from singular GET v2/products/{id} only.
+
+    Uses the same list endpoint as ProductsStream to get product IDs, then
+    fetches each product via GET v2/products/{id} and emits the full API response.
+    Schema includes all singular-response fields (sku.code, size.sizeOrder/skuCode,
+    pictures, descriptions.web/seoTitle, etc.) so targets do not strip them.
+
+    Requires the normal products stream to be run (e.g. for SKU collection used
+    by stock/prices). Select both streams when you need full product detail in
+    addition to the standard products stream.
+    """
+
+    name = "product_details"
+    historical_path = "/product-bulk/production/products"
+    incremental_path = "/product-bulk/production/export/products"
+    primary_keys: t.ClassVar[list[str]] = ["tilroyId"]
+    replication_key = "extraction_timestamp"
+    replication_method = "INCREMENTAL"
+    records_jsonpath = "$[*]"
+    default_count = 1000
+
+    # Full singular-response schema so no fields are dropped by schema validation
+    schema = th.PropertiesList(
+        th.Property("tilroyId", th.CustomType({"type": ["string", "integer"]})),
+        th.Property("sourceId", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("code", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("codeAlt", th.StringType),
+        th.Property("serialNumberSale", th.BooleanType),
+        th.Property("supplierReference", th.StringType),
+        th.Property("supplierDescription", th.StringType),
+        th.Property("visibleOnline", th.BooleanType),
+        th.Property("priceInfo", th.StringType),
+        th.Property("nextSaleDiscounts", th.ObjectType()),
+        th.Property(
+            "descriptions",
+            th.ArrayType(
+                th.ObjectType(
+                    th.Property("languageCode", th.StringType),
+                    th.Property("standard", th.StringType),
+                    th.Property("web", th.StringType),
+                    th.Property("webName", th.StringType),
+                    th.Property("seoTitle", th.StringType),
+                    th.Property("seoDescription", th.StringType),
+                    th.Property("ticket", th.StringType),
+                    th.Property("webShort", th.StringType),
+                    th.Property("priceLabelDescription", th.StringType),
+                    th.Property("canonicalUrl", th.StringType),
+                    th.Property("videoPath", th.StringType),
+                    th.Property("freeTexts", th.ArrayType(th.StringType)),
+                )
+            ),
+        ),
+        th.Property("supplier", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("brand", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("uom", th.ObjectType(
+            th.Property("code", th.StringType),
+            th.Property("showOnline", th.BooleanType),
+        )),
+        th.Property("sizeRange", th.CustomType({"type": ["object", "null"]})),
+        th.Property("countryVats", th.ArrayType(th.ObjectType())),
+        th.Property("gender", th.CustomType({"type": ["object", "null"]})),
+        th.Property("groupLevels", th.ArrayType(th.ObjectType())),
+        th.Property(
+            "colours",
+            th.ArrayType(
+                th.ObjectType(
+                    th.Property("tilroyId", th.CustomType({"type": ["string", "integer", "null"]})),
+                    th.Property("sourceId", th.CustomType({"type": ["string", "number", "null"]})),
+                    th.Property("code", th.CustomType({"type": ["string", "number", "null"]})),
+                    th.Property("supplierReference", th.StringType),
+                    th.Property("baseColour", th.CustomType({"type": ["object", "null"]})),
+                    th.Property("descriptions", th.ArrayType(th.ObjectType())),
+                    th.Property("productColourDescriptions", th.ArrayType(th.ObjectType())),
+                    th.Property("season", th.CustomType({"type": ["object", "null"]})),
+                    th.Property(
+                        "skus",
+                        th.ArrayType(
+                            th.ObjectType(
+                                th.Property("tilroyId", th.CustomType({"type": ["string", "integer"]})),
+                                th.Property("sourceId", th.CustomType({"type": ["string", "number", "null"]})),
+                                th.Property("code", th.CustomType({"type": ["string", "number", "null"]})),
+                                th.Property("consumerPrice", th.NumberType),
+                                th.Property("costPrice", th.NumberType),
+                                th.Property("maxDiscount", th.NumberType),
+                                th.Property("lifeStatus", th.StringType),
+                                th.Property("wholeSalePrice", th.NumberType),
+                                th.Property("origin", th.StringType),
+                                th.Property("length", th.NumberType),
+                                th.Property("width", th.NumberType),
+                                th.Property("height", th.NumberType),
+                                th.Property("content", th.NumberType),
+                                th.Property("MOQ", th.NumberType),
+                                th.Property("IOQ", th.NumberType),
+                                th.Property(
+                                    "barcodes",
+                                    th.ArrayType(
+                                        th.ObjectType(
+                                            th.Property("code", th.CustomType({"type": ["string", "number", "null"]})),
+                                            th.Property("quantity", th.NumberType),
+                                            th.Property("isInternal", th.BooleanType),
+                                        )
+                                    ),
+                                ),
+                                th.Property(
+                                    "size",
+                                    th.ObjectType(
+                                        th.Property("code", th.CustomType({"type": ["string", "number", "null"]})),
+                                        th.Property("sizeOrder", th.NumberType),
+                                        th.Property("skuCode", th.StringType),
+                                    ),
+                                ),
+                                th.Property("weight", th.CustomType({"type": ["object", "null"]})),
+                            )
+                        ),
+                    ),
+                    th.Property(
+                        "pictures",
+                        th.ArrayType(
+                            th.ObjectType(
+                                th.Property("name", th.StringType),
+                                th.Property("isDefault", th.BooleanType),
+                                th.Property("sortOrder", th.NumberType),
+                                th.Property("swatch", th.BooleanType),
+                                th.Property("showOnline", th.BooleanType),
+                            )
+                        ),
+                    ),
+                )
+            ),
+        ),
+        th.Property("used", th.CustomType({"type": ["object", "null"]})),
+        th.Property("configurator", th.CustomType({"type": ["object", "null"]})),
+        th.Property("readOnly", th.BooleanType),
+        th.Property("deliverynoteAllowed", th.BooleanType),
+        th.Property("extraction_timestamp", th.DateTimeType),
+    ).to_dict()
+
+    def request_records(self, context: Context | None) -> t.Iterable[dict]:
+        """Paginate list endpoint, then fetch each product from v2/products/{id}; emit full response."""
+        page = 1
+        total_yielded = 0
+        list_path = self.path
+
+        while True:
+            params = self.get_url_params(context, page)
+            list_url = f"{self.url_base.rstrip('/')}{list_path}"
+            prepared = self.build_prepared_request(
+                method="GET",
+                url=list_url,
+                params=params,
+                headers=self.http_headers,
+            )
+            self.logger.info(
+                f"[{self.name}] List page {page}: GET {list_url} (params: count, page, date)"
+            )
+            try:
+                response = self._request(prepared, context)
+            except Exception as e:
+                self.logger.error(f"[{self.name}] List request failed: {e}")
+                break
+            if response.status_code != 200:
+                self.logger.error(
+                    f"[{self.name}] List API error {response.status_code}: {response.text[:500]}"
+                )
+                break
+
+            records = list(self.parse_response(response))
+            page_count = len(records)
+
+            for product in records:
+                tilroy_id = product.get("tilroyId")
+                if tilroy_id is None:
+                    continue
+                single_url = f"{self.url_base.rstrip('/')}{PRODUCT_V2_PATH}/{tilroy_id}"
+                single_prepared = self.build_prepared_request(
+                    method="GET",
+                    url=single_url,
+                    params={},
+                    headers=self.http_headers,
+                )
+                try:
+                    single_response = self._request(single_prepared, context)
+                except Exception as e:
+                    self.logger.warning(
+                        f"[{self.name}] Single product {tilroy_id} failed: {e}"
+                    )
+                    continue
+                if single_response.status_code != 200:
+                    self.logger.warning(
+                        f"[{self.name}] Single product {tilroy_id}: {single_response.status_code}"
+                    )
+                    continue
+                try:
+                    full_product = single_response.json()
+                except Exception:
+                    continue
+                if isinstance(full_product, dict) and full_product.get("tilroyId") is not None:
+                    processed = self.post_process(full_product, context)
+                    if processed:
+                        total_yielded += 1
+                        yield processed
+
+            if page_count < self.default_count:
+                break
+            page += 1
+
+        self.logger.info(
+            f"[{self.name}] Fetched {total_yielded} products (full detail from v2/products/{{id}})"
+        )
+
+    def post_process(
+        self,
+        row: dict,
+        context: Context | None = None,
+    ) -> dict | None:
+        """Add extraction_timestamp only; pass through full singular response."""
+        if not row:
+            return None
+        row["extraction_timestamp"] = datetime.utcnow().isoformat()
+        return row
+
+
 class SuppliersStream(TilroyStream):
     """Stream for Tilroy suppliers.
 

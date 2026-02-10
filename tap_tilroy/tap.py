@@ -13,6 +13,7 @@ from singer_sdk.streams import Stream
 
 from tap_tilroy.streams import (
     PricesStream,
+    ProductDetailsStream,
     ProductsStream,
     PurchaseOrdersStream,
     SalesStream,
@@ -24,9 +25,10 @@ from tap_tilroy.streams import (
     TransfersStream,
 )
 
-# Stream types in default order
+# Stream types in default order (products first for SKU collection; product_details after products)
 STREAM_TYPES: list[type[Stream]] = [
     ProductsStream,
+    ProductDetailsStream,
     ShopsStream,
     PurchaseOrdersStream,
     StockChangesStream,
@@ -47,7 +49,8 @@ class TapTilroy(Tap):
     ({"type": "STATE", "value": {"bookmarks": {...}}}). Both are accepted.
 
     This tap supports the following streams:
-    - products: Product catalog with SKU information
+    - products: Product catalog with SKU information (run first for stock/prices)
+    - product_details: Full product detail from singular GET v2/products/{id}; keep products on
     - shops: Store/location data
     - purchase_orders: Purchase order history
     - stock_changes: Inventory movement history (snapshots)
