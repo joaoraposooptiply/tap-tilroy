@@ -2,20 +2,12 @@
 
 from __future__ import annotations
 
-import time
 import typing as t
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from singer_sdk import typing as th
 
 from tap_tilroy.client import DateWindowedStream
-from tap_tilroy.streams.products import ProductsStream
-
-# Retries for per-SKU GET; after all retries exhausted we raise so the job fails.
-PRICE_SKU_REQUEST_RETRIES = 5
-PRICE_SKU_REQUEST_BACKOFF_SEC = 2
-# Per-request timeout (seconds); longer to avoid premature timeouts on slow API.
-PRICE_SKU_REQUEST_TIMEOUT_SEC = 300
 
 if t.TYPE_CHECKING:
     from singer_sdk.helpers.types import Context
@@ -24,38 +16,25 @@ if t.TYPE_CHECKING:
 class PricesStream(DateWindowedStream):
     """Stream for Tilroy price rules.
 
-    Same pattern as products: get IDs from upstream (products collects SKU IDs), then call
-    GET /price/rules/{skuTilroyId} per SKU to get full price rules. Stitch into same CSV schema.
-    Full list endpoint does not return the values we need; per-SKU does. Requires products
-    to run first (tap stream order).
-
-    Note: We do NOT use the list endpoint (/price/rules?count=&page=) here; that endpoint
-    was prone to 504 timeouts and stopped syncs at ~700k records. Per-SKU calls are used
-    exclusively (with retries) to reach full volume (1M+).
+    Uses the list endpoint GET /price/rules with date windowing and page pagination.
+    Each response is a list of price rules; we flatten each rule into records and filter
+    by replication key (date_modified) client-side for incremental sync.
     """
 
     name = "prices"
     path = "/priceapi/production/price/rules"
     primary_keys: t.ClassVar[list[str]] = ["sku_tilroy_id", "price_tilroy_id", "type"]
-    # We use the API's dateModified (or dateCreated) as date_modified; filter client-side by
-    # bookmark so only records with date_modified >= bookmark are emitted (incremental).
     replication_key = "date_modified"
     replication_method = "INCREMENTAL"
     records_jsonpath = "$[*]"
     default_count = 100
 
-    # Date windowing configuration - 7 days at a time to avoid timeouts
     date_window_days = 7
-    use_date_to = False  # Price API doesn't support dateTo, only dateModified
-    date_param_name = "dateModified"  # Price API uses dateModified instead of dateFrom
-    
-    # Page-based pagination (count + page). API supports page or lastId; we use page to avoid lastId issues when no shopId.
+    use_date_to = False
+    date_param_name = "dateModified"
     use_last_id_pagination = False
     last_id_field = "tilroyId"
     last_id_param = "lastId"
-
-    # Longer timeout per request so slow/504-prone API has time to respond before we retry.
-    request_timeout = PRICE_SKU_REQUEST_TIMEOUT_SEC
 
     schema = th.PropertiesList(
         th.Property("sku_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
@@ -79,101 +58,95 @@ class PricesStream(DateWindowedStream):
     ).to_dict()
 
     def request_records(self, context: Context | None) -> t.Iterable[dict]:
-        """Get SKU IDs from products (run first), then GET /price/rules/{skuTilroyId} per SKU; stitch same CSV schema."""
-        sku_ids = ProductsStream.get_collected_sku_ids()
-        if not sku_ids:
-            self.logger.warning(
-                f"[{self.name}] No SKU IDs from products stream. Run products first (tap stream order)."
-            )
-            return
+        """Request records from list endpoint GET /price/rules with date windowing and page pagination."""
+        start_date = self._get_start_date(context)
+        end_date = datetime.now()
+        bookmark_date = self._parse_bookmark(context)
 
-        bookmark_raw = self.get_starting_timestamp(context)
-        bookmark_date = bookmark_raw
-        if bookmark_date and isinstance(bookmark_date, str):
-            try:
-                bookmark_date = datetime.fromisoformat(bookmark_date.replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                self.logger.warning(f"[{self.name}] Could not parse bookmark: {bookmark_raw}")
-                bookmark_date = None
-
+        self.logger.info(
+            f"[{self.name}] Starting date-windowed sync from {start_date.date()} to {end_date.date()} "
+            f"with {self.date_window_days}-day windows, page pagination"
+        )
         if bookmark_date:
-            bookmark_str = bookmark_date.isoformat() if hasattr(bookmark_date, "isoformat") else str(bookmark_date)
-            self.logger.info(f"[{self.name}] Bookmark: {bookmark_str}, filtering records >= bookmark")
+            self.logger.info(f"[{self.name}] Bookmark: {bookmark_date}, filtering records >= bookmark")
         else:
             self.logger.info(f"[{self.name}] No bookmark - full sync, all records included")
 
-        self.logger.info(
-            f"[{self.name}] Fetching price rules per SKU: GET /price/rules/{{skuTilroyId}} for {len(sku_ids)} SKUs"
-        )
-
         total_records = 0
-        base_url = self.url_base.rstrip("/")
-        single_path = f"{self.path}"  # /priceapi/production/price/rules
+        window_start = start_date
 
-        for idx, sku_id in enumerate(sku_ids):
-            url = f"{base_url}{single_path}/{sku_id}"
-            prepared = self.build_prepared_request(
-                method="GET",
-                url=url,
-                params={},
-                headers=self.http_headers,
+        while window_start < end_date:
+            window_end = min(
+                window_start + timedelta(days=self.date_window_days),
+                end_date,
             )
-            if idx <= 2 or (idx + 1) % 500 == 0 or idx == len(sku_ids) - 1:
-                self.logger.info(f"[{self.name}] SKU {idx + 1}/{len(sku_ids)}: GET {url}")
+            self.logger.info(
+                f"[{self.name}] Window {window_start.date()} to {window_end.date()}"
+            )
+            page = 1
+            window_records = 0
 
-            response = None
-            last_exception: Exception | None = None
-            for attempt in range(PRICE_SKU_REQUEST_RETRIES):
+            while True:
+                params = self._get_window_params(window_start, window_end, page, None)
+                prepared = self.build_prepared_request(
+                    method="GET",
+                    url=self.get_url(context),
+                    params=params,
+                    headers=self.http_headers,
+                )
+                self.logger.info(
+                    f"[{self.name}] GET {self.get_url(context)} page={page} count={params.get('count')} "
+                    f"dateModified={params.get(self.date_param_name, '')[:10]}"
+                )
                 try:
                     response = self._request(prepared, context)
                 except Exception as e:
-                    last_exception = e
-                    response = None
-                    if attempt + 1 < PRICE_SKU_REQUEST_RETRIES:
-                        backoff = PRICE_SKU_REQUEST_BACKOFF_SEC * (2**attempt)
-                        self.logger.warning(
-                            f"[{self.name}] SKU {sku_id} request failed (attempt {attempt + 1}/{PRICE_SKU_REQUEST_RETRIES}): {e}; retry in {backoff}s"
-                        )
-                        time.sleep(backoff)
-                    else:
-                        self.logger.error(
-                            f"[{self.name}] SKU {sku_id} request failed after {PRICE_SKU_REQUEST_RETRIES} attempts: {e}"
-                        )
-                    continue
-                if response is not None and response.status_code == 200:
+                    self.logger.error(f"[{self.name}] Request failed: {e}")
                     break
-                if response is not None and response.status_code >= 500 and attempt + 1 < PRICE_SKU_REQUEST_RETRIES:
-                    backoff = PRICE_SKU_REQUEST_BACKOFF_SEC * (2**attempt)
-                    self.logger.warning(
-                        f"[{self.name}] SKU {sku_id}: {response.status_code} (attempt {attempt + 1}/{PRICE_SKU_REQUEST_RETRIES}); retry in {backoff}s"
+                if response.status_code != 200:
+                    self.logger.error(
+                        f"[{self.name}] API error {response.status_code}: {response.text[:500]}"
                     )
-                    time.sleep(backoff)
-                else:
-                    if response is not None:
-                        self.logger.warning(f"[{self.name}] SKU {sku_id}: {response.status_code}")
                     break
-            if response is None or response.status_code != 200:
-                if response is None and last_exception is not None:
-                    raise RuntimeError(
-                        f"[{self.name}] Price sync failed: SKU {sku_id} request failed after "
-                        f"{PRICE_SKU_REQUEST_RETRIES} attempts (e.g. timeout/504). Last error: {last_exception}"
-                    ) from last_exception
-                if response is not None and response.status_code >= 500:
-                    raise RuntimeError(
-                        f"[{self.name}] Price sync failed: SKU {sku_id} returned {response.status_code} "
-                        f"after {PRICE_SKU_REQUEST_RETRIES} attempts. Job cannot continue."
-                    )
-                # 4xx (e.g. 404): skip this SKU
-                continue
 
-            price_rules = list(self._parse_price_rules_response(response))
-            for price_rule in price_rules:
-                for record in self._flatten_price_rule(price_rule, requested_sku_id=str(sku_id)):
-                    if self._should_include_record(record, bookmark_date):
-                        total_records += 1
-                        yield record
+                price_rules = list(self._parse_price_rules_response(response))
+                page_rules = len(price_rules)
+                page_emitted = 0
+                for price_rule in price_rules:
+                    for record in self._flatten_price_rule(price_rule):
+                        if self._should_include_record(record, bookmark_date):
+                            total_records += 1
+                            window_records += 1
+                            page_emitted += 1
+                            yield record
 
-        self.logger.info(f"[{self.name}] Complete: {total_records} total records from {len(sku_ids)} SKUs")
+                self.logger.info(
+                    f"[{self.name}] Window {window_start.date()}-{window_end.date()} page {page}: "
+                    f"{page_rules} rules -> {page_emitted} records (total so far: {total_records})"
+                )
+                if page_rules < self.default_count:
+                    break
+                page += 1
+
+            self.logger.info(
+                f"[{self.name}] Window {window_start.date()}-{window_end.date()} complete: {window_records} records"
+            )
+            window_start = window_end
+
+        self.logger.info(f"[{self.name}] Complete: {total_records} total records")
+
+    def _parse_bookmark(self, context: Context | None) -> datetime | None:
+        """Parse bookmark from context/state into datetime or None."""
+        raw = self.get_starting_timestamp(context)
+        if not raw:
+            return None
+        if isinstance(raw, str):
+            try:
+                return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            except (ValueError, TypeError):
+                self.logger.warning(f"[{self.name}] Could not parse bookmark: {raw}")
+                return None
+        return raw
 
     def _parse_price_rules_response(self, response) -> t.Iterable[dict]:
         """Parse price rules from response; handle raw array, wrapped {data: [...]}, or single rule object."""
@@ -302,16 +275,11 @@ class PricesStream(DateWindowedStream):
         """
         params: dict[str, t.Any] = {
             "count": self.default_count,
-            # dateModified should be ISO 8601 format with timezone (Z for UTC)
             self.date_param_name: window_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "page": page,
         }
-        
-        # Price API uses lastId pagination
-        # According to docs: "the ID of the last item from the previous page"
-        # For first page, omit lastId parameter (don't send "0")
         if self.use_last_id_pagination and last_id:
             params[self.last_id_param] = last_id
-        
         return params
 
     def _flatten_price_rule(

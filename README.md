@@ -57,6 +57,11 @@ environment variable is set either in the terminal context or in the `.env` file
 Developer TODO: If your tap requires special access on the source system, or any special authentication requirements, provide those here.
 -->
 
+## Stream dependencies and prices
+
+- **Products** must run before **prices** and **stock**. The tap sync order ensures products run first; it collects SKU IDs that prices and stock use for per-SKU API calls.
+- **Prices** fetches data via `GET /price/rules/{skuTilroyId}` per SKU (not the list endpoint). The list endpoint `/price/rules?count=&page=` was prone to **504 Gateway Timeout** and could stop syncs at ~700k records; per-SKU fetching with retries is used to reach full volume (1M+). Ensure the **products** stream is selected and runs so that SKU IDs are available for prices.
+
 ## Usage
 
 You can easily run `tap-tilroy` by itself or in a pipeline using [Meltano](https://meltano.com/).
