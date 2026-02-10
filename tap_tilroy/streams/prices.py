@@ -16,7 +16,8 @@ if t.TYPE_CHECKING:
 class PricesStream(DateWindowedStream):
     """Stream for Tilroy price rules.
 
-    Uses GET /price/rules with lastId pagination, no shopId (always unfiltered).
+    Uses GET /price/rules with page-based pagination (count + page), no shopId (always unfiltered).
+    We use page not lastId: API docs allow either; lastId without shopId can loop/break. No dateModified.
     One pass for all rules (tenant-level standard + shop-specific promos).
     shop_tilroy_id/shop_number come from the API (null for tenant-level rules).
     """
@@ -36,10 +37,14 @@ class PricesStream(DateWindowedStream):
     use_date_to = False  # Price API doesn't support dateTo, only dateModified
     date_param_name = "dateModified"  # Price API uses dateModified instead of dateFrom
     
-    # Use lastId pagination for /price/rules endpoint
-    use_last_id_pagination = True
-    last_id_field = "tilroyId"  # Top-level rule ID
+    # Page-based pagination (count + page). API supports page or lastId; we use page to avoid lastId issues when no shopId.
+    use_last_id_pagination = False
+    last_id_field = "tilroyId"
     last_id_param = "lastId"
+
+    # Safety caps
+    max_records: int = 500_000
+    max_pages: int = 10_000
 
     schema = th.PropertiesList(
         th.Property("sku_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
@@ -63,7 +68,7 @@ class PricesStream(DateWindowedStream):
     ).to_dict()
 
     def request_records(self, context: Context | None) -> t.Iterable[dict]:
-        """Request all price rules (unfiltered): GET /price/rules with lastId pagination."""
+        """Request all price rules (unfiltered): GET /price/rules with page-based pagination (count + page)."""
         bookmark_raw = self.get_starting_timestamp(context)
         bookmark_date = bookmark_raw
 
@@ -94,20 +99,33 @@ class PricesStream(DateWindowedStream):
         else:
             self.logger.info(f"[{self.name}] No bookmark - full sync, all records included")
 
-        self.logger.info(f"[{self.name}] GET /price/rules (unfiltered, no shopId), lastId pagination")
+        self.logger.info(
+            f"[{self.name}] GET /price/rules (unfiltered, no shopId), page pagination "
+            f"(max_records={self.max_records}, max_pages={self.max_pages})"
+        )
 
         total_records = 0
-        last_id: str | None = None
-        page_num = 0
+        page_num = 1  # API page is 1-based
         retried = False
 
         while True:
-            params: dict[str, t.Any] = {"count": self.default_count}
-            if last_id:
-                params[self.last_id_param] = last_id
+            if page_num > self.max_pages:
+                self.logger.error(
+                    f"[{self.name}] Stopping: hit max_pages={self.max_pages}. "
+                    "Increase PricesStream.max_pages if needed."
+                )
+                break
+            if total_records >= self.max_records:
+                self.logger.error(
+                    f"[{self.name}] Stopping: hit max_records={self.max_records}. "
+                    "Increase PricesStream.max_records if needed."
+                )
+                break
+
+            params: dict[str, t.Any] = {"count": self.default_count, "page": page_num}
             # Do NOT send shopId or dateModified.
 
-            if page_num == 0:
+            if page_num == 1:
                 base = self.url_base.rstrip("/")
                 path = self.path
                 qs = "&".join(f"{k}={v}" for k, v in sorted(params.items()))
@@ -137,7 +155,6 @@ class PricesStream(DateWindowedStream):
 
             price_rules = list(self._parse_price_rules_response(response))
             page_count = len(price_rules)
-            page_num += 1
 
             if not price_rules:
                 try:
@@ -171,17 +188,10 @@ class PricesStream(DateWindowedStream):
                     f"yielded {included_count} (filtered {filtered_count})"
                 )
 
-            last_rule = price_rules[-1]
-            if isinstance(last_rule, dict) and self.last_id_field in last_rule:
-                last_id = str(last_rule[self.last_id_field])
-            else:
-                self.logger.warning(
-                    f"[{self.name}] Could not find {self.last_id_field} in last rule"
-                )
-                break
-
             if page_count < self.default_count:
                 break
+
+            page_num += 1
 
         self.logger.info(f"[{self.name}] Complete: {total_records} total records")
 
