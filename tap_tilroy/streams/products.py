@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import typing as t
-from datetime import datetime
+from datetime import datetime, timezone
 
 from singer_sdk import typing as th
 
@@ -17,93 +17,14 @@ if t.TYPE_CHECKING:
 PRODUCT_V2_PATH = "/product-bulk/production/v2/products"
 
 
-class ProductsStream(DynamicRoutingStream):
-    """Stream for Tilroy products.
-
-    Fetches product list from bulk/export, then each product from v2 single-product
-    endpoint so we get full schema including colours[].skus[].code.
-    - First sync (no state): list from /products, then GET v2/products/{id} per product
-    - Subsequent syncs: list from /export/products, then GET v2/products/{id} per product
-    Also collects SKU IDs for use by the StockStream.
-    """
-
-    name = "products"
-    historical_path = "/product-bulk/production/products"
-    incremental_path = "/product-bulk/production/export/products"
-    primary_keys: t.ClassVar[list[str]] = ["tilroyId"]
-    replication_key = "extraction_timestamp"  # Synthetic replication key
-    replication_method = "INCREMENTAL"
-    records_jsonpath = "$[*]"
-    default_count = 1000  # Product API allows up to 1000 per page
-
-    # Class-level storage for SKU tilroyIds (shared across instances).
-    # These are colours[].skus[].tilroyId (SKU-level), NOT product tilroyId. Used by prices and stock.
-    _collected_sku_ids: t.ClassVar[list[str]] = []
-
-    schema = th.PropertiesList(
-        th.Property("tilroyId", th.CustomType({"type": ["string", "integer"]})),
-        th.Property("sourceId", th.CustomType({"type": ["string", "number", "null"]})),
-        th.Property("code", th.CustomType({"type": ["string", "number", "null"]})),
-        th.Property(
-            "descriptions",
-            th.ArrayType(
-                th.ObjectType(
-                    th.Property("languageCode", th.CustomType({"type": ["string", "number", "null"]})),
-                    th.Property("standard", th.CustomType({"type": ["string", "number", "null"]})),
-                )
-            ),
-        ),
-        th.Property("supplier", th.CustomType({"type": ["object", "string", "null"]})),
-        th.Property("brand", th.CustomType({"type": ["object", "string", "null"]})),
-        th.Property(
-            "colours",
-            th.ArrayType(
-                th.ObjectType(
-                    th.Property("tilroyId", th.CustomType({"type": ["string", "integer"]})),
-                    th.Property("sourceId", th.CustomType({"type": ["string", "number", "null"]})),
-                    th.Property("code", th.CustomType({"type": ["string", "number", "null"]})),
-                    th.Property(
-                        "skus",
-                        th.ArrayType(
-                            th.ObjectType(
-                                th.Property("tilroyId", th.CustomType({"type": ["string", "integer"]})),
-                                th.Property("sourceId", th.CustomType({"type": ["string", "number", "null"]})),
-                                th.Property("code", th.CustomType({"type": ["string", "number", "null"]})),
-                                th.Property("costPrice", th.NumberType),
-                                th.Property(
-                                    "barcodes",
-                                    th.ArrayType(
-                                        th.ObjectType(
-                                            th.Property("code", th.CustomType({"type": ["string", "number", "null"]})),
-                                            th.Property("quantity", th.NumberType),
-                                            th.Property("isInternal", th.BooleanType),
-                                        )
-                                    ),
-                                ),
-                                th.Property(
-                                    "size",
-                                    th.ObjectType(
-                                        th.Property("code", th.CustomType({"type": ["string", "number", "null"]})),
-                                    ),
-                                ),
-                                th.Property("rrp", th.CustomType({"type": ["array", "object", "string", "null"]})),
-                            )
-                        ),
-                    ),
-                    th.Property("pictures", th.ArrayType(th.ObjectType())),
-                )
-            ),
-        ),
-        th.Property("isUsed", th.BooleanType),
-        th.Property("suppliers", th.CustomType({"type": ["array", "object", "string", "null"]})),
-        th.Property("extraction_timestamp", th.DateTimeType),
-    ).to_dict()
+class _ProductV2Stream(DynamicRoutingStream):
+    """Base class for streams that list products then fetch each via v2/products/{id}."""
 
     def request_records(self, context: Context | None) -> t.Iterable[dict]:
-        """Paginate list endpoint, then fetch each product from v2/products/{id} for full schema (incl. sku.code)."""
+        """Paginate list endpoint, then fetch each product from v2/products/{id} for full schema."""
         page = 1
         total_yielded = 0
-        list_path = self.path  # historical or incremental from DynamicRoutingStream
+        list_path = self.path
 
         while True:
             params = self.get_url_params(context, page)
@@ -170,6 +91,89 @@ class ProductsStream(DynamicRoutingStream):
 
         self.logger.info(f"[{self.name}] Fetched {total_yielded} products (full detail from v2/products/{{id}})")
 
+
+class ProductsStream(_ProductV2Stream):
+    """Stream for Tilroy products.
+
+    Fetches product list from bulk/export, then each product from v2 single-product
+    endpoint so we get full schema including colours[].skus[].code.
+    - First sync (no state): list from /products, then GET v2/products/{id} per product
+    - Subsequent syncs: list from /export/products, then GET v2/products/{id} per product
+    Also collects SKU IDs for use by the StockStream.
+    """
+
+    name = "products"
+    historical_path = "/product-bulk/production/products"
+    incremental_path = "/product-bulk/production/export/products"
+    primary_keys: t.ClassVar[list[str]] = ["tilroyId"]
+    replication_key = "extraction_timestamp"  # Synthetic replication key
+    replication_method = "INCREMENTAL"
+    records_jsonpath = "$[*]"
+    default_count = 1000  # Product API allows up to 1000 per page
+
+    # Class-level storage for SKU tilroyIds (shared across instances).
+    # These are colours[].skus[].tilroyId (SKU-level), NOT product tilroyId. Used by prices and stock.
+    _collected_sku_ids: t.ClassVar[set[str]] = set()
+
+    schema = th.PropertiesList(
+        th.Property("tilroyId", th.CustomType({"type": ["string", "integer"]})),
+        th.Property("sourceId", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("code", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property(
+            "descriptions",
+            th.ArrayType(
+                th.ObjectType(
+                    th.Property("languageCode", th.CustomType({"type": ["string", "number", "null"]})),
+                    th.Property("standard", th.CustomType({"type": ["string", "number", "null"]})),
+                )
+            ),
+        ),
+        th.Property("supplier", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property("brand", th.CustomType({"type": ["object", "string", "null"]})),
+        th.Property(
+            "colours",
+            th.ArrayType(
+                th.ObjectType(
+                    th.Property("tilroyId", th.CustomType({"type": ["string", "integer"]})),
+                    th.Property("sourceId", th.CustomType({"type": ["string", "number", "null"]})),
+                    th.Property("code", th.CustomType({"type": ["string", "number", "null"]})),
+                    th.Property(
+                        "skus",
+                        th.ArrayType(
+                            th.ObjectType(
+                                th.Property("tilroyId", th.CustomType({"type": ["string", "integer"]})),
+                                th.Property("sourceId", th.CustomType({"type": ["string", "number", "null"]})),
+                                th.Property("code", th.CustomType({"type": ["string", "number", "null"]})),
+                                th.Property("costPrice", th.NumberType),
+                                th.Property(
+                                    "barcodes",
+                                    th.ArrayType(
+                                        th.ObjectType(
+                                            th.Property("code", th.CustomType({"type": ["string", "number", "null"]})),
+                                            th.Property("quantity", th.NumberType),
+                                            th.Property("isInternal", th.BooleanType),
+                                        )
+                                    ),
+                                ),
+                                th.Property(
+                                    "size",
+                                    th.ObjectType(
+                                        th.Property("code", th.CustomType({"type": ["string", "number", "null"]})),
+                                    ),
+                                ),
+                                th.Property("rrp", th.CustomType({"type": ["array", "object", "string", "null"]})),
+                            )
+                        ),
+                    ),
+                    th.Property("pictures", th.ArrayType(th.ObjectType())),
+                )
+            ),
+        ),
+        th.Property("isUsed", th.BooleanType),
+        th.Property("suppliers", th.CustomType({"type": ["array", "object", "string", "null"]})),
+        th.Property("extraction_timestamp", th.DateTimeType),
+    ).to_dict()
+
     def post_process(
         self,
         row: dict,
@@ -183,7 +187,7 @@ class ProductsStream(DynamicRoutingStream):
             return None
 
         # Add synthetic timestamp for incremental tracking
-        row["extraction_timestamp"] = datetime.utcnow().isoformat()
+        row["extraction_timestamp"] = datetime.now(timezone.utc).isoformat()
 
         # Collect SKU IDs for use by StockStream
         self._collect_sku_ids(row)
@@ -211,7 +215,7 @@ class ProductsStream(DynamicRoutingStream):
                 if sku_id:
                     sku_id_str = str(sku_id)
                     if sku_id_str not in self._collected_sku_ids:
-                        self._collected_sku_ids.append(sku_id_str)
+                        self._collected_sku_ids.add(sku_id_str)
 
                         # Log progress periodically
                         if len(self._collected_sku_ids) % 500 == 0:
@@ -224,9 +228,9 @@ class ProductsStream(DynamicRoutingStream):
         """Get the collected SKU IDs for use by other streams.
 
         Returns:
-            Copy of the collected SKU IDs list.
+            List of collected SKU IDs.
         """
-        return cls._collected_sku_ids.copy()
+        return list(cls._collected_sku_ids)
 
     @classmethod
     def clear_collected_sku_ids(cls) -> None:
@@ -240,7 +244,7 @@ class ProductsStream(DynamicRoutingStream):
         )
 
 
-class ProductDetailsStream(DynamicRoutingStream):
+class ProductDetailsStream(_ProductV2Stream):
     """Stream for full product detail from singular GET v2/products/{id} only.
 
     Uses the same list endpoint as ProductsStream to get product IDs, then
@@ -378,79 +382,6 @@ class ProductDetailsStream(DynamicRoutingStream):
         th.Property("extraction_timestamp", th.DateTimeType),
     ).to_dict()
 
-    def request_records(self, context: Context | None) -> t.Iterable[dict]:
-        """Paginate list endpoint, then fetch each product from v2/products/{id}; emit full response."""
-        page = 1
-        total_yielded = 0
-        list_path = self.path
-
-        while True:
-            params = self.get_url_params(context, page)
-            list_url = f"{self.url_base.rstrip('/')}{list_path}"
-            prepared = self.build_prepared_request(
-                method="GET",
-                url=list_url,
-                params=params,
-                headers=self.http_headers,
-            )
-            self.logger.info(
-                f"[{self.name}] List page {page}: GET {list_url} (params: count, page, date)"
-            )
-            try:
-                response = self._request(prepared, context)
-            except Exception as e:
-                self.logger.error(f"[{self.name}] List request failed: {e}")
-                break
-            if response.status_code != 200:
-                self.logger.error(
-                    f"[{self.name}] List API error {response.status_code}: {response.text[:500]}"
-                )
-                break
-
-            records = list(self.parse_response(response))
-            page_count = len(records)
-
-            for product in records:
-                tilroy_id = product.get("tilroyId")
-                if tilroy_id is None:
-                    continue
-                single_url = f"{self.url_base.rstrip('/')}{PRODUCT_V2_PATH}/{tilroy_id}"
-                single_prepared = self.build_prepared_request(
-                    method="GET",
-                    url=single_url,
-                    params={},
-                    headers=self.http_headers,
-                )
-                try:
-                    single_response = self._request(single_prepared, context)
-                except Exception as e:
-                    self.logger.warning(
-                        f"[{self.name}] Single product {tilroy_id} failed: {e}"
-                    )
-                    continue
-                if single_response.status_code != 200:
-                    self.logger.warning(
-                        f"[{self.name}] Single product {tilroy_id}: {single_response.status_code}"
-                    )
-                    continue
-                try:
-                    full_product = single_response.json()
-                except Exception:
-                    continue
-                if isinstance(full_product, dict) and full_product.get("tilroyId") is not None:
-                    processed = self.post_process(full_product, context)
-                    if processed:
-                        total_yielded += 1
-                        yield processed
-
-            if page_count < self.default_count:
-                break
-            page += 1
-
-        self.logger.info(
-            f"[{self.name}] Fetched {total_yielded} products (full detail from v2/products/{{id}})"
-        )
-
     def post_process(
         self,
         row: dict,
@@ -459,7 +390,7 @@ class ProductDetailsStream(DynamicRoutingStream):
         """Add extraction_timestamp only; pass through full singular response."""
         if not row:
             return None
-        row["extraction_timestamp"] = datetime.utcnow().isoformat()
+        row["extraction_timestamp"] = datetime.now(timezone.utc).isoformat()
         return row
 
 

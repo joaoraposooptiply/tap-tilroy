@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import typing as t
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from singer_sdk import typing as th
 
@@ -35,6 +35,7 @@ class PricesStream(DateWindowedStream):
     use_last_id_pagination = False
     last_id_field = "tilroyId"
     last_id_param = "lastId"
+    _debug_count = 0
 
     schema = th.PropertiesList(
         th.Property("sku_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
@@ -229,10 +230,7 @@ class PricesStream(DateWindowedStream):
         should_include = record_date_naive >= bookmark_date_naive
         
         # Log first few comparisons for debugging
-        if hasattr(self, '_debug_count'):
-            self._debug_count += 1
-        else:
-            self._debug_count = 1
+        self._debug_count += 1
         
         if self._debug_count <= 5:
             self.logger.info(
@@ -357,7 +355,7 @@ class PricesStream(DateWindowedStream):
                     f"[{self.name}] Price {record['price_tilroy_id']} has no date_created or date_modified, "
                     "setting to current time (will be included)"
                 )
-                record["date_modified"] = datetime.utcnow().isoformat()
+                record["date_modified"] = datetime.now(timezone.utc).isoformat()
 
             processed = self.post_process(record, None)
             if processed:
@@ -374,6 +372,6 @@ class PricesStream(DateWindowedStream):
 
         # Ensure replication key exists
         if not row.get("date_modified"):
-            row["date_modified"] = datetime.utcnow().isoformat()
+            row["date_modified"] = datetime.now(timezone.utc).isoformat()
 
         return row

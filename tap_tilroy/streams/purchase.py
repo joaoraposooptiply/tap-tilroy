@@ -5,9 +5,7 @@ from __future__ import annotations
 import typing as t
 from datetime import datetime, timedelta
 
-import requests
 from singer_sdk import typing as th
-from singer_sdk.helpers.jsonpath import extract_jsonpath
 
 from tap_tilroy.client import TilroyStream
 
@@ -135,29 +133,25 @@ class PurchaseOrdersStream(TilroyStream):
             "orderDateFrom": start_date.strftime("%Y-%m-%d"),
             "orderDateTo": datetime.now().strftime("%Y-%m-%d"),
         }
-        
+
         if warehouse_id and status:
             params["warehouseNumber"] = warehouse_id
             params["status"] = status
-        
-        url = f"{self.url_base}{self.path}"
-        
-        response = requests.get(
-            url,
+
+        prepared = self.build_prepared_request(
+            method="GET",
+            url=self.get_url(None),
             params=params,
             headers=self.http_headers,
-            timeout=60,
         )
-        response.raise_for_status()
-        
-        # Check pagination headers
+        response = self._request(prepared, None)
+
         current_page = int(response.headers.get("X-Paging-CurrentPage", 1))
         total_pages = int(response.headers.get("X-Paging-PageCount", 1))
         has_more = current_page < total_pages
-        
-        data = response.json()
-        records = list(extract_jsonpath(self.records_jsonpath, input=data))
-        
+
+        records = list(self.parse_response(response))
+
         return records, has_more
 
     def _fetch_all_for_filter(

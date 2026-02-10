@@ -106,8 +106,8 @@ class TapTilroy(Tap):
     ).to_dict()
 
     # Resolved shop mappings (populated in __init__)
-    _resolved_shop_ids: list[int] = []
-    _resolved_shop_numbers: list[int] = []
+    _resolved_shop_ids: list[int]
+    _resolved_shop_numbers: list[int]
 
     def __init__(
         self,
@@ -124,6 +124,9 @@ class TapTilroy(Tap):
         many undocumented fields. Also resolves shop ID/number mappings.
         Stores config file path for persisting config changes.
         """
+        self._resolved_shop_ids = []
+        self._resolved_shop_numbers = []
+
         # Store config file path for later writes (tap-exact pattern)
         if isinstance(config, list) and config:
             self.config_file = config[0]
