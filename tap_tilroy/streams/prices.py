@@ -17,48 +17,62 @@ if t.TYPE_CHECKING:
 class PricesStream(TilroyStream):
     """Stream for Tilroy price rules.
 
-    GET /price/rules with count and page. Paginate until no more records or
-    API says no more pages. Incremental via bookmark on date_modified.
+    GET /price/rules with count and page. One record per price rule (API
+    top-level object); the nested "prices" array is kept as-is. So we emit
+    exactly 100 records per page when the API returns 100 rules.
+    Paginate until no more records or API says no more pages.
+    Incremental via bookmark on dateModified (rule-level).
     """
 
     name = "prices"
     path = "/priceapi/production/price/rules"
-    primary_keys: t.ClassVar[list[str]] = ["sku_tilroy_id", "price_tilroy_id", "type"]
-    replication_key = "date_modified"
+    primary_keys: t.ClassVar[list[str]] = ["tilroyId"]
+    replication_key = "dateModified"
     replication_method = "INCREMENTAL"
     records_jsonpath = "$[*]"
     default_count = 100
 
-    # Retry 504 with backoff (gateway timeout)
     max_retries_504 = 5
     retry_504_backoff_seconds = 30
 
     schema = th.PropertiesList(
-        th.Property("sku_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
-        th.Property("sku_source_id", th.CustomType({"type": ["string", "number", "null"]})),
-        th.Property("price_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
-        th.Property("price_source_id", th.CustomType({"type": ["string", "number", "null"]})),
-        th.Property("price", th.NumberType),
-        th.Property("type", th.CustomType({"type": ["string", "number", "null"]})),
-        th.Property("quantity", th.IntegerType),
-        th.Property("run", th.CustomType({"type": ["object", "string", "number", "null"]})),
-        th.Property("label_type", th.CustomType({"type": ["string", "number", "null"]})),
-        th.Property("end_date", th.DateTimeType),
-        th.Property("start_date", th.DateTimeType),
-        th.Property("date_created", th.DateTimeType),
-        th.Property("date_modified", th.DateTimeType),
-        th.Property("tenant_id", th.CustomType({"type": ["string", "number", "null"]})),
-        th.Property("shop_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
-        th.Property("shop_number", th.CustomType({"type": ["string", "number", "null"]})),
-        th.Property("country_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
-        th.Property("country_code", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("tilroyId", th.StringType),
+        th.Property("sku", th.ObjectType(
+            th.Property("tilroyId", th.CustomType({"type": ["string", "number", "null"]})),
+            th.Property("sourceId", th.CustomType({"type": ["string", "number", "null"]})),
+        )),
+        th.Property("shop", th.ObjectType(
+            th.Property("tilroyId", th.CustomType({"type": ["string", "number", "null"]})),
+            th.Property("sourceId", th.CustomType({"type": ["string", "number", "null"]})),
+            th.Property("number", th.CustomType({"type": ["string", "number", "null"]})),
+        )),
+        th.Property("tenantId", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property(
+            "prices",
+            th.ArrayType(
+                th.ObjectType(
+                    th.Property("tilroyId", th.CustomType({"type": ["string", "number", "null"]})),
+                    th.Property("sourceId", th.CustomType({"type": ["string", "number", "null"]})),
+                    th.Property("price", th.NumberType),
+                    th.Property("type", th.CustomType({"type": ["string", "number", "null"]})),
+                    th.Property("quantity", th.IntegerType),
+                    th.Property("run", th.CustomType({"type": ["object", "string", "number", "null"]})),
+                    th.Property("labelType", th.CustomType({"type": ["string", "number", "null"]})),
+                    th.Property("endDate", th.DateTimeType),
+                    th.Property("startDate", th.DateTimeType),
+                    th.Property("dateCreated", th.DateTimeType),
+                    th.Property("dateModified", th.DateTimeType),
+                )
+            ),
+        ),
+        th.Property("dateModified", th.DateTimeType),
     ).to_dict()
 
     def request_records(self, context: Context | None) -> t.Iterable[dict]:
-        """GET /price/rules with count and page; paginate until no records or no more pages."""
+        """GET /price/rules with count and page; emit one record per rule (prices array kept nested)."""
         bookmark_date = self._parse_bookmark(context)
         if bookmark_date:
-            self.logger.info(f"[{self.name}] Bookmark: {bookmark_date}, only emitting records >= bookmark")
+            self.logger.info(f"[{self.name}] Bookmark: {bookmark_date}, only emitting rules with dateModified >= bookmark")
         else:
             self.logger.info(f"[{self.name}] No bookmark - full sync")
 
@@ -113,14 +127,15 @@ class PricesStream(TilroyStream):
             price_rules = list(self._parse_price_rules_response(response))
             page_count = len(price_rules)
             emitted = 0
-            for price_rule in price_rules:
-                for record in self._flatten_price_rule(price_rule, bookmark_date):
-                    if self._should_include_record(record, bookmark_date):
-                        total_records += 1
-                        emitted += 1
-                        yield record
+            for rule in price_rules:
+                if not self._should_include_rule(rule, bookmark_date):
+                    continue
+                processed = self.post_process(rule, None)
+                if processed:
+                    total_records += 1
+                    emitted += 1
+                    yield processed
 
-            # Update total pages from response headers
             try:
                 total_pages = int(response.headers.get("X-Paging-PageCount", total_pages or 1))
             except (ValueError, TypeError):
@@ -173,80 +188,26 @@ class PricesStream(TilroyStream):
                 return [data]
         return []
 
-    def _should_include_record(self, record: dict, bookmark_date: datetime | None) -> bool:
+    def _should_include_rule(self, rule: dict, bookmark_date: datetime | None) -> bool:
         if not bookmark_date:
             return True
-        record_date = record.get(self.replication_key)
-        if not record_date:
+        rule_date = rule.get(self.replication_key)
+        if not rule_date:
             return False
-        if isinstance(record_date, str):
+        if isinstance(rule_date, str):
             try:
-                record_date = datetime.fromisoformat(record_date.replace("Z", "+00:00"))
+                rule_date = datetime.fromisoformat(rule_date.replace("Z", "+00:00"))
             except (ValueError, TypeError):
                 return False
-        if hasattr(record_date, "tzinfo") and record_date.tzinfo:
-            record_date = record_date.replace(tzinfo=None)
+        if hasattr(rule_date, "tzinfo") and rule_date.tzinfo:
+            rule_date = rule_date.replace(tzinfo=None)
         if hasattr(bookmark_date, "tzinfo") and bookmark_date.tzinfo:
             bookmark_date = bookmark_date.replace(tzinfo=None)
-        return record_date >= bookmark_date
-
-    def _flatten_price_rule(
-        self, price_rule: dict, bookmark_date: datetime | None = None,
-    ) -> t.Iterable[dict]:
-        if not price_rule:
-            return
-        sku = price_rule.get("sku") or {}
-        shop = price_rule.get("shop") or {}
-        country = price_rule.get("country") or {}
-        tenant_id = price_rule.get("tenantId")
-        prices = price_rule.get("prices", [])
-        if not prices:
-            return
-        sku_tilroy_id = sku.get("tilroyId")
-        rule_date_modified = price_rule.get("dateModified")
-        now_iso = datetime.now(timezone.utc).isoformat()
-        for price in prices:
-            # Determine date_modified: prefer explicit values from the API,
-            # fall back to dateCreated. During incremental syncs (bookmark
-            # exists), the API's server-side dateModified filter already
-            # confirmed recency, so use now() when no explicit date exists.
-            date_modified = (
-                rule_date_modified
-                or price.get("dateModified")
-                or price.get("dateCreated")
-            )
-            if not date_modified and bookmark_date:
-                date_modified = now_iso
-
-            record = {
-                "sku_tilroy_id": sku_tilroy_id,
-                "sku_source_id": sku.get("sourceId"),
-                "price_tilroy_id": str(price.get("tilroyId", "")),
-                "price_source_id": price.get("sourceId"),
-                "price": price.get("price"),
-                "type": price.get("type"),
-                "quantity": price.get("quantity", 1),
-                "run": price.get("run"),
-                "label_type": price.get("labelType"),
-                "end_date": price.get("endDate"),
-                "start_date": price.get("startDate"),
-                "date_created": price.get("dateCreated"),
-                "date_modified": date_modified,
-                "tenant_id": tenant_id,
-                "shop_tilroy_id": shop.get("tilroyId"),
-                "shop_number": shop.get("number"),
-                "country_tilroy_id": country.get("tilroyId"),
-                "country_code": country.get("code"),
-            }
-            if not record["date_modified"]:
-                record["date_modified"] = now_iso
-            processed = self.post_process(record, None)
-            if processed:
-                yield processed
+        return rule_date >= bookmark_date
 
     def post_process(self, row: dict, context: Context | None = None) -> dict | None:
         if not row:
             return None
-        if not row.get("date_modified"):
-            row["date_modified"] = datetime.now(timezone.utc).isoformat()
+        if not row.get("dateModified"):
+            row["dateModified"] = datetime.now(timezone.utc).isoformat()
         return row
