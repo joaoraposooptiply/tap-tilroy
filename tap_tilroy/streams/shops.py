@@ -133,7 +133,7 @@ class ShopsStream(TilroyStream):
             headers=self.http_headers,
         )
 
-        response = self._request(prepared_request, context)
+        response = self._request_with_backoff(prepared_request, context)
 
         for record in self.parse_response(response):
             processed = self.post_process(record, context)

@@ -144,7 +144,7 @@ class PurchaseOrdersStream(TilroyStream):
             params=params,
             headers=self.http_headers,
         )
-        response = self._request(prepared, None)
+        response = self._request_with_backoff(prepared, None)
 
         current_page = int(response.headers.get("X-Paging-CurrentPage", 1))
         total_pages = int(response.headers.get("X-Paging-PageCount", 1))

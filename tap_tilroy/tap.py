@@ -310,21 +310,21 @@ class TapTilroy(Tap):
         self._reset_state_progress_markers()
         self._set_compatible_replication_methods()
 
-        # Get streams with dependencies
+        # Get streams with dependencies on ProductsStream's collected IDs
         products_stream = self.streams.get("products")
-        stock_stream = self.streams.get("stock")
         prices_stream = self.streams.get("prices")
+        stock_stream = self.streams.get("stock")
 
         # Build ordered list: products first, dependent streams last
         ordered_streams = self._build_stream_order(
             products_stream=products_stream,
-            stock_stream=stock_stream,
             prices_stream=prices_stream,
+            stock_stream=stock_stream,
         )
 
-        # Clear SKU collection before starting
+        # Clear collected IDs before starting
         if products_stream:
-            products_stream.clear_collected_sku_ids()
+            products_stream.clear_collected_ids()
 
         # Execute streams in order
         for stream in ordered_streams:
@@ -337,31 +337,35 @@ class TapTilroy(Tap):
     def _build_stream_order(
         self,
         products_stream: Stream | None,
-        stock_stream: Stream | None,
         prices_stream: Stream | None,
+        stock_stream: Stream | None,
     ) -> list[Stream]:
         """Build ordered list of streams respecting dependencies.
 
+        Products runs first (collects product IDs + SKU IDs).
+        Prices and stock run last (depend on collected SKU IDs).
+        All other streams (product_details, sales, etc.) run in between.
+
         Args:
             products_stream: The products stream (runs first).
-            stock_stream: The stock stream (runs after products).
             prices_stream: The prices stream (runs after products).
+            stock_stream: The stock stream (runs after products).
 
         Returns:
             Ordered list of streams.
         """
-        dependent_streams = {products_stream, stock_stream, prices_stream}
+        dependent_streams = {products_stream, prices_stream, stock_stream}
         other_streams = [
             s for s in self.streams.values() if s not in dependent_streams
         ]
 
         ordered = []
 
-        # Products must run first
+        # Products must run first (collects IDs for product_details, prices, stock)
         if products_stream:
             ordered.append(products_stream)
 
-        # Other streams can run in any order
+        # Other streams (product_details, sales, stock_changes, etc.)
         ordered.extend(other_streams)
 
         # Dependent streams run last

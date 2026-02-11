@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import time
 import typing as t
 from datetime import datetime, timedelta
 from urllib.parse import urljoin, urlparse
 
 import requests
 from singer_sdk.authenticators import APIKeyAuthenticator
+from singer_sdk.exceptions import FatalAPIError, RetriableAPIError
 from singer_sdk.helpers.jsonpath import extract_jsonpath
 from singer_sdk.pagination import BaseAPIPaginator
 from singer_sdk.streams import RESTStream
@@ -52,10 +54,68 @@ class TilroyStream(RESTStream[int]):
     # Class-level configuration
     records_jsonpath: str = "$[*]"
     default_count: int = 100
-    
+
     # Replication settings (can be overridden by subclasses)
     replication_key: str | None = None
     replication_method: str = "FULL_TABLE"
+
+    # Retry configuration — SDK uses exponential backoff on RetriableAPIError
+    backoff_max_tries = 8
+
+    def validate_response(self, response: requests.Response) -> None:
+        """Handle rate limits (429) and server errors (5xx) with retries."""
+        if response.status_code == 429:
+            retry_after = response.headers.get("Retry-After")
+            wait = int(retry_after) if retry_after else 30
+            self.logger.warning(
+                f">>> [{self.name}] RATE LIMITED (429) — waiting {wait}s before retry <<<"
+            )
+            time.sleep(wait)
+            raise RetriableAPIError(
+                f"Rate limited (429): {response.text[:200]}", response
+            )
+
+        if response.status_code == 504:
+            self.logger.warning(
+                f">>> [{self.name}] GATEWAY TIMEOUT (504) — retrying <<<"
+            )
+            raise RetriableAPIError(
+                f"Gateway Timeout (504)", response
+            )
+
+        if response.status_code >= 500:
+            self.logger.warning(
+                f">>> [{self.name}] SERVER ERROR ({response.status_code}) — retrying <<<"
+            )
+            raise RetriableAPIError(
+                f"Server error ({response.status_code}): {response.text[:200]}",
+                response,
+            )
+
+        if response.status_code == 408:
+            self.logger.warning(
+                f">>> [{self.name}] REQUEST TIMEOUT (408) — retrying <<<"
+            )
+            raise RetriableAPIError(f"Request Timeout (408)", response)
+
+        if 400 <= response.status_code < 500:
+            raise FatalAPIError(
+                f"Client error ({response.status_code}): {response.text[:200]}",
+                response,
+            )
+
+    def _request_with_backoff(
+        self,
+        prepared: requests.PreparedRequest,
+        context: Context | None,
+    ) -> requests.Response:
+        """Execute request with SDK's exponential backoff on retriable errors.
+
+        Use this instead of self._request() in custom request_records methods
+        to get automatic retry on 429, 504, and connection errors.
+        """
+        decorated = self.request_decorator(self._request)
+        return decorated(prepared, context)
 
     @property
     def url_base(self) -> str:
@@ -346,7 +406,7 @@ class LastIdPaginatedStream(DateFilteredStream):
                 headers=self.http_headers,
             )
 
-            response = self._request(prepared_request, context)
+            response = self._request_with_backoff(prepared_request, context)
 
             if response.status_code != 200:
                 self.logger.error(f"[{self.name}] API error {response.status_code}: {response.text[:500]}")
@@ -450,7 +510,7 @@ class DateWindowedStream(DateFilteredStream):
                 )
 
                 try:
-                    response = self._request(prepared_request, context)
+                    response = self._request_with_backoff(prepared_request, context)
                 except Exception as e:
                     self.logger.error(f"[{self.name}] Request failed: {e}")
                     break

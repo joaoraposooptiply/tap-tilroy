@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 import typing as t
 from datetime import datetime, timedelta
 
@@ -199,7 +200,7 @@ class StockChangesStream(TilroyStream):
             params=params,
             headers=self.http_headers,
         )
-        response = self._request(prepared, None)
+        response = self._request_with_backoff(prepared, None)
 
         current_page = int(response.headers.get("X-Paging-CurrentPage", 1))
         total_pages = int(response.headers.get("X-Paging-PageCount", 1))
@@ -240,24 +241,47 @@ class StockChangesStream(TilroyStream):
 
     def get_records(self, context: Context | None) -> t.Iterable[dict]:
         """Fetch stock changes, iterating through shops internally.
-        
+
         This avoids partition-based state. Single global bookmark is maintained.
         """
         start_date = self._get_start_date()
         shop_numbers = getattr(self._tap, "_resolved_shop_numbers", [])
-        
+        start_time = time.time()
+        total_records = 0
+
         if not shop_numbers:
             # No shop filter - fetch all
-            self.logger.info(f"[{self.name}] Fetching all stock changes from {start_date.date()}")
-            yield from self._fetch_all_for_shop(None, start_date)
+            self.logger.info(
+                f"=== [{self.name}] STARTING INCREMENTAL SYNC === "
+                f"(all shops from {start_date.date()})"
+            )
+            for record in self._fetch_all_for_shop(None, start_date):
+                total_records += 1
+                yield record
         else:
             # Iterate through each shop
             self.logger.info(
-                f"[{self.name}] Fetching stock changes for shops {shop_numbers} from {start_date.date()}"
+                f"=== [{self.name}] STARTING INCREMENTAL SYNC === "
+                f"({len(shop_numbers)} shops from {start_date.date()})"
             )
-            for shop_num in shop_numbers:
-                self.logger.debug(f"[{self.name}] Fetching shop_number={shop_num}")
-                yield from self._fetch_all_for_shop(shop_num, start_date)
+            for i, shop_num in enumerate(shop_numbers, 1):
+                shop_start = time.time()
+                shop_records = 0
+                for record in self._fetch_all_for_shop(shop_num, start_date):
+                    shop_records += 1
+                    total_records += 1
+                    yield record
+
+                self.logger.info(
+                    f"[{self.name}] Shop {shop_num} ({i}/{len(shop_numbers)}): "
+                    f"+{shop_records:,} records in {time.time()-shop_start:.1f}s"
+                )
+
+        elapsed = time.time() - start_time
+        self.logger.info(
+            f"=== [{self.name}] INCREMENTAL SYNC COMPLETE === "
+            f"{total_records:,} records in {elapsed:.0f}s"
+        )
 
     def post_process(
         self,
@@ -275,8 +299,8 @@ class StockChangesStream(TilroyStream):
 class StockStream(TilroyStream):
     """Stream for Tilroy current stock levels.
 
-    Fetches stock data for SKUs collected from ProductsStream.
-    Processes SKUs in batches due to API limitations.
+    The /stock API requires skuTilroyId, so we batch SKU IDs collected by
+    ProductsStream (which runs first). This gives complete stock for all products.
     """
 
     name = "stock"
@@ -287,7 +311,7 @@ class StockStream(TilroyStream):
     records_jsonpath = "$[*]"
 
     # Batch configuration
-    _batch_size: int = 150  # SKUs per API request
+    _batch_size: int = 150  # SKUs per API request (comma-separated in URL)
 
     schema = th.PropertiesList(
         th.Property("tilroyId", th.CustomType({"type": ["string", "number", "null"]})),
@@ -305,13 +329,12 @@ class StockStream(TilroyStream):
         th.Property("shop_source_id", th.CustomType({"type": ["string", "null"]})),
     ).to_dict()
 
-    def _get_sku_ids_from_products(self) -> list[str]:
-        """Retrieve SKU IDs collected by ProductsStream.
+    def request_records(self, context: Context | None) -> t.Iterable[dict]:
+        """Fetch stock for all SKUs in batches.
 
-        Returns:
-            List of SKU IDs to fetch stock for.
+        The /stock API requires skuTilroyId — it returns 400 without it.
+        SKU IDs come from ProductsStream which runs first.
         """
-        # Import here to avoid circular import
         from tap_tilroy.streams.products import ProductsStream
 
         sku_ids = ProductsStream.get_collected_sku_ids()
@@ -320,102 +343,81 @@ class StockStream(TilroyStream):
             self.logger.warning(
                 f"[{self.name}] No SKU IDs found. Ensure ProductsStream runs first."
             )
-
-        return sku_ids
-
-    def request_records(self, context: Context | None) -> t.Iterable[dict]:
-        """Request stock records in batches by SKU ID.
-
-        The Stock API accepts a comma-separated list of SKU IDs.
-        We batch these to avoid URL length limits.
-
-        Args:
-            context: Stream partition context.
-
-        Yields:
-            Stock records from the API.
-        """
-        sku_ids = self._get_sku_ids_from_products()
-
-        if not sku_ids:
-            self.logger.info(f"[{self.name}] No SKU IDs to process, skipping stream")
             return
 
+        total_records = 0
+        total_batches = (len(sku_ids) + self._batch_size - 1) // self._batch_size
+        start_time = time.time()
+        last_log_time = start_time
+
         self.logger.info(
-            f"[{self.name}] Processing {len(sku_ids)} SKU IDs in batches of {self._batch_size}"
+            f"=== [{self.name}] STARTING FULL SYNC === "
+            f"({len(sku_ids):,} SKUs in {total_batches} batches)"
         )
 
-        # Process in batches
         for batch_num, start_idx in enumerate(range(0, len(sku_ids), self._batch_size), 1):
-            end_idx = min(start_idx + self._batch_size, len(sku_ids))
-            batch_sku_ids = sku_ids[start_idx:end_idx]
+            batch = sku_ids[start_idx:start_idx + self._batch_size]
+            batch_records = 0
 
-            self.logger.info(
-                f"[{self.name}] Batch {batch_num}: Processing {len(batch_sku_ids)} SKUs "
-                f"(indices {start_idx}-{end_idx-1})"
-            )
+            page = 1
+            sku_param = ",".join(batch)
 
-            # Fetch all pages for this batch
-            yield from self._fetch_batch_with_pagination(batch_sku_ids, context)
-
-        self.logger.info(f"[{self.name}] Completed processing all SKU batches")
-
-    def _fetch_batch_with_pagination(
-        self,
-        sku_ids: list[str],
-        context: Context | None,
-    ) -> t.Iterable[dict]:
-        """Fetch all pages of stock data for a batch of SKU IDs.
-
-        Args:
-            sku_ids: List of SKU IDs for this batch.
-            context: Stream partition context.
-
-        Yields:
-            Stock records from the API.
-        """
-        page = 1
-        sku_param = ",".join(sku_ids)
-
-        while True:
-            params = {"skuTilroyId": sku_param, "page": page}
-
-            prepared_request = self.build_prepared_request(
-                method="GET",
-                url=self.get_url(context),
-                params=params,
-                headers=self.http_headers,
-            )
-
-            response = self._request(prepared_request, context)
-
-            if response.status_code != 200:
-                self.logger.error(
-                    f"[{self.name}] API error {response.status_code}: {response.text[:500]}"
+            while True:
+                params = {"skuTilroyId": sku_param, "page": page}
+                prepared = self.build_prepared_request(
+                    method="GET",
+                    url=self.get_url(context),
+                    params=params,
+                    headers=self.http_headers,
                 )
-                break
 
-            # Parse pagination headers
-            total_pages = int(response.headers.get("X-Paging-PageCount", 1))
-            records = list(self.parse_response(response))
+                try:
+                    response = self._request_with_backoff(prepared, context)
+                except Exception as e:
+                    self.logger.error(f"[{self.name}] Batch {batch_num} failed: {e}")
+                    break
 
-            self.logger.info(
-                f"[{self.name}] Page {page}/{total_pages}: Got {len(records)} records"
-            )
+                if response.status_code != 200:
+                    self.logger.error(
+                        f"[{self.name}] Batch {batch_num} API error {response.status_code}"
+                    )
+                    break
 
-            if not records:
-                break
+                total_pages = int(response.headers.get("X-Paging-PageCount", 1))
+                records = list(self.parse_response(response))
 
-            for record in records:
-                processed = self.post_process(record, context)
-                if processed:
-                    yield processed
+                for record in records:
+                    processed = self.post_process(record, context)
+                    if processed:
+                        batch_records += 1
+                        total_records += 1
+                        yield processed
 
-            # Check if more pages
-            if page >= total_pages:
-                break
+                if not records or page >= total_pages:
+                    break
+                page += 1
 
-            page += 1
+            # Log every 10 seconds or every 20 batches
+            now = time.time()
+            if now - last_log_time >= 10 or batch_num % 20 == 0:
+                elapsed = now - start_time
+                rate = batch_num / elapsed if elapsed > 0 else 0
+                remaining = total_batches - batch_num
+                eta_secs = remaining / rate if rate > 0 else 0
+                eta_min = int(eta_secs // 60)
+                eta_sec = int(eta_secs % 60)
+
+                self.logger.info(
+                    f"[{self.name}] Progress: batch {batch_num}/{total_batches} ({100*batch_num/total_batches:.1f}%) | "
+                    f"{total_records:,} records | {rate:.1f} batches/s | ETA: {eta_min}m {eta_sec}s"
+                )
+                last_log_time = now
+
+        elapsed = time.time() - start_time
+        self.logger.info(
+            f"=== [{self.name}] FULL SYNC COMPLETE === "
+            f"{total_records:,} stock records in {elapsed:.0f}s"
+        )
 
     def post_process(
         self,

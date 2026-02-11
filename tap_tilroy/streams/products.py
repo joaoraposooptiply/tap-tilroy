@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 import typing as t
 from datetime import datetime, timezone
 
@@ -36,9 +37,12 @@ class ProductsStream(DynamicRoutingStream):
     records_jsonpath = "$[*]"
     default_count = 1000  # Product API allows up to 1000 per page
 
-    # Class-level storage for SKU tilroyIds (shared across instances).
-    # These are colours[].skus[].tilroyId (SKU-level), NOT product tilroyId. Used by prices and stock.
+    # Class-level storage shared across instances.
+    # SKU IDs: colours[].skus[].tilroyId — used by PricesStream and StockStream.
     _collected_sku_ids: t.ClassVar[set[str]] = set()
+    # Product IDs: product-level tilroyId — used by ProductDetailsStream.
+    _collected_product_ids: t.ClassVar[list[str]] = []
+    _collected_product_ids_set: t.ClassVar[set[str]] = set()
 
     schema = th.PropertiesList(
         th.Property("tilroyId", th.CustomType({"type": ["string", "integer"]})),
@@ -103,9 +107,11 @@ class ProductsStream(DynamicRoutingStream):
         """Paginate list endpoint directly. No individual v2 fetches."""
         is_incremental = self._has_existing_state()
         list_path = self.incremental_path if is_incremental else self.historical_path
+        start_time = time.time()
 
+        sync_type = "INCREMENTAL" if is_incremental else "HISTORICAL"
         self.logger.info(
-            f"[{self.name}] Using {'INCREMENTAL' if is_incremental else 'HISTORICAL'} path: {list_path}"
+            f"=== [{self.name}] STARTING {sync_type} SYNC === (path: {list_path})"
         )
 
         page = 1
@@ -128,7 +134,7 @@ class ProductsStream(DynamicRoutingStream):
             )
 
             try:
-                response = self._request(prepared, context)
+                response = self._request_with_backoff(prepared, context)
             except Exception as e:
                 self.logger.error(f"[{self.name}] Request failed: {e}")
                 break
@@ -155,9 +161,10 @@ class ProductsStream(DynamicRoutingStream):
             except (ValueError, TypeError):
                 current = page
 
-            page_info = f"page {page}/{total_pages}" if total_pages else f"page {page}"
+            pct = (100 * page / total_pages) if total_pages else 0
             self.logger.info(
-                f"[{self.name}] {page_info}: {page_count} products (total: {total_yielded})"
+                f"[{self.name}] Page {page}/{total_pages or '?'} ({pct:.0f}%) | "
+                f"+{page_count} products | Total: {total_yielded:,}"
             )
 
             if page_count < self.default_count:
@@ -167,7 +174,11 @@ class ProductsStream(DynamicRoutingStream):
 
             page += 1
 
-        self.logger.info(f"[{self.name}] Done: {total_yielded} products")
+        elapsed = time.time() - start_time
+        self.logger.info(
+            f"=== [{self.name}] {sync_type} SYNC COMPLETE === "
+            f"{total_yielded:,} products in {elapsed:.0f}s"
+        )
 
     def post_process(
         self,
@@ -179,9 +190,27 @@ class ProductsStream(DynamicRoutingStream):
             return None
 
         row["extraction_timestamp"] = datetime.now(timezone.utc).isoformat()
-        self._collect_sku_ids(row)
+        self._collect_ids(row)
 
         return row
+
+    def _collect_ids(self, product: dict) -> None:
+        """Extract and store product ID and SKU IDs from product record."""
+        # Collect product-level tilroyId for ProductDetailsStream
+        product_id = product.get("tilroyId")
+        if product_id:
+            pid_str = str(product_id)
+            if pid_str not in self._collected_product_ids_set:
+                self._collected_product_ids_set.add(pid_str)
+                self._collected_product_ids.append(pid_str)
+
+                if len(self._collected_product_ids) % 1000 == 0:
+                    self.logger.info(
+                        f"[{self.name}] Collected {len(self._collected_product_ids)} product IDs..."
+                    )
+
+        # Collect SKU-level tilroyIds for PricesStream/StockStream
+        self._collect_sku_ids(product)
 
     def _collect_sku_ids(self, product: dict) -> None:
         """Extract and store SKU IDs from product record."""
@@ -208,40 +237,42 @@ class ProductsStream(DynamicRoutingStream):
 
     @classmethod
     def get_collected_sku_ids(cls) -> list[str]:
-        """Get the collected SKU IDs for use by other streams."""
+        """Get the collected SKU IDs for use by PricesStream/StockStream."""
         return list(cls._collected_sku_ids)
 
     @classmethod
-    def clear_collected_sku_ids(cls) -> None:
-        """Clear the collected SKU IDs."""
+    def get_collected_product_ids(cls) -> list[str]:
+        """Get the collected product IDs for use by ProductDetailsStream."""
+        return list(cls._collected_product_ids)
+
+    @classmethod
+    def clear_collected_ids(cls) -> None:
+        """Clear all collected IDs."""
         cls._collected_sku_ids.clear()
+        cls._collected_product_ids.clear()
+        cls._collected_product_ids_set.clear()
 
     def finalize_child_contexts(self) -> None:
-        """Log final SKU collection statistics."""
+        """Log final collection statistics."""
         self.logger.info(
-            f"[{self.name}] Final: {len(self._collected_sku_ids)} unique SKU IDs collected"
+            f"[{self.name}] Final: {len(self._collected_product_ids)} product IDs, "
+            f"{len(self._collected_sku_ids)} SKU IDs collected"
         )
 
 
-class ProductDetailsStream(DynamicRoutingStream):
-    """Full product detail stream using individual v2/products/{id} fetches.
+class ProductDetailsStream(TilroyStream):
+    """Full product detail stream — pure singular v2/products/{id} calls.
 
-    Lists products from the bulk/export endpoint, then fetches each product
-    individually via GET v2/products/{id} for the complete schema (sku.code,
-    size.sizeOrder/skuCode, pictures, web descriptions, etc.).
-
-    - First sync (no state): list from /products, then GET v2/products/{id}
-    - Incremental: list from /export/products?dateFrom=X, then GET v2/products/{id}
+    Consumes product IDs collected by ProductsStream (which runs first),
+    then fetches each product individually via GET v2/products/{id}.
+    No list pagination of its own.
     """
 
     name = "product_details"
-    historical_path = "/product-bulk/production/products"
-    incremental_path = "/product-bulk/production/export/products"
+    path = PRODUCT_V2_PATH  # Only used by SDK internals; actual URLs built manually
     primary_keys: t.ClassVar[list[str]] = ["tilroyId"]
     replication_key = "extraction_timestamp"
     replication_method = "INCREMENTAL"
-    records_jsonpath = "$[*]"
-    default_count = 1000
 
     # Full singular-response schema so no fields are dropped by schema validation
     schema = th.PropertiesList(
@@ -360,103 +391,84 @@ class ProductDetailsStream(DynamicRoutingStream):
     ).to_dict()
 
     def request_records(self, context: Context | None) -> t.Iterable[dict]:
-        """List products, then fetch each via v2/products/{id} for full schema."""
-        is_incremental = self._has_existing_state()
-        list_path = self.incremental_path if is_incremental else self.historical_path
+        """Fetch each product individually via GET v2/products/{id}.
+
+        Uses product IDs collected by ProductsStream (which runs first).
+        """
+        product_ids = ProductsStream.get_collected_product_ids()
+
+        if not product_ids:
+            self.logger.warning(
+                f"[{self.name}] No product IDs found. Ensure ProductsStream runs first."
+            )
+            return
+
+        total = len(product_ids)
+        total_yielded = 0
+        start_time = time.time()
+        last_log_time = start_time
 
         self.logger.info(
-            f"[{self.name}] Using {'INCREMENTAL' if is_incremental else 'HISTORICAL'} path: {list_path}"
+            f"=== [{self.name}] STARTING FULL SYNC === ({total:,} products to fetch)"
         )
 
-        page = 1
-        total_yielded = 0
-
-        while True:
-            params: dict[str, t.Any] = {"count": self.default_count, "page": page}
-
-            if is_incremental:
-                start_date = self._get_start_date(context)
-                params["dateFrom"] = start_date.strftime("%Y-%m-%d")
-
-            list_url = f"{self.url_base.rstrip('/')}{list_path}"
+        for i, product_id in enumerate(product_ids, 1):
+            single_url = f"{self.url_base.rstrip('/')}{PRODUCT_V2_PATH}/{product_id}"
             prepared = self.build_prepared_request(
                 method="GET",
-                url=list_url,
-                params=params,
+                url=single_url,
+                params={},
                 headers=self.http_headers,
             )
 
-            self.logger.info(f"[{self.name}] List page {page}: GET {list_url}")
-
             try:
-                response = self._request(prepared, context)
+                response = self._request_with_backoff(prepared, context)
             except Exception as e:
-                self.logger.error(f"[{self.name}] List request failed: {e}")
-                break
+                self.logger.warning(
+                    f"[{self.name}] Product {product_id} failed: {e}"
+                )
+                continue
+
+            if response.status_code == 404:
+                continue  # Product not found
             if response.status_code != 200:
-                self.logger.error(
-                    f"[{self.name}] List API error {response.status_code}: {response.text[:500]}"
+                self.logger.warning(
+                    f"[{self.name}] Product {product_id}: HTTP {response.status_code}"
                 )
-                break
+                continue
 
-            records = list(self.parse_response(response))
-            page_count = len(records)
-
-            for product in records:
-                tilroy_id = product.get("tilroyId")
-                if tilroy_id is None:
-                    continue
-                single_url = f"{self.url_base.rstrip('/')}{PRODUCT_V2_PATH}/{tilroy_id}"
-                single_prepared = self.build_prepared_request(
-                    method="GET",
-                    url=single_url,
-                    params={},
-                    headers=self.http_headers,
-                )
-                try:
-                    single_response = self._request(single_prepared, context)
-                except Exception as e:
-                    self.logger.warning(
-                        f"[{self.name}] Single product {tilroy_id} failed: {e}"
-                    )
-                    continue
-                if single_response.status_code != 200:
-                    self.logger.warning(
-                        f"[{self.name}] Single product {tilroy_id}: {single_response.status_code}"
-                    )
-                    continue
-                try:
-                    full_product = single_response.json()
-                except Exception:
-                    continue
-                if isinstance(full_product, dict) and full_product.get("tilroyId") is not None:
-                    processed = self.post_process(full_product, context)
-                    if processed:
-                        total_yielded += 1
-                        yield processed
-
-            # Check pagination headers
-            total_pages = None
             try:
-                current = int(response.headers.get("X-Paging-CurrentPage", 1))
-                total_pages = int(response.headers.get("X-Paging-PageCount", 1))
-            except (ValueError, TypeError):
-                current = page
+                full_product = response.json()
+            except Exception:
+                continue
 
-            page_info = f"page {page}/{total_pages}" if total_pages else f"page {page}"
-            self.logger.info(
-                f"[{self.name}] {page_info}: {page_count} listed -> {total_yielded} fetched"
-            )
+            if isinstance(full_product, dict) and full_product.get("tilroyId") is not None:
+                processed = self.post_process(full_product, context)
+                if processed:
+                    total_yielded += 1
+                    yield processed
 
-            if page_count < self.default_count:
-                break
-            if total_pages and current >= total_pages:
-                break
+            # Log every 10 seconds or every 500 products
+            now = time.time()
+            if now - last_log_time >= 10 or i % 500 == 0:
+                elapsed = now - start_time
+                rate = i / elapsed if elapsed > 0 else 0
+                remaining = total - i
+                eta_secs = remaining / rate if rate > 0 else 0
+                eta_min = int(eta_secs // 60)
+                eta_sec = int(eta_secs % 60)
 
-            page += 1
+                self.logger.info(
+                    f"[{self.name}] Progress: {i:,}/{total:,} ({100*i/total:.1f}%) | "
+                    f"{total_yielded:,} records | {rate:.1f}/s | ETA: {eta_min}m {eta_sec}s"
+                )
+                last_log_time = now
 
+        elapsed = time.time() - start_time
+        rate = total / elapsed if elapsed > 0 else 0
         self.logger.info(
-            f"[{self.name}] Done: {total_yielded} products (full detail from v2/products/{{id}})"
+            f"=== [{self.name}] FULL SYNC COMPLETE === "
+            f"{total:,} products -> {total_yielded:,} records in {elapsed:.0f}s ({rate:.1f}/s)"
         )
 
     def post_process(

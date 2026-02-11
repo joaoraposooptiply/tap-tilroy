@@ -23,59 +23,39 @@ class PricesStream(TilroyStream):
     - Incremental sync (has bookmark): Paginates the bulk endpoint
       GET /price/rules with dateModified filter.
 
-    One record per price rule; the nested "prices" array is kept as-is.
-    Incremental via bookmark on dateModified (rule-level).
+    Each price rule is flattened: one record per price in the prices array.
+    Incremental via bookmark on date_modified.
     """
 
     name = "prices"
     path = "/priceapi/production/price/rules"
-    primary_keys: t.ClassVar[list[str]] = ["tilroyId"]
-    # Use date_modified (snake_case) so state/bookmarks and SDK increment_state match existing state
+    # Composite key: one row per price within a SKU
+    primary_keys: t.ClassVar[list[str]] = ["sku_tilroy_id", "price_tilroy_id", "type"]
     replication_key = "date_modified"
     replication_method = "INCREMENTAL"
     records_jsonpath = "$[*]"
     default_count = 100
 
-    max_retries_504 = 5
-    retry_504_backoff_seconds = 30
-
-    # Schema matches API: one record = one price rule. Nested "prices" array passed through; filter in ETL.
+    # Flattened schema: one record per price (exploded from prices array)
     schema = th.PropertiesList(
-        th.Property("tilroyId", th.StringType),
-        th.Property("sku", th.ObjectType(
-            th.Property("tilroyId", th.CustomType({"type": ["string", "number", "null"]})),
-            th.Property("sourceId", th.CustomType({"type": ["string", "number", "null"]})),
-        )),
-        th.Property("shop", th.ObjectType(
-            th.Property("tilroyId", th.CustomType({"type": ["string", "number", "null"]})),
-            th.Property("sourceId", th.CustomType({"type": ["string", "number", "null"]})),
-            th.Property("number", th.CustomType({"type": ["string", "number", "null"]})),
-        )),
-        th.Property("country", th.ObjectType(
-            th.Property("tilroyId", th.CustomType({"type": ["string", "number", "null"]})),
-            th.Property("code", th.CustomType({"type": ["string", "number", "null"]})),
-        )),
-        th.Property("tenantId", th.CustomType({"type": ["string", "number", "null"]})),
-        th.Property(
-            "prices",
-            th.ArrayType(
-                th.ObjectType(
-                    th.Property("tilroyId", th.CustomType({"type": ["string", "number", "null"]})),
-                    th.Property("sourceId", th.CustomType({"type": ["string", "number", "null"]})),
-                    th.Property("price", th.NumberType),
-                    th.Property("type", th.CustomType({"type": ["string", "number", "null"]})),
-                    th.Property("quantity", th.IntegerType),
-                    th.Property("run", th.CustomType({"type": ["object", "string", "number", "null"]})),
-                    th.Property("labelType", th.CustomType({"type": ["string", "number", "null"]})),
-                    th.Property("endDate", th.DateTimeType),
-                    th.Property("startDate", th.DateTimeType),
-                    th.Property("dateCreated", th.DateTimeType),
-                    th.Property("dateModified", th.DateTimeType),
-                )
-            ),
-        ),
-        th.Property("dateModified", th.DateTimeType),
+        th.Property("sku_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("sku_source_id", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("price_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("price_source_id", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("price", th.NumberType),
+        th.Property("type", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("quantity", th.IntegerType),
+        th.Property("run", th.CustomType({"type": ["object", "string", "number", "null"]})),
+        th.Property("label_type", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("end_date", th.DateTimeType),
+        th.Property("start_date", th.DateTimeType),
+        th.Property("date_created", th.DateTimeType),
         th.Property("date_modified", th.DateTimeType),
+        th.Property("tenant_id", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("shop_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("shop_number", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("country_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
+        th.Property("country_code", th.CustomType({"type": ["string", "number", "null"]})),
     ).to_dict()
 
     def _has_existing_state(self) -> bool:
@@ -123,8 +103,12 @@ class PricesStream(TilroyStream):
 
         total_records = 0
         total_skus = len(sku_ids)
+        start_time = time.time()
+        last_log_time = start_time
+
         self.logger.info(
-            f"[{self.name}] Full sync: fetching prices for {total_skus} SKUs individually"
+            f"=== [{self.name}] STARTING FULL SYNC === "
+            f"({total_skus:,} SKUs to fetch)"
         )
 
         for i, sku_id in enumerate(sku_ids, 1):
@@ -149,30 +133,46 @@ class PricesStream(TilroyStream):
 
             rules = list(self._parse_price_rules_response(response))
             for rule in rules:
-                processed = self.post_process(rule, None)
-                if processed:
+                # Flatten each rule into individual price records
+                for record in self._flatten_price_rule(rule, requested_sku_id=sku_id):
                     total_records += 1
-                    yield processed
+                    yield record
 
-            if i % 100 == 0:
+            # Log every 10 seconds or every 500 SKUs
+            now = time.time()
+            if now - last_log_time >= 10 or i % 500 == 0:
+                elapsed = now - start_time
+                rate = i / elapsed if elapsed > 0 else 0
+                remaining = total_skus - i
+                eta_secs = remaining / rate if rate > 0 else 0
+                eta_min = int(eta_secs // 60)
+                eta_sec = int(eta_secs % 60)
+
                 self.logger.info(
-                    f"[{self.name}] Full sync progress: {i}/{total_skus} SKUs, "
-                    f"{total_records} records"
+                    f"[{self.name}] Progress: {i:,}/{total_skus:,} SKUs ({100*i/total_skus:.1f}%) | "
+                    f"{total_records:,} records | {rate:.1f} SKUs/s | ETA: {eta_min}m {eta_sec}s"
                 )
+                last_log_time = now
 
+        elapsed = time.time() - start_time
+        rate = total_skus / elapsed if elapsed > 0 else 0
         self.logger.info(
-            f"[{self.name}] Full sync done: {total_skus} SKUs -> {total_records} records"
+            f"=== [{self.name}] FULL SYNC COMPLETE === "
+            f"{total_skus:,} SKUs -> {total_records:,} records in {elapsed:.0f}s ({rate:.1f} SKUs/s)"
         )
 
     def _request_incremental(self, context: Context | None) -> t.Iterable[dict]:
         """Paginate bulk endpoint with dateModified filter for incremental sync."""
         bookmark_date = self._parse_bookmark(context)
+        start_time = time.time()
+
         if bookmark_date:
             self.logger.info(
-                f"[{self.name}] Incremental sync with dateModified={bookmark_date.isoformat()}"
+                f"=== [{self.name}] STARTING INCREMENTAL SYNC === "
+                f"(dateModified >= {bookmark_date.isoformat()})"
             )
         else:
-            self.logger.info(f"[{self.name}] Incremental sync (no date filter)")
+            self.logger.info(f"=== [{self.name}] STARTING INCREMENTAL SYNC === (no date filter)")
 
         page = 1
         total_records = 0
@@ -200,70 +200,114 @@ class PricesStream(TilroyStream):
                 return
 
             price_rules = list(self._parse_price_rules_response(response))
-            page_count = len(price_rules)
+            page_count = 0
             for rule in price_rules:
-                processed = self.post_process(rule, None)
-                if processed:
+                # Flatten each rule into individual price records
+                for record in self._flatten_price_rule(rule):
                     total_records += 1
-                    yield processed
+                    page_count += 1
+                    yield record
 
             try:
                 total_pages = int(response.headers.get("X-Paging-PageCount", total_pages or 1))
             except (ValueError, TypeError):
                 pass
 
-            page_info = f"page {page}/{total_pages}" if total_pages else f"page {page}"
+            # Log every page with progress
+            pct = (100 * page / total_pages) if total_pages else 0
             self.logger.info(
-                f"[{self.name}] {page_info}: {page_count} rules -> {page_count} records (total: {total_records})"
+                f"[{self.name}] Page {page}/{total_pages or '?'} ({pct:.0f}%) | "
+                f"+{page_count} records | Total: {total_records:,}"
             )
 
-            if page_count < self.default_count:
+            if len(price_rules) < self.default_count:
                 break
             try:
                 current = int(response.headers.get("X-Paging-CurrentPage", 1))
                 if total_pages and current >= total_pages:
-                    self.logger.info(f"[{self.name}] Finished all {total_pages} pages")
                     break
             except (ValueError, TypeError):
                 pass
             page += 1
 
-        self.logger.info(f"[{self.name}] Incremental done: {total_records} records")
+        elapsed = time.time() - start_time
+        self.logger.info(
+            f"=== [{self.name}] INCREMENTAL SYNC COMPLETE === "
+            f"{total_records:,} records in {elapsed:.0f}s"
+        )
+
+    def _flatten_price_rule(
+        self, price_rule: dict, requested_sku_id: str | None = None
+    ) -> t.Iterable[dict]:
+        """Flatten a price rule into individual price records.
+
+        Args:
+            price_rule: The price rule containing SKU, shop, country, and prices.
+            requested_sku_id: The SKU tilroyId we requested (per-SKU endpoint).
+
+        Yields:
+            Flattened price records (one per item in the prices array).
+        """
+        if not price_rule:
+            return
+
+        sku = price_rule.get("sku") or {}
+        shop = price_rule.get("shop") or {}
+        country = price_rule.get("country") or {}
+        tenant_id = price_rule.get("tenantId")
+        prices = price_rule.get("prices", [])
+
+        if not prices:
+            return
+
+        # Use requested SKU ID if provided, fallback to payload
+        payload_sku_id = sku.get("tilroyId")
+        if payload_sku_id is not None:
+            payload_sku_id = str(payload_sku_id)
+        sku_tilroy_id = requested_sku_id if requested_sku_id else payload_sku_id
+
+        # Rule-level dateModified (used as replication key)
+        rule_date_modified = price_rule.get("dateModified")
+
+        for price in prices:
+            price_date_created = price.get("dateCreated")
+            price_date_modified = price.get("dateModified")
+
+            # Use rule's dateModified as replication key; fallback to price dates
+            date_modified = rule_date_modified or price_date_modified or price_date_created
+            if not date_modified:
+                date_modified = datetime.now(timezone.utc).isoformat()
+
+            record = {
+                "sku_tilroy_id": sku_tilroy_id,
+                "sku_source_id": sku.get("sourceId"),
+                "price_tilroy_id": str(price.get("tilroyId", "")) if price.get("tilroyId") else None,
+                "price_source_id": price.get("sourceId"),
+                "price": price.get("price"),
+                "type": price.get("type"),
+                "quantity": price.get("quantity", 1),
+                "run": price.get("run"),
+                "label_type": price.get("labelType"),
+                "end_date": price.get("endDate"),
+                "start_date": price.get("startDate"),
+                "date_created": price_date_created,
+                "date_modified": date_modified,
+                "tenant_id": tenant_id,
+                "shop_tilroy_id": shop.get("tilroyId"),
+                "shop_number": shop.get("number"),
+                "country_tilroy_id": country.get("tilroyId"),
+                "country_code": country.get("code"),
+            }
+
+            yield record
 
     def _request_with_retry(self, prepared, context: Context | None):
-        """Execute request with 504 retry logic.
-
-        Returns the response, or None if all retries failed.
-        """
-        for attempt in range(self.max_retries_504 + 1):
-            try:
-                response = self._request(prepared, context)
-            except Exception as e:
-                if attempt < self.max_retries_504:
-                    self.logger.warning(
-                        f"[{self.name}] Request failed (attempt {attempt + 1}): {e}; "
-                        f"retrying in {self.retry_504_backoff_seconds}s..."
-                    )
-                    time.sleep(self.retry_504_backoff_seconds)
-                    continue
-                self.logger.error(
-                    f"[{self.name}] Request failed after {self.max_retries_504 + 1} attempts: {e}"
-                )
-                return None
-            if response.status_code == 504:
-                if attempt < self.max_retries_504:
-                    self.logger.warning(
-                        f"[{self.name}] 504 Gateway Timeout (attempt {attempt + 1}); "
-                        f"retrying in {self.retry_504_backoff_seconds}s..."
-                    )
-                    time.sleep(self.retry_504_backoff_seconds)
-                    continue
-                self.logger.error(
-                    f"[{self.name}] 504 after {self.max_retries_504 + 1} attempts, giving up"
-                )
-                return None
-            return response
-        return None
+        """Execute request with SDK backoff. Returns response or None on failure."""
+        try:
+            return self._request_with_backoff(prepared, context)
+        except Exception as e:
+            self.logger.error(f"[{self.name}] Request failed after retries: {e}")
+            return None
 
     def _parse_bookmark(self, context: Context | None) -> datetime | None:
         """Bookmark from state, or config start_date for initial sync."""
@@ -303,12 +347,3 @@ class PricesStream(TilroyStream):
             if data.get("prices") is not None or data.get("sku") is not None:
                 return [data]
         return []
-
-    def post_process(self, row: dict, context: Context | None = None) -> dict | None:
-        if not row:
-            return None
-        # API uses dateModified (camelCase); state/SDK use date_modified (snake_case). Set both.
-        if not row.get("dateModified"):
-            row["dateModified"] = datetime.now(timezone.utc).isoformat()
-        row["date_modified"] = row.get("dateModified") or row.get("date_modified") or datetime.now(timezone.utc).isoformat()
-        return row
