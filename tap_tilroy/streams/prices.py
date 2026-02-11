@@ -2,23 +2,23 @@
 
 from __future__ import annotations
 
+import time
 import typing as t
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from singer_sdk import typing as th
 
-from tap_tilroy.client import DateWindowedStream
+from tap_tilroy.client import TilroyStream
 
 if t.TYPE_CHECKING:
     from singer_sdk.helpers.types import Context
 
 
-class PricesStream(DateWindowedStream):
+class PricesStream(TilroyStream):
     """Stream for Tilroy price rules.
 
-    Uses the list endpoint GET /price/rules with date windowing and page pagination.
-    Each response is a list of price rules; we flatten each rule into records and filter
-    by replication key (date_modified) client-side for incremental sync.
+    GET /price/rules with count and page. Paginate until no more records or
+    API says no more pages. Incremental via bookmark on date_modified.
     """
 
     name = "prices"
@@ -29,13 +29,9 @@ class PricesStream(DateWindowedStream):
     records_jsonpath = "$[*]"
     default_count = 100
 
-    date_window_days = 7
-    use_date_to = False
-    date_param_name = "dateModified"
-    use_last_id_pagination = False
-    last_id_field = "tilroyId"
-    last_id_param = "lastId"
-    _debug_count = 0
+    # Retry 504 with backoff (gateway timeout)
+    max_retries_504 = 5
+    retry_504_backoff_seconds = 30
 
     schema = th.PropertiesList(
         th.Property("sku_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
@@ -59,85 +55,87 @@ class PricesStream(DateWindowedStream):
     ).to_dict()
 
     def request_records(self, context: Context | None) -> t.Iterable[dict]:
-        """Request records from list endpoint GET /price/rules with date windowing and page pagination."""
-        start_date = self._get_start_date(context)
-        end_date = datetime.now()
+        """GET /price/rules with count and page; paginate until no records or no more pages."""
         bookmark_date = self._parse_bookmark(context)
-
-        self.logger.info(
-            f"[{self.name}] Starting date-windowed sync from {start_date.date()} to {end_date.date()} "
-            f"with {self.date_window_days}-day windows, page pagination"
-        )
         if bookmark_date:
-            self.logger.info(f"[{self.name}] Bookmark: {bookmark_date}, filtering records >= bookmark")
+            self.logger.info(f"[{self.name}] Bookmark: {bookmark_date}, only emitting records >= bookmark")
         else:
-            self.logger.info(f"[{self.name}] No bookmark - full sync, all records included")
+            self.logger.info(f"[{self.name}] No bookmark - full sync")
 
+        page = 1
         total_records = 0
-        window_start = start_date
 
-        while window_start < end_date:
-            window_end = min(
-                window_start + timedelta(days=self.date_window_days),
-                end_date,
+        while True:
+            params = self.get_url_params(context, page)
+            prepared = self.build_prepared_request(
+                method="GET",
+                url=self.get_url(context),
+                params=params,
+                headers=self.http_headers,
             )
-            self.logger.info(
-                f"[{self.name}] Window {window_start.date()} to {window_end.date()}"
-            )
-            page = 1
-            window_records = 0
 
-            while True:
-                params = self._get_window_params(window_start, window_end, page, None)
-                prepared = self.build_prepared_request(
-                    method="GET",
-                    url=self.get_url(context),
-                    params=params,
-                    headers=self.http_headers,
-                )
-                self.logger.info(
-                    f"[{self.name}] GET {self.get_url(context)} page={page} count={params.get('count')} "
-                    f"dateModified={params.get(self.date_param_name, '')[:10]}"
-                )
+            response = None
+            for attempt in range(self.max_retries_504 + 1):
                 try:
                     response = self._request(prepared, context)
                 except Exception as e:
-                    self.logger.error(f"[{self.name}] Request failed: {e}")
-                    break
-                if response.status_code != 200:
-                    self.logger.error(
-                        f"[{self.name}] API error {response.status_code}: {response.text[:500]}"
-                    )
-                    break
-
-                price_rules = list(self._parse_price_rules_response(response))
-                page_rules = len(price_rules)
-                page_emitted = 0
-                for price_rule in price_rules:
-                    for record in self._flatten_price_rule(price_rule):
-                        if self._should_include_record(record, bookmark_date):
-                            total_records += 1
-                            window_records += 1
-                            page_emitted += 1
-                            yield record
-
-                self.logger.info(
-                    f"[{self.name}] Window {window_start.date()}-{window_end.date()} page {page}: "
-                    f"{page_rules} rules -> {page_emitted} records (total so far: {total_records})"
+                    if attempt < self.max_retries_504:
+                        self.logger.warning(
+                            f"[{self.name}] Request failed (attempt {attempt + 1}): {e}; "
+                            f"retrying in {self.retry_504_backoff_seconds}s..."
+                        )
+                        time.sleep(self.retry_504_backoff_seconds)
+                    else:
+                        self.logger.error(f"[{self.name}] Request failed after {self.max_retries_504 + 1} attempts: {e}")
+                        return
+                    continue
+                if response.status_code == 504:
+                    if attempt < self.max_retries_504:
+                        self.logger.warning(
+                            f"[{self.name}] 504 Gateway Timeout on page {page} (attempt {attempt + 1}); "
+                            f"retrying in {self.retry_504_backoff_seconds}s..."
+                        )
+                        time.sleep(self.retry_504_backoff_seconds)
+                    else:
+                        self.logger.error(f"[{self.name}] 504 after {self.max_retries_504 + 1} attempts, stopping")
+                        return
+                    continue
+                break
+            if response.status_code != 200:
+                self.logger.error(
+                    f"[{self.name}] API error {response.status_code}: {response.text[:500]}"
                 )
-                if page_rules < self.default_count:
-                    break
-                page += 1
+                return
+
+            price_rules = list(self._parse_price_rules_response(response))
+            page_count = len(price_rules)
+            emitted = 0
+            for price_rule in price_rules:
+                for record in self._flatten_price_rule(price_rule):
+                    if self._should_include_record(record, bookmark_date):
+                        total_records += 1
+                        emitted += 1
+                        yield record
 
             self.logger.info(
-                f"[{self.name}] Window {window_start.date()}-{window_end.date()} complete: {window_records} records"
+                f"[{self.name}] page {page}: {page_count} rules -> {emitted} records (total: {total_records})"
             )
-            window_start = window_end
 
-        self.logger.info(f"[{self.name}] Complete: {total_records} total records")
+            if page_count < self.default_count:
+                break
+            try:
+                current = int(response.headers.get("X-Paging-CurrentPage", 1))
+                total_pages = int(response.headers.get("X-Paging-PageCount", 1))
+                if current >= total_pages:
+                    self.logger.info(f"[{self.name}] No more pages ({current}/{total_pages})")
+                    break
+            except (ValueError, TypeError):
+                pass
+            page += 1
+
+        self.logger.info(f"[{self.name}] Done: {total_records} records")
 
     def _parse_bookmark(self, context: Context | None) -> datetime | None:
-        """Parse bookmark from context/state into datetime or None."""
         raw = self.get_starting_timestamp(context)
         if not raw:
             return None
@@ -145,13 +143,12 @@ class PricesStream(DateWindowedStream):
             try:
                 return datetime.fromisoformat(raw.replace("Z", "+00:00"))
             except (ValueError, TypeError):
-                self.logger.warning(f"[{self.name}] Could not parse bookmark: {raw}")
                 return None
         return raw
 
     def _parse_price_rules_response(self, response) -> t.Iterable[dict]:
-        """Parse price rules from response; handle raw array, wrapped {data: [...]}, or single rule object."""
-        parsed = list(super(DateWindowedStream, self).parse_response(response))
+        """Parse rules from response: raw array, or wrapped in data/items/results/rules."""
+        parsed = list(super().parse_response(response))
         if parsed:
             return parsed
         try:
@@ -162,167 +159,41 @@ class PricesStream(DateWindowedStream):
             for key in ("data", "items", "results", "rules"):
                 arr = data.get(key)
                 if isinstance(arr, list):
-                    self.logger.info(
-                        f"[{self.name}] Response was wrapped in key {key!r}, using {len(arr)} items"
-                    )
                     return arr
-            # Per-SKU endpoint may return a single rule object at top level
             if data.get("prices") is not None or data.get("sku") is not None:
-                self.logger.debug(f"[{self.name}] Response was single rule object, wrapping in list")
                 return [data]
         return []
 
-    def _should_include_record(self, record: dict, bookmark_date: datetime | str | None) -> bool:
-        """Check if record should be included based on replication key.
-        
-        Args:
-            record: The flattened price record.
-            bookmark_date: The bookmark date from state.
-            
-        Returns:
-            True if record should be included (newer than bookmark or no bookmark).
-        """
+    def _should_include_record(self, record: dict, bookmark_date: datetime | None) -> bool:
         if not bookmark_date:
-            return True  # No bookmark, include all
-        
-        record_date = record.get(self.replication_key)  # date_modified
+            return True
+        record_date = record.get(self.replication_key)
         if not record_date:
-            # If no date_modified, exclude it (shouldn't happen, but be safe)
-            self.logger.debug(f"[{self.name}] Record missing {self.replication_key}, excluding")
             return False
-        
-        # Parse bookmark date if it's a string
-        if isinstance(bookmark_date, str):
-            try:
-                bookmark_date = datetime.fromisoformat(bookmark_date.replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                self.logger.warning(f"[{self.name}] Could not parse bookmark date: {bookmark_date}")
-                return True  # Include if we can't parse bookmark
-        
-        # Remove timezone from bookmark for comparison (make naive)
-        if hasattr(bookmark_date, "tzinfo") and bookmark_date.tzinfo:
-            bookmark_date_naive = bookmark_date.replace(tzinfo=None)
-        else:
-            bookmark_date_naive = bookmark_date
-        
-        # Parse record date if it's a string
         if isinstance(record_date, str):
             try:
-                # Try ISO format first
-                if "T" in record_date or "+" in record_date or "Z" in record_date:
-                    record_date_parsed = datetime.fromisoformat(record_date.replace("Z", "+00:00"))
-                else:
-                    # Try date-only format
-                    record_date_parsed = datetime.strptime(record_date, "%Y-%m-%d")
+                record_date = datetime.fromisoformat(record_date.replace("Z", "+00:00"))
             except (ValueError, TypeError):
-                self.logger.debug(f"[{self.name}] Could not parse record date: {record_date}, excluding")
                 return False
-        else:
-            record_date_parsed = record_date
-        
-        # Remove timezone from record date for comparison (make naive)
-        if hasattr(record_date_parsed, "tzinfo") and record_date_parsed.tzinfo:
-            record_date_naive = record_date_parsed.replace(tzinfo=None)
-        else:
-            record_date_naive = record_date_parsed
-        
-        # Include if record date is >= bookmark date (strict comparison)
-        should_include = record_date_naive >= bookmark_date_naive
-        
-        # Log first few comparisons for debugging
-        self._debug_count += 1
-        
-        if self._debug_count <= 5:
-            self.logger.info(
-                f"[{self.name}] Record comparison #{self._debug_count}: "
-                f"record_date={record_date_naive}, bookmark={bookmark_date_naive}, "
-                f"include={should_include}"
-            )
-        
-        if not should_include:
-            self.logger.debug(
-                f"[{self.name}] Excluding record: {record_date_naive} < {bookmark_date_naive}"
-            )
-        
-        return should_include
+        if hasattr(record_date, "tzinfo") and record_date.tzinfo:
+            record_date = record_date.replace(tzinfo=None)
+        if hasattr(bookmark_date, "tzinfo") and bookmark_date.tzinfo:
+            bookmark_date = bookmark_date.replace(tzinfo=None)
+        return record_date >= bookmark_date
 
-    def _get_window_params(
-        self,
-        window_start: datetime,
-        window_end: datetime,
-        page: int,
-        last_id: str | None = None,
-    ) -> dict[str, t.Any]:
-        """Get URL parameters for a specific date window and page.
-        
-        Overrides DateWindowedStream._get_window_params to use dateModified
-        instead of dateFrom, and handle lastId pagination.
-        
-        Note: The API's dateModified filter filters by rule-level dateModified,
-        but many rules have dateModified=None. We still use it for the API query,
-        but rely on client-side filtering of individual prices by their dateCreated.
-        
-        Args:
-            window_start: Start of the date window.
-            window_end: End of the date window (not used for price API).
-            page: Current page number (not used for lastId pagination).
-            last_id: Last record ID (used for lastId pagination).
-            
-        Returns:
-            Dictionary of URL parameters.
-        """
-        params: dict[str, t.Any] = {
-            "count": self.default_count,
-            self.date_param_name: window_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "page": page,
-        }
-        if self.use_last_id_pagination and last_id:
-            params[self.last_id_param] = last_id
-        return params
-
-    def _flatten_price_rule(
-        self, price_rule: dict, requested_sku_id: str | None = None
-    ) -> t.Iterable[dict]:
-        """Flatten a price rule into individual price records.
-
-        Args:
-            price_rule: The price rule containing SKU and prices.
-            requested_sku_id: The SKU tilroyId we requested (per-SKU endpoint). Used to pin
-                sku_tilroy_id when payload is ambiguous; if payload sku.tilroyId differs, we log.
-
-        Yields:
-            Flattened price records.
-        """
+    def _flatten_price_rule(self, price_rule: dict) -> t.Iterable[dict]:
         if not price_rule:
             return
-
         sku = price_rule.get("sku") or {}
         shop = price_rule.get("shop") or {}
         country = price_rule.get("country") or {}
         tenant_id = price_rule.get("tenantId")
         prices = price_rule.get("prices", [])
-
         if not prices:
             return
-
-        # Prefer the SKU id we requested (per-SKU URL); fall back to payload sku.tilroyId
-        payload_sku_id = sku.get("tilroyId")
-        if payload_sku_id is not None:
-            payload_sku_id = str(payload_sku_id)
-        if requested_sku_id and payload_sku_id and payload_sku_id != requested_sku_id:
-            self.logger.warning(
-                f"[{self.name}] Payload sku.tilroyId ({payload_sku_id}) != requested skuTilroyId "
-                f"({requested_sku_id}); using requested id for record"
-            )
-        sku_tilroy_id = requested_sku_id if requested_sku_id else payload_sku_id
-
-        # Get rule-level dateModified (if available)
+        sku_tilroy_id = sku.get("tilroyId")
         rule_date_modified = price_rule.get("dateModified")
-
         for price in prices:
-            price_date_created = price.get("dateCreated")
-            price_date_modified = price.get("dateModified")
-
             record = {
                 "sku_tilroy_id": sku_tilroy_id,
                 "sku_source_id": sku.get("sourceId"),
@@ -335,43 +206,23 @@ class PricesStream(DateWindowedStream):
                 "label_type": price.get("labelType"),
                 "end_date": price.get("endDate"),
                 "start_date": price.get("startDate"),
-                "date_created": price_date_created,
-                # Use rule's dateModified as date_modified for replication key
-                # This ensures the bookmark advances when price rules are modified
-                # Fall back to price's dateModified, then dateCreated if rule has no dateModified
-                "date_modified": rule_date_modified or price_date_modified or price_date_created,
+                "date_created": price.get("dateCreated"),
+                "date_modified": rule_date_modified or price.get("dateModified") or price.get("dateCreated"),
                 "tenant_id": tenant_id,
                 "shop_tilroy_id": shop.get("tilroyId"),
                 "shop_number": shop.get("number"),
                 "country_tilroy_id": country.get("tilroyId"),
                 "country_code": country.get("code"),
             }
-
-            # Ensure date_modified is set (required for replication)
-            # This should only happen if both dateModified and dateCreated are missing
             if not record["date_modified"]:
-                # If no date at all, exclude this record (shouldn't happen in real data)
-                self.logger.warning(
-                    f"[{self.name}] Price {record['price_tilroy_id']} has no date_created or date_modified, "
-                    "setting to current time (will be included)"
-                )
                 record["date_modified"] = datetime.now(timezone.utc).isoformat()
-
             processed = self.post_process(record, None)
             if processed:
                 yield processed
 
-    def post_process(
-        self,
-        row: dict,
-        context: Context | None = None,
-    ) -> dict | None:
-        """Validate price record has required fields."""
+    def post_process(self, row: dict, context: Context | None = None) -> dict | None:
         if not row:
             return None
-
-        # Ensure replication key exists
         if not row.get("date_modified"):
             row["date_modified"] = datetime.now(timezone.utc).isoformat()
-
         return row
