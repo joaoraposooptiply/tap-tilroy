@@ -60,7 +60,7 @@ Developer TODO: If your tap requires special access on the source system, or any
 ## Stream dependencies
 
 - **Products** must run before **stock** (and optionally **prices**). The tap sync order ensures products run first; it collects SKU IDs that the stock stream uses for per-SKU API calls.
-- **Prices** uses the default price rules list endpoint: `GET /priceapi/production/price/rules` with date windowing (`dateModified`) and page pagination. No per-SKU calls; products stream is not required for prices.
+- **Prices**: `GET /priceapi/production/price/rules` with `count` and `page`; paginate until no more records or API reports no more pages. 504 responses are retried with backoff. Products stream is not required for prices.
 
 ## Usage
 

@@ -17,10 +17,13 @@ if t.TYPE_CHECKING:
 class PricesStream(TilroyStream):
     """Stream for Tilroy price rules.
 
-    GET /price/rules with count and page. One record per price rule (API
-    top-level object); the nested "prices" array is kept as-is. So we emit
-    exactly 100 records per page when the API returns 100 rules.
-    Paginate until no more records or API says no more pages.
+    Uses a conditional strategy based on sync state:
+    - First sync (no bookmark): Fetches price rules individually per SKU
+      using GET /price/rules/{skuTilroyId}. SKU IDs come from ProductsStream.
+    - Incremental sync (has bookmark): Paginates the bulk endpoint
+      GET /price/rules with dateModified filter.
+
+    One record per price rule; the nested "prices" array is kept as-is.
     Incremental via bookmark on dateModified (rule-level).
     """
 
@@ -75,13 +78,101 @@ class PricesStream(TilroyStream):
         th.Property("date_modified", th.DateTimeType),
     ).to_dict()
 
+    def _has_existing_state(self) -> bool:
+        """Check if the stream has existing state/bookmarks."""
+        if not self.replication_key:
+            return False
+
+        state = self.tap_state or {}
+
+        # Handle both Singer state formats
+        if "value" in state:
+            bookmarks = state.get("value", {}).get("bookmarks", {})
+        else:
+            bookmarks = state.get("bookmarks", {})
+
+        stream_state = bookmarks.get(self.name, {})
+        return bool(stream_state.get("replication_key_value"))
+
     def request_records(self, context: Context | None) -> t.Iterable[dict]:
-        """GET /price/rules with count and page; emit one record per rule (100 rules = 100 records). No client-side filtering."""
+        """Fetch price rules using conditional strategy.
+
+        - No bookmark: fetch individually per SKU ID (first sync)
+        - Has bookmark: paginate bulk endpoint with dateModified (incremental)
+        """
+        if self._has_existing_state():
+            yield from self._request_incremental(context)
+        else:
+            yield from self._request_full_sync(context)
+
+    def _request_full_sync(self, context: Context | None) -> t.Iterable[dict]:
+        """Fetch price rules individually per SKU using collected SKU IDs.
+
+        Uses GET /price/rules/{skuTilroyId} for each SKU collected by ProductsStream.
+        This avoids the timeout-prone bulk endpoint for the initial full sync.
+        """
+        from tap_tilroy.streams.products import ProductsStream
+
+        sku_ids = ProductsStream.get_collected_sku_ids()
+
+        if not sku_ids:
+            self.logger.warning(
+                f"[{self.name}] No SKU IDs found. Ensure ProductsStream runs first."
+            )
+            return
+
+        total_records = 0
+        total_skus = len(sku_ids)
+        self.logger.info(
+            f"[{self.name}] Full sync: fetching prices for {total_skus} SKUs individually"
+        )
+
+        for i, sku_id in enumerate(sku_ids, 1):
+            url = f"{self.url_base.rstrip('/')}{self.path}/{sku_id}"
+            prepared = self.build_prepared_request(
+                method="GET",
+                url=url,
+                params={},
+                headers=self.http_headers,
+            )
+
+            response = self._request_with_retry(prepared, context)
+            if response is None:
+                continue
+            if response.status_code == 404:
+                continue  # SKU has no price rules
+            if response.status_code != 200:
+                self.logger.warning(
+                    f"[{self.name}] SKU {sku_id}: HTTP {response.status_code}, skipping"
+                )
+                continue
+
+            rules = list(self._parse_price_rules_response(response))
+            for rule in rules:
+                processed = self.post_process(rule, None)
+                if processed:
+                    total_records += 1
+                    yield processed
+
+            if i % 100 == 0:
+                self.logger.info(
+                    f"[{self.name}] Full sync progress: {i}/{total_skus} SKUs, "
+                    f"{total_records} records"
+                )
+
+        self.logger.info(
+            f"[{self.name}] Full sync done: {total_skus} SKUs -> {total_records} records"
+        )
+
+    def _request_incremental(self, context: Context | None) -> t.Iterable[dict]:
+        """Paginate bulk endpoint with dateModified filter for incremental sync."""
         bookmark_date = self._parse_bookmark(context)
         if bookmark_date:
-            self.logger.info(f"[{self.name}] Sending dateModified to API for incremental; emitting all rules returned (no client filter)")
+            self.logger.info(
+                f"[{self.name}] Incremental sync with dateModified={bookmark_date.isoformat()}"
+            )
         else:
-            self.logger.info(f"[{self.name}] Full sync; emitting all rules returned")
+            self.logger.info(f"[{self.name}] Incremental sync (no date filter)")
 
         page = 1
         total_records = 0
@@ -91,6 +182,7 @@ class PricesStream(TilroyStream):
             params = self.get_url_params(context, page)
             if bookmark_date:
                 params["dateModified"] = bookmark_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+
             prepared = self.build_prepared_request(
                 method="GET",
                 url=self.get_url(context),
@@ -98,33 +190,9 @@ class PricesStream(TilroyStream):
                 headers=self.http_headers,
             )
 
-            response = None
-            for attempt in range(self.max_retries_504 + 1):
-                try:
-                    response = self._request(prepared, context)
-                except Exception as e:
-                    if attempt < self.max_retries_504:
-                        self.logger.warning(
-                            f"[{self.name}] Request failed (attempt {attempt + 1}): {e}; "
-                            f"retrying in {self.retry_504_backoff_seconds}s..."
-                        )
-                        time.sleep(self.retry_504_backoff_seconds)
-                    else:
-                        self.logger.error(f"[{self.name}] Request failed after {self.max_retries_504 + 1} attempts: {e}")
-                        return
-                    continue
-                if response.status_code == 504:
-                    if attempt < self.max_retries_504:
-                        self.logger.warning(
-                            f"[{self.name}] 504 Gateway Timeout on page {page} (attempt {attempt + 1}); "
-                            f"retrying in {self.retry_504_backoff_seconds}s..."
-                        )
-                        time.sleep(self.retry_504_backoff_seconds)
-                    else:
-                        self.logger.error(f"[{self.name}] 504 after {self.max_retries_504 + 1} attempts, stopping")
-                        return
-                    continue
-                break
+            response = self._request_with_retry(prepared, context)
+            if response is None:
+                return
             if response.status_code != 200:
                 self.logger.error(
                     f"[{self.name}] API error {response.status_code}: {response.text[:500]}"
@@ -160,10 +228,45 @@ class PricesStream(TilroyStream):
                 pass
             page += 1
 
-        self.logger.info(f"[{self.name}] Done: {total_records} records")
+        self.logger.info(f"[{self.name}] Incremental done: {total_records} records")
+
+    def _request_with_retry(self, prepared, context: Context | None):
+        """Execute request with 504 retry logic.
+
+        Returns the response, or None if all retries failed.
+        """
+        for attempt in range(self.max_retries_504 + 1):
+            try:
+                response = self._request(prepared, context)
+            except Exception as e:
+                if attempt < self.max_retries_504:
+                    self.logger.warning(
+                        f"[{self.name}] Request failed (attempt {attempt + 1}): {e}; "
+                        f"retrying in {self.retry_504_backoff_seconds}s..."
+                    )
+                    time.sleep(self.retry_504_backoff_seconds)
+                    continue
+                self.logger.error(
+                    f"[{self.name}] Request failed after {self.max_retries_504 + 1} attempts: {e}"
+                )
+                return None
+            if response.status_code == 504:
+                if attempt < self.max_retries_504:
+                    self.logger.warning(
+                        f"[{self.name}] 504 Gateway Timeout (attempt {attempt + 1}); "
+                        f"retrying in {self.retry_504_backoff_seconds}s..."
+                    )
+                    time.sleep(self.retry_504_backoff_seconds)
+                    continue
+                self.logger.error(
+                    f"[{self.name}] 504 after {self.max_retries_504 + 1} attempts, giving up"
+                )
+                return None
+            return response
+        return None
 
     def _parse_bookmark(self, context: Context | None) -> datetime | None:
-        """Bookmark from state, or config start_date for initial sync (e.g. everything since Jan 1)."""
+        """Bookmark from state, or config start_date for initial sync."""
         raw = self.get_starting_timestamp(context)
         if not raw:
             config_start = self.config.get("start_date")
