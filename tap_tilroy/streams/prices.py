@@ -27,7 +27,8 @@ class PricesStream(TilroyStream):
     name = "prices"
     path = "/priceapi/production/price/rules"
     primary_keys: t.ClassVar[list[str]] = ["tilroyId"]
-    replication_key = "dateModified"
+    # Use date_modified (snake_case) so state/bookmarks and SDK increment_state match existing state
+    replication_key = "date_modified"
     replication_method = "INCREMENTAL"
     records_jsonpath = "$[*]"
     default_count = 100
@@ -71,6 +72,7 @@ class PricesStream(TilroyStream):
             ),
         ),
         th.Property("dateModified", th.DateTimeType),
+        th.Property("date_modified", th.DateTimeType),
     ).to_dict()
 
     def request_records(self, context: Context | None) -> t.Iterable[dict]:
@@ -202,6 +204,8 @@ class PricesStream(TilroyStream):
     def post_process(self, row: dict, context: Context | None = None) -> dict | None:
         if not row:
             return None
+        # API uses dateModified (camelCase); state/SDK use date_modified (snake_case). Set both.
         if not row.get("dateModified"):
             row["dateModified"] = datetime.now(timezone.utc).isoformat()
+        row["date_modified"] = row.get("dateModified") or row.get("date_modified") or datetime.now(timezone.utc).isoformat()
         return row
