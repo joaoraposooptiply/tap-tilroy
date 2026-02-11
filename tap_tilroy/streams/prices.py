@@ -64,9 +64,12 @@ class PricesStream(TilroyStream):
 
         page = 1
         total_records = 0
+        total_pages = None
 
         while True:
             params = self.get_url_params(context, page)
+            if bookmark_date:
+                params["dateModified"] = bookmark_date.strftime("%Y-%m-%dT%H:%M:%SZ")
             prepared = self.build_prepared_request(
                 method="GET",
                 url=self.get_url(context),
@@ -111,23 +114,29 @@ class PricesStream(TilroyStream):
             page_count = len(price_rules)
             emitted = 0
             for price_rule in price_rules:
-                for record in self._flatten_price_rule(price_rule):
+                for record in self._flatten_price_rule(price_rule, bookmark_date):
                     if self._should_include_record(record, bookmark_date):
                         total_records += 1
                         emitted += 1
                         yield record
 
+            # Update total pages from response headers
+            try:
+                total_pages = int(response.headers.get("X-Paging-PageCount", total_pages or 1))
+            except (ValueError, TypeError):
+                pass
+
+            page_info = f"page {page}/{total_pages}" if total_pages else f"page {page}"
             self.logger.info(
-                f"[{self.name}] page {page}: {page_count} rules -> {emitted} records (total: {total_records})"
+                f"[{self.name}] {page_info}: {page_count} rules -> {emitted} records (total: {total_records})"
             )
 
             if page_count < self.default_count:
                 break
             try:
                 current = int(response.headers.get("X-Paging-CurrentPage", 1))
-                total_pages = int(response.headers.get("X-Paging-PageCount", 1))
-                if current >= total_pages:
-                    self.logger.info(f"[{self.name}] No more pages ({current}/{total_pages})")
+                if total_pages and current >= total_pages:
+                    self.logger.info(f"[{self.name}] Finished all {total_pages} pages")
                     break
             except (ValueError, TypeError):
                 pass
@@ -181,7 +190,9 @@ class PricesStream(TilroyStream):
             bookmark_date = bookmark_date.replace(tzinfo=None)
         return record_date >= bookmark_date
 
-    def _flatten_price_rule(self, price_rule: dict) -> t.Iterable[dict]:
+    def _flatten_price_rule(
+        self, price_rule: dict, bookmark_date: datetime | None = None,
+    ) -> t.Iterable[dict]:
         if not price_rule:
             return
         sku = price_rule.get("sku") or {}
@@ -193,7 +204,20 @@ class PricesStream(TilroyStream):
             return
         sku_tilroy_id = sku.get("tilroyId")
         rule_date_modified = price_rule.get("dateModified")
+        now_iso = datetime.now(timezone.utc).isoformat()
         for price in prices:
+            # Determine date_modified: prefer explicit values from the API,
+            # fall back to dateCreated. During incremental syncs (bookmark
+            # exists), the API's server-side dateModified filter already
+            # confirmed recency, so use now() when no explicit date exists.
+            date_modified = (
+                rule_date_modified
+                or price.get("dateModified")
+                or price.get("dateCreated")
+            )
+            if not date_modified and bookmark_date:
+                date_modified = now_iso
+
             record = {
                 "sku_tilroy_id": sku_tilroy_id,
                 "sku_source_id": sku.get("sourceId"),
@@ -207,7 +231,7 @@ class PricesStream(TilroyStream):
                 "end_date": price.get("endDate"),
                 "start_date": price.get("startDate"),
                 "date_created": price.get("dateCreated"),
-                "date_modified": rule_date_modified or price.get("dateModified") or price.get("dateCreated"),
+                "date_modified": date_modified,
                 "tenant_id": tenant_id,
                 "shop_tilroy_id": shop.get("tilroyId"),
                 "shop_number": shop.get("number"),
@@ -215,7 +239,7 @@ class PricesStream(TilroyStream):
                 "country_code": country.get("code"),
             }
             if not record["date_modified"]:
-                record["date_modified"] = datetime.now(timezone.utc).isoformat()
+                record["date_modified"] = now_iso
             processed = self.post_process(record, None)
             if processed:
                 yield processed
