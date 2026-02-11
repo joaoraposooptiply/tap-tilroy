@@ -35,6 +35,7 @@ class PricesStream(TilroyStream):
     max_retries_504 = 5
     retry_504_backoff_seconds = 30
 
+    # Schema matches API: one record = one price rule. Nested "prices" array passed through; filter in ETL.
     schema = th.PropertiesList(
         th.Property("tilroyId", th.StringType),
         th.Property("sku", th.ObjectType(
@@ -45,6 +46,10 @@ class PricesStream(TilroyStream):
             th.Property("tilroyId", th.CustomType({"type": ["string", "number", "null"]})),
             th.Property("sourceId", th.CustomType({"type": ["string", "number", "null"]})),
             th.Property("number", th.CustomType({"type": ["string", "number", "null"]})),
+        )),
+        th.Property("country", th.ObjectType(
+            th.Property("tilroyId", th.CustomType({"type": ["string", "number", "null"]})),
+            th.Property("code", th.CustomType({"type": ["string", "number", "null"]})),
         )),
         th.Property("tenantId", th.CustomType({"type": ["string", "number", "null"]})),
         th.Property(
@@ -69,12 +74,12 @@ class PricesStream(TilroyStream):
     ).to_dict()
 
     def request_records(self, context: Context | None) -> t.Iterable[dict]:
-        """GET /price/rules with count and page; emit one record per rule (prices array kept nested)."""
+        """GET /price/rules with count and page; emit one record per rule (100 rules = 100 records). No client-side filtering."""
         bookmark_date = self._parse_bookmark(context)
         if bookmark_date:
-            self.logger.info(f"[{self.name}] Bookmark: {bookmark_date}, only emitting rules with dateModified >= bookmark")
+            self.logger.info(f"[{self.name}] Sending dateModified to API for incremental; emitting all rules returned (no client filter)")
         else:
-            self.logger.info(f"[{self.name}] No bookmark - full sync")
+            self.logger.info(f"[{self.name}] Full sync; emitting all rules returned")
 
         page = 1
         total_records = 0
@@ -126,14 +131,10 @@ class PricesStream(TilroyStream):
 
             price_rules = list(self._parse_price_rules_response(response))
             page_count = len(price_rules)
-            emitted = 0
             for rule in price_rules:
-                if not self._should_include_rule(rule, bookmark_date):
-                    continue
                 processed = self.post_process(rule, None)
                 if processed:
                     total_records += 1
-                    emitted += 1
                     yield processed
 
             try:
@@ -143,7 +144,7 @@ class PricesStream(TilroyStream):
 
             page_info = f"page {page}/{total_pages}" if total_pages else f"page {page}"
             self.logger.info(
-                f"[{self.name}] {page_info}: {page_count} rules -> {emitted} records (total: {total_records})"
+                f"[{self.name}] {page_info}: {page_count} rules -> {page_count} records (total: {total_records})"
             )
 
             if page_count < self.default_count:
@@ -160,8 +161,18 @@ class PricesStream(TilroyStream):
         self.logger.info(f"[{self.name}] Done: {total_records} records")
 
     def _parse_bookmark(self, context: Context | None) -> datetime | None:
+        """Bookmark from state, or config start_date for initial sync (e.g. everything since Jan 1)."""
         raw = self.get_starting_timestamp(context)
         if not raw:
+            config_start = self.config.get("start_date")
+            if config_start:
+                if isinstance(config_start, str):
+                    try:
+                        return datetime.fromisoformat(config_start.replace("Z", "+00:00"))
+                    except (ValueError, TypeError):
+                        pass
+                elif hasattr(config_start, "isoformat"):
+                    return config_start
             return None
         if isinstance(raw, str):
             try:
@@ -187,23 +198,6 @@ class PricesStream(TilroyStream):
             if data.get("prices") is not None or data.get("sku") is not None:
                 return [data]
         return []
-
-    def _should_include_rule(self, rule: dict, bookmark_date: datetime | None) -> bool:
-        if not bookmark_date:
-            return True
-        rule_date = rule.get(self.replication_key)
-        if not rule_date:
-            return False
-        if isinstance(rule_date, str):
-            try:
-                rule_date = datetime.fromisoformat(rule_date.replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                return False
-        if hasattr(rule_date, "tzinfo") and rule_date.tzinfo:
-            rule_date = rule_date.replace(tzinfo=None)
-        if hasattr(bookmark_date, "tzinfo") and bookmark_date.tzinfo:
-            bookmark_date = bookmark_date.replace(tzinfo=None)
-        return rule_date >= bookmark_date
 
     def post_process(self, row: dict, context: Context | None = None) -> dict | None:
         if not row:
