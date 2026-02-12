@@ -158,13 +158,19 @@ class StockChangesStream(TilroyStream):
         bookmark_date = self.get_starting_timestamp(None)
 
         if bookmark_date:
+            self.logger.info(
+                f"[{self.name}] Found bookmark: {bookmark_date} (type: {type(bookmark_date).__name__})"
+            )
             if hasattr(bookmark_date, "date"):
                 date_only = bookmark_date.date()
             else:
                 date_only = bookmark_date
-            return datetime.combine(date_only - timedelta(days=1), datetime.min.time())
+            result = datetime.combine(date_only - timedelta(days=1), datetime.min.time())
+            self.logger.info(f"[{self.name}] Using dateFrom: {result.date()} (bookmark -1 day)")
+            return result
 
         config_start = self.config.get("start_date", "2010-01-01T00:00:00Z")
+        self.logger.info(f"[{self.name}] No bookmark found, using config start_date: {config_start}")
         date_part = config_start.split("T")[0]
         return datetime.strptime(date_part, "%Y-%m-%d")
 
@@ -204,9 +210,16 @@ class StockChangesStream(TilroyStream):
 
         current_page = int(response.headers.get("X-Paging-CurrentPage", 1))
         total_pages = int(response.headers.get("X-Paging-PageCount", 1))
+        total_records_header = response.headers.get("X-Paging-TotalRecordCount", "?")
         has_more = current_page < total_pages
 
         records = list(self.parse_response(response))
+
+        self.logger.info(
+            f"[{self.name}] API response: page {current_page}/{total_pages}, "
+            f"{len(records)} records (total: {total_records_header}), "
+            f"shop={shop_number}, dateFrom={start_date.date()}"
+        )
 
         return records, has_more
 
