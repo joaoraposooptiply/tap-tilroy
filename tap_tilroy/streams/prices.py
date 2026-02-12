@@ -36,6 +36,9 @@ class PricesStream(TilroyStream):
     records_jsonpath = "$[*]"
     default_count = 100
 
+    # Track the maximum dateModified seen during sync for accurate bookmarking
+    _max_date_modified: datetime | None = None
+
     # Flattened schema: one record per price (exploded from prices array)
     schema = th.PropertiesList(
         th.Property("sku_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
@@ -80,10 +83,19 @@ class PricesStream(TilroyStream):
         - No bookmark: fetch individually per SKU ID (first sync)
         - Has bookmark: paginate bulk endpoint with dateModified (incremental)
         """
+        # Reset max date tracking at start of sync
+        self._max_date_modified = None
+
         if self._has_existing_state():
             yield from self._request_incremental(context)
         else:
             yield from self._request_full_sync(context)
+
+        # Log the final max dateModified for visibility
+        if self._max_date_modified:
+            self.logger.info(
+                f"[{self.name}] Max dateModified seen: {self._max_date_modified.isoformat()}"
+            )
 
     def _request_full_sync(self, context: Context | None) -> t.Iterable[dict]:
         """Fetch price rules individually per SKU using collected SKU IDs.
@@ -278,6 +290,9 @@ class PricesStream(TilroyStream):
             if not date_modified:
                 date_modified = datetime.now(timezone.utc).isoformat()
 
+            # Track the max dateModified for bookmark advancement
+            self._update_max_date_modified(date_modified)
+
             record = {
                 "sku_tilroy_id": sku_tilroy_id,
                 "sku_source_id": sku.get("sourceId"),
@@ -329,6 +344,28 @@ class PricesStream(TilroyStream):
             except (ValueError, TypeError):
                 return None
         return raw
+
+    def _update_max_date_modified(self, date_str: str | None) -> None:
+        """Track the maximum dateModified value seen during sync.
+
+        Args:
+            date_str: ISO datetime string from API response.
+        """
+        if not date_str:
+            return
+
+        try:
+            if isinstance(date_str, str):
+                parsed = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+            elif hasattr(date_str, "isoformat"):
+                parsed = date_str
+            else:
+                return
+
+            if self._max_date_modified is None or parsed > self._max_date_modified:
+                self._max_date_modified = parsed
+        except (ValueError, TypeError):
+            pass
 
     def _parse_price_rules_response(self, response) -> t.Iterable[dict]:
         """Parse rules from response: raw array, or wrapped in data/items/results/rules."""
