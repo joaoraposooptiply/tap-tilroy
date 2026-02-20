@@ -213,9 +213,10 @@ class TapTilroy(Tap):
     def _resolve_shop_mappings(self) -> None:
         """Fetch shops and resolve ID/number mappings.
         
-        If shop_ids or shop_numbers is configured, ensures both are populated.
-        If only one is provided, fetches shops from API to resolve the other
-        and persists both back to config.
+        If shop_ids and/or shop_numbers are configured, fetches shops from API,
+        resolves IDs <-> numbers, and merges into one consistent set (so adding
+        shop_ids to existing shop_numbers just adds more shops; order does not matter).
+        Persists both lists back to config.
         
         Config values are comma-separated strings like "1,2,3".
         """
@@ -226,17 +227,7 @@ class TapTilroy(Tap):
             self.logger.info("No shop filters configured - streams will fetch all data")
             return
         
-        # If both are already populated, use them directly
-        if filter_ids and filter_numbers:
-            self._resolved_shop_ids = filter_ids
-            self._resolved_shop_numbers = filter_numbers
-            self.logger.info(
-                f"Using configured shop mappings: IDs {self._resolved_shop_ids}, "
-                f"numbers {self._resolved_shop_numbers}"
-            )
-            return
-        
-        # Fetch shops from API to resolve the missing values
+        # Always fetch shops so we can resolve and merge (handles "have numbers, add ids" safely)
         self.logger.info("Fetching shops to resolve ID/number mappings...")
         try:
             response = requests.get(
@@ -255,7 +246,6 @@ class TapTilroy(Tap):
             self._resolved_shop_numbers = filter_numbers
             return
         
-        # Build lookup dicts
         id_to_number = {}
         number_to_id = {}
         for s in shops:
@@ -267,27 +257,26 @@ class TapTilroy(Tap):
             except (ValueError, TypeError):
                 continue
         
-        # Resolve from IDs -> numbers
-        if filter_ids and not filter_numbers:
-            self._resolved_shop_ids = filter_ids
-            self._resolved_shop_numbers = [
-                id_to_number[sid] for sid in filter_ids if sid in id_to_number
-            ]
-            self.logger.info(
-                f"Resolved shop IDs {filter_ids} -> numbers {self._resolved_shop_numbers}"
-            )
+        # Merge: collect all IDs and numbers (from config and resolved from the other)
+        resolved_ids = set(filter_ids)
+        resolved_numbers = set(filter_numbers)
+        for sid in filter_ids:
+            if sid in id_to_number:
+                resolved_numbers.add(id_to_number[sid])
+        for num in filter_numbers:
+            if num in number_to_id:
+                resolved_ids.add(number_to_id[num])
         
-        # Resolve from numbers -> IDs
-        elif filter_numbers and not filter_ids:
-            self._resolved_shop_numbers = filter_numbers
-            self._resolved_shop_ids = [
-                number_to_id[num] for num in filter_numbers if num in number_to_id
-            ]
-            self.logger.info(
-                f"Resolved shop numbers {filter_numbers} -> IDs {self._resolved_shop_ids}"
-            )
+        # Keep ID/number pairs in sync: sort by ID, numbers in same order
+        self._resolved_shop_ids = sorted(resolved_ids)
+        self._resolved_shop_numbers = [
+            id_to_number[sid] for sid in self._resolved_shop_ids if sid in id_to_number
+        ]
+        self.logger.info(
+            f"Resolved shop mappings: IDs {self._resolved_shop_ids}, "
+            f"numbers {self._resolved_shop_numbers}"
+        )
         
-        # Persist both to config file as comma-separated strings
         if self._resolved_shop_ids and self._resolved_shop_numbers:
             self._config["shop_ids"] = self._format_csv_ids(self._resolved_shop_ids)
             self._config["shop_numbers"] = self._format_csv_ids(self._resolved_shop_numbers)
