@@ -9,11 +9,11 @@ from datetime import datetime, timedelta
 from urllib.parse import urljoin, urlparse
 
 import requests
-from singer_sdk.authenticators import APIKeyAuthenticator
-from singer_sdk.exceptions import FatalAPIError, RetriableAPIError
-from singer_sdk.helpers.jsonpath import extract_jsonpath
-from singer_sdk.pagination import BaseAPIPaginator
-from singer_sdk.streams import RESTStream
+from hotglue_singer_sdk.authenticators import APIKeyAuthenticator
+from hotglue_singer_sdk.exceptions import FatalAPIError, RetriableAPIError
+from hotglue_singer_sdk.helpers.jsonpath import extract_jsonpath
+from hotglue_singer_sdk.pagination import BaseAPIPaginator
+from hotglue_singer_sdk.streams import RESTStream
 
 if t.TYPE_CHECKING:
     from singer_sdk.helpers.types import Context

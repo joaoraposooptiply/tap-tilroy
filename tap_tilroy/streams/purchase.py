@@ -5,7 +5,7 @@ from __future__ import annotations
 import typing as t
 from datetime import datetime, timedelta
 
-from singer_sdk import typing as th
+from hotglue_singer_sdk import typing as th
 
 from tap_tilroy.client import TilroyStream
 

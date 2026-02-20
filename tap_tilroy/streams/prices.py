@@ -6,7 +6,7 @@ import time
 import typing as t
 from datetime import datetime, timezone
 
-from singer_sdk import typing as th
+from hotglue_singer_sdk import typing as th
 
 from tap_tilroy.client import TilroyStream
 

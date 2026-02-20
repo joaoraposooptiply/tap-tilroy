@@ -7,9 +7,12 @@ import logging
 import typing as t
 
 import requests
-from singer_sdk import Tap
-from singer_sdk import typing as th
-from singer_sdk.streams import Stream
+import singer # Added for _write_state_message
+from singer import StateMessage # Added for _write_state_message
+from hotglue_singer_sdk import Tap # Changed from singer_sdk
+from hotglue_singer_sdk import typing as th
+from hotglue_singer_sdk.streams import Stream # Changed from singer_sdk
+from hotglue_singer_sdk.helpers.capabilities import AlertingLevel # Added for alerting_level
 
 from tap_tilroy.streams import (
     PricesStream,
@@ -63,6 +66,7 @@ class TapTilroy(Tap):
     """
 
     name = "tap-tilroy"
+    alerting_level = AlertingLevel.WARNING
     
     # Path to config file for persisting config changes
     config_file: str | None = None
@@ -289,6 +293,15 @@ class TapTilroy(Tap):
             List of stream instances.
         """
         return [stream_class(self) for stream_class in STREAM_TYPES]
+
+    def _write_state_message(self):
+        """Fix for partition bookmarks bloating state — Jay's pattern."""
+        tap_state = self.tap_state
+        if tap_state and tap_state.get("bookmarks"):
+            for stream_name in tap_state["bookmarks"]:
+                if tap_state["bookmarks"][stream_name].get("partitions"):
+                    tap_state["bookmarks"][stream_name] = {"partitions": []}
+        singer.write_message(StateMessage(value=tap_state))
 
     def sync_all(self) -> None:
         """Sync all streams with dependency ordering.
