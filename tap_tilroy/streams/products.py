@@ -37,10 +37,10 @@ class ProductsStream(DynamicRoutingStream):
     records_jsonpath = "$[*]"
     default_count = 1000  # Product API allows up to 1000 per page
 
-    # Class-level storage shared across instances.
-    # SKU IDs: colours[].skus[].tilroyId — used by PricesStream and StockStream.
+    # SKU IDs from colours[].skus[].tilroyId — consumed by PricesStream and StockStream.
+    # Product IDs from product-level tilroyId — consumed by ProductDetailsStream.
+    # _collected_product_ids_set is a dedup guard; _collected_product_ids preserves order.
     _collected_sku_ids: t.ClassVar[set[str]] = set()
-    # Product IDs: product-level tilroyId — used by ProductDetailsStream.
     _collected_product_ids: t.ClassVar[list[str]] = []
     _collected_product_ids_set: t.ClassVar[set[str]] = set()
 
@@ -120,7 +120,6 @@ class ProductsStream(DynamicRoutingStream):
         while True:
             params: dict[str, t.Any] = {"count": self.default_count, "page": page}
 
-            # Export endpoint requires dateFrom
             if is_incremental:
                 start_date = self._get_start_date(context)
                 params["dateFrom"] = start_date.strftime("%Y-%m-%d")
@@ -153,7 +152,6 @@ class ProductsStream(DynamicRoutingStream):
                     total_yielded += 1
                     yield processed
 
-            # Check pagination headers
             total_pages = None
             try:
                 current = int(response.headers.get("X-Paging-CurrentPage", 1))
@@ -196,7 +194,6 @@ class ProductsStream(DynamicRoutingStream):
 
     def _collect_ids(self, product: dict) -> None:
         """Extract and store product ID and SKU IDs from product record."""
-        # Collect product-level tilroyId for ProductDetailsStream
         product_id = product.get("tilroyId")
         if product_id:
             pid_str = str(product_id)
@@ -209,7 +206,6 @@ class ProductsStream(DynamicRoutingStream):
                         f"[{self.name}] Collected {len(self._collected_product_ids)} product IDs..."
                     )
 
-        # Collect SKU-level tilroyIds for PricesStream/StockStream
         self._collect_sku_ids(product)
 
     def _collect_sku_ids(self, product: dict) -> None:
@@ -430,7 +426,7 @@ class ProductDetailsStream(TilroyStream):
                 continue
 
             if response.status_code == 404:
-                continue  # Product not found
+                continue
             if response.status_code != 200:
                 self.logger.warning(
                     f"[{self.name}] Product {product_id}: HTTP {response.status_code}"
@@ -448,7 +444,6 @@ class ProductDetailsStream(TilroyStream):
                     total_yielded += 1
                     yield processed
 
-            # Log every 10 seconds or every 500 products
             now = time.time()
             if now - last_log_time >= 10 or i % 500 == 0:
                 elapsed = now - start_time

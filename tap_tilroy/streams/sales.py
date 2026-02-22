@@ -158,33 +158,22 @@ class SalesStream(DateWindowedStream):
     last_id_field: str = "idTilroySale"
     last_id_param: str = "lastId"
 
-    # Sales schema - comprehensive but with flexible types
     schema = th.PropertiesList(
-        # Primary identifiers
         th.Property("idTilroySale", th.CustomType({"type": ["string", "integer"]})),
         th.Property("idTenant", th.CustomType({"type": ["string", "integer"]})),
         th.Property("idSession", th.CustomType({"type": ["string", "integer", "null"]})),
-
-        # Customer info
         th.Property("customer", th.CustomType({"type": ["object", "string", "null"]})),
         th.Property("idSourceCustomer", th.CustomType({"type": ["string", "null"]})),
-
-        # Location info
         th.Property("shop", th.CustomType({"type": ["object", "string", "null"]})),
-        # Flattened shop fields for easier filtering
         th.Property("shop_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
         th.Property("shop_number", th.CustomType({"type": ["string", "number", "null"]})),
         th.Property("shop_name", th.CustomType({"type": ["string", "null"]})),
         th.Property("shop_source_id", th.CustomType({"type": ["string", "null"]})),
         th.Property("till", th.CustomType({"type": ["object", "string", "null"]})),
         th.Property("legalEntity", th.CustomType({"type": ["object", "string", "null"]})),
-
-        # Dates
         th.Property("saleDate", th.DateTimeType),
         th.Property("orderDate", th.CustomType({"type": ["string", "null"]})),
         th.Property("deliveryDate", th.CustomType({"type": ["string", "null"]})),
-
-        # Amounts
         th.Property("totalAmountStandard", th.NumberType),
         th.Property("totalAmountSell", th.NumberType),
         th.Property("totalAmountDiscount", th.NumberType),
@@ -193,15 +182,11 @@ class SalesStream(DateWindowedStream):
         th.Property("totalAmountSellNotRoundedPart", th.NumberType),
         th.Property("totalAmountOutstanding", th.NumberType),
         th.Property("totalAmountPaid", th.NumberType),
-
-        # Flags
         th.Property("eTicket", th.BooleanType),
         th.Property("isOrder", th.BooleanType),
         th.Property("isReturn", th.BooleanType),
         th.Property("isInvoiced", th.BooleanType),
         th.Property("anonymous", th.BooleanType),
-
-        # Nested arrays/objects - use flexible types
         th.Property("lines", th.CustomType({"type": ["array", "null"]})),
         th.Property("payments", th.CustomType({"type": ["array", "null"]})),
         th.Property("vat", th.CustomType({"type": ["array", "null"]})),
@@ -212,8 +197,6 @@ class SalesStream(DateWindowedStream):
         th.Property("basedOnSales", th.CustomType({"type": ["array", "null"]})),
         th.Property("icons", th.CustomType({"type": ["array", "null"]})),
         th.Property("tags", th.CustomType({"type": ["array", "null"]})),
-
-        # Other fields - flexible types to handle API variations
         th.Property("vatTypeCalculation", th.CustomType({"type": ["object", "string", "null"]})),
         th.Property("currency", th.CustomType({"type": ["string", "integer", "null"]})),
         th.Property("currencyData", th.CustomType({"type": ["object", "null"]})),
@@ -237,12 +220,8 @@ class SalesStream(DateWindowedStream):
         th.Property("deliveryPromise", th.CustomType({"type": ["object", "null"]})),
         th.Property("collectMethod", th.CustomType({"type": ["object", "null"]})),
         th.Property("returnReason", th.CustomType({"type": ["object", "null"]})),
-
-        # Discount fields
         th.Property("transactionDiscountPercentage", th.NumberType),
         th.Property("transactionDiscountAmount", th.NumberType),
-
-        # Various optional string/number fields
         th.Property("customerFirstName", th.CustomType({"type": ["string", "number", "null"]})),
         th.Property("customerSurName", th.CustomType({"type": ["string", "number", "null"]})),
         th.Property("customerEmail", th.CustomType({"type": ["string", "number", "null"]})),
@@ -260,8 +239,6 @@ class SalesStream(DateWindowedStream):
         th.Property("externalReference", th.CustomType({"type": ["string", "number", "null"]})),
         th.Property("internalReference", th.CustomType({"type": ["string", "number", "null"]})),
         th.Property("additionalInfo", th.CustomType({"type": ["string", "number", "null"]})),
-
-        # Integer fields
         th.Property("sealNumber", th.IntegerType),
         th.Property("numberOfCollis", th.IntegerType),
         th.Property("idTillBasket", th.IntegerType),
@@ -269,9 +246,6 @@ class SalesStream(DateWindowedStream):
         th.Property("idShopMoneyLocation", th.IntegerType),
         th.Property("cashDiscountDays", th.IntegerType),
     ).to_dict()
-
-    # Note: get_url_params is not used - DateWindowedStream.request_records
-    # handles date windowing via _get_window_params instead
 
     def post_process(
         self,

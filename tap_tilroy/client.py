@@ -6,10 +6,8 @@ import json
 import time
 import typing as t
 from datetime import datetime, timedelta
-from urllib.parse import urljoin, urlparse
 
 import requests
-from singer_sdk.authenticators import APIKeyAuthenticator
 from singer_sdk.exceptions import FatalAPIError, RetriableAPIError
 from singer_sdk.helpers.jsonpath import extract_jsonpath
 from singer_sdk.pagination import BaseAPIPaginator
@@ -342,100 +340,6 @@ class DateFilteredStream(TilroyStream):
         config_start = self.config.get("start_date", "2010-01-01T00:00:00Z")
         date_part = config_start.split("T")[0]
         return datetime.strptime(date_part, "%Y-%m-%d")
-
-
-class LastIdPaginatedStream(DateFilteredStream):
-    """Base class for streams using lastId cursor pagination."""
-
-    # Override in subclasses
-    last_id_field: str = "tilroyId"
-    last_id_param: str = "lastId"
-
-    def get_new_paginator(self) -> None:
-        """Return None - we handle pagination manually with lastId.
-
-        Returns:
-            None (pagination handled in request_records).
-        """
-        return None
-
-    def get_url_params(
-        self,
-        context: Context | None,
-        next_page_token: str | None,
-    ) -> dict[str, t.Any]:
-        """Return URL parameters for lastId pagination.
-
-        Args:
-            context: Stream partition context.
-            next_page_token: The lastId from previous response.
-
-        Returns:
-            Dictionary of URL parameters.
-        """
-        params = {
-            "count": self.default_count,
-            self.date_param_name: self._get_start_date(context).strftime("%Y-%m-%d"),
-        }
-
-        if next_page_token:
-            params[self.last_id_param] = next_page_token
-
-        return params
-
-    def request_records(self, context: Context | None) -> t.Iterable[dict]:
-        """Request records using lastId pagination.
-
-        Args:
-            context: Stream partition context.
-
-        Yields:
-            Records from the API.
-        """
-        last_id: str | None = None
-
-        while True:
-            params = self.get_url_params(context, last_id)
-            
-            self.logger.info(f"[{self.name}] Requesting with params: {params}")
-
-            prepared_request = self.build_prepared_request(
-                method="GET",
-                url=self.get_url(context),
-                params=params,
-                headers=self.http_headers,
-            )
-
-            response = self._request_with_backoff(prepared_request, context)
-
-            if response.status_code != 200:
-                self.logger.error(f"[{self.name}] API error {response.status_code}: {response.text[:500]}")
-                break
-
-            records = list(self.parse_response(response))
-            self.logger.info(f"[{self.name}] Retrieved {len(records)} records")
-
-            if not records:
-                break
-
-            for record in records:
-                processed = self.post_process(record, context)
-                if processed:
-                    yield processed
-
-            # Get lastId for next page
-            last_record = records[-1]
-            if isinstance(last_record, dict) and self.last_id_field in last_record:
-                last_id = str(last_record[self.last_id_field])
-            else:
-                self.logger.warning(f"[{self.name}] Could not find {self.last_id_field} in last record")
-                break
-
-            # If we got fewer than count, we're done
-            if len(records) < self.default_count:
-                break
-
-        self.logger.info(f"[{self.name}] Pagination complete")
 
 
 class DateWindowedStream(DateFilteredStream):

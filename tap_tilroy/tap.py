@@ -127,7 +127,6 @@ class TapTilroy(Tap):
         self._resolved_shop_ids = []
         self._resolved_shop_numbers = []
 
-        # Store config file path for later writes (tap-exact pattern)
         if isinstance(config, list) and config:
             self.config_file = config[0]
         elif isinstance(config, str):
@@ -142,11 +141,9 @@ class TapTilroy(Tap):
             **kwargs,
         )
 
-        # Suppress schema mismatch warnings for verbose streams
         for stream_name in ("sales", "products"):
             logging.getLogger(f"tap-tilroy.{stream_name}").setLevel(logging.ERROR)
 
-        # Resolve shop mappings if filters are configured
         self._resolve_shop_mappings()
 
     def load_state(self, state: dict[str, t.Any]) -> None:
@@ -227,7 +224,6 @@ class TapTilroy(Tap):
             self.logger.info("No shop filters configured - streams will fetch all data")
             return
         
-        # Always fetch shops so we can resolve and merge (handles "have numbers, add ids" safely)
         self.logger.info("Fetching shops to resolve ID/number mappings...")
         try:
             response = requests.get(
@@ -257,7 +253,6 @@ class TapTilroy(Tap):
             except (ValueError, TypeError):
                 continue
         
-        # Merge: collect all IDs and numbers (from config and resolved from the other)
         resolved_ids = set(filter_ids)
         resolved_numbers = set(filter_numbers)
         for sid in filter_ids:
@@ -267,7 +262,6 @@ class TapTilroy(Tap):
             if num in number_to_id:
                 resolved_ids.add(number_to_id[num])
         
-        # Keep ID/number pairs in sync: sort by ID, numbers in same order
         self._resolved_shop_ids = sorted(resolved_ids)
         self._resolved_shop_numbers = [
             id_to_number[sid] for sid in self._resolved_shop_ids if sid in id_to_number
@@ -299,27 +293,22 @@ class TapTilroy(Tap):
         self._reset_state_progress_markers()
         self._set_compatible_replication_methods()
 
-        # Get streams with dependencies on ProductsStream's collected IDs
         products_stream = self.streams.get("products")
         prices_stream = self.streams.get("prices")
         stock_stream = self.streams.get("stock")
 
-        # Build ordered list: products first, dependent streams last
         ordered_streams = self._build_stream_order(
             products_stream=products_stream,
             prices_stream=prices_stream,
             stock_stream=stock_stream,
         )
 
-        # Clear collected IDs before starting
         if products_stream:
             products_stream.clear_collected_ids()
 
-        # Execute streams in order
         for stream in ordered_streams:
             self._sync_stream(stream, products_stream)
 
-        # Log sync costs
         for stream in self.streams.values():
             stream.log_sync_costs()
 
@@ -376,23 +365,19 @@ class TapTilroy(Tap):
             stream: The stream to sync.
             products_stream: The products stream for finalization.
         """
-        # Skip deselected streams
         if not stream.selected and not stream.has_selected_descendents:
             self.logger.info(f"Skipping deselected stream '{stream.name}'")
             return
 
-        # Skip child streams (they're invoked by parents)
         if stream.parent_stream_type:
             self.logger.debug(
                 f"Skipping child stream '{stream.name}' (called by parent)"
             )
             return
 
-        # Execute sync
         stream.sync()
         stream.finalize_state_progress_markers()
 
-        # Finalize SKU collection after products stream
         if stream is products_stream and hasattr(products_stream, "finalize_child_contexts"):
             products_stream.finalize_child_contexts()
 

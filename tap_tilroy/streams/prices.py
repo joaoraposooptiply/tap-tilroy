@@ -83,7 +83,6 @@ class PricesStream(TilroyStream):
         - No bookmark: fetch individually per SKU ID (first sync)
         - Has bookmark: paginate bulk endpoint with dateModified (incremental)
         """
-        # Reset max date tracking at start of sync
         self._max_date_modified = None
 
         if self._has_existing_state():
@@ -91,8 +90,7 @@ class PricesStream(TilroyStream):
         else:
             yield from self._request_full_sync(context)
 
-        # Log the final max dateModified for visibility
-        if self._max_date_modified:
+            if self._max_date_modified:
             self.logger.info(
                 f"[{self.name}] Max dateModified seen: {self._max_date_modified.isoformat()}"
             )
@@ -150,7 +148,6 @@ class PricesStream(TilroyStream):
                     total_records += 1
                     yield record
 
-            # Log every 10 seconds or every 500 SKUs
             now = time.time()
             if now - last_log_time >= 10 or i % 500 == 0:
                 elapsed = now - start_time
@@ -225,7 +222,6 @@ class PricesStream(TilroyStream):
             except (ValueError, TypeError):
                 pass
 
-            # Log every page with progress
             pct = (100 * page / total_pages) if total_pages else 0
             self.logger.info(
                 f"[{self.name}] Page {page}/{total_pages or '?'} ({pct:.0f}%) | "

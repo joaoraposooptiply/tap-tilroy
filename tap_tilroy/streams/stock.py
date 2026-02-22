@@ -40,7 +40,6 @@ class StockDeltasStream(DateFilteredStream):
         th.Property("modificationType", th.CustomType({"type": ["string", "null"]})),
         th.Property("reason", th.CustomType({"type": ["string", "number", "null"]})),
         th.Property("shop", th.CustomType({"type": ["object", "string", "null"]})),
-        # Flattened shop fields for easier filtering
         th.Property("shop_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
         th.Property("shop_number", th.CustomType({"type": ["string", "number", "null"]})),
         th.Property("shop_name", th.CustomType({"type": ["string", "null"]})),
@@ -131,12 +130,10 @@ class StockChangesStream(TilroyStream):
     records_jsonpath = "$[*]"
     default_count = 100
 
-    # Schema matches /stockchanges API response
     schema = th.PropertiesList(
         th.Property("tilroyId", th.CustomType({"type": ["string", "number", "null"]})),
         th.Property("sku", th.CustomType({"type": ["object", "string", "null"]})),
         th.Property("shop", th.CustomType({"type": ["object", "string", "null"]})),
-        # Flattened shop fields for easier filtering
         th.Property("shop_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
         th.Property("shop_number", th.CustomType({"type": ["string", "number", "null"]})),
         th.Property("shop_name", th.CustomType({"type": ["string", "null"]})),
@@ -323,7 +320,6 @@ class StockStream(TilroyStream):
     replication_method = "FULL_TABLE"
     records_jsonpath = "$[*]"
 
-    # Batch configuration
     _batch_size: int = 150  # SKUs per API request (comma-separated in URL)
 
     schema = th.PropertiesList(
@@ -335,7 +331,6 @@ class StockStream(TilroyStream):
         th.Property("refill", th.IntegerType),
         th.Property("dateUpdated", th.DateTimeType),
         th.Property("shop", th.CustomType({"type": ["object", "string", "null"]})),
-        # Flattened shop fields for easier filtering
         th.Property("shop_tilroy_id", th.CustomType({"type": ["string", "number", "null"]})),
         th.Property("shop_number", th.CustomType({"type": ["string", "number", "null"]})),
         th.Property("shop_name", th.CustomType({"type": ["string", "null"]})),
@@ -410,7 +405,6 @@ class StockStream(TilroyStream):
                     break
                 page += 1
 
-            # Log every 10 seconds or every 20 batches
             now = time.time()
             if now - last_log_time >= 10 or batch_num % 20 == 0:
                 elapsed = now - start_time
