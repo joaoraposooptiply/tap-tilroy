@@ -14,7 +14,7 @@ if t.TYPE_CHECKING:
 
 
 # All statuses to query (API requires status with warehouseNumber)
-PURCHASE_ORDER_STATUSES = ["draft", "open", "delivered", "cancelled"]
+PURCHASE_ORDER_STATUSES = ["draft", "open", "delivered", "cancelled", "backorder"]
 
 
 class PurchaseOrdersStream(TilroyStream):
