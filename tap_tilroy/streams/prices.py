@@ -90,10 +90,10 @@ class PricesStream(TilroyStream):
         else:
             yield from self._request_full_sync(context)
 
-            if self._max_date_modified:
-                self.logger.info(
-                    f"[{self.name}] Max dateModified seen: {self._max_date_modified.isoformat()}"
-                )
+        if self._max_date_modified:
+            self.logger.info(
+                f"[{self.name}] Max dateModified seen: {self._max_date_modified.isoformat()}"
+            )
 
     def _request_full_sync(self, context: Context | None) -> t.Iterable[dict]:
         """Fetch price rules individually per SKU using collected SKU IDs.
