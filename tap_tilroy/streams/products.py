@@ -91,7 +91,12 @@ class ProductsStream(DynamicRoutingStream):
                                     ),
                                 ),
                                 th.Property("rrp", th.CustomType({"type": ["array", "object", "string", "null"]})),
-                                th.Property("lifeStatus", th.StringType),
+                                th.Property(
+                                    "lifeStatus",
+                                    th.ObjectType(
+                                        th.Property("code", th.StringType),
+                                    ),
+                                ),
                             )
                         ),
                     ),
