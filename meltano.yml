@@ -18,28 +18,39 @@ plugins:
     - about
     - stream-maps
 
-    # TODO: Declare settings and their types here:
     settings:
-    - name: username
-      label: Username
-      description: The username to use for authentication
-
-    - name: password
+    - name: tilroy_api_key
       kind: password
-      label: Password
-      description: The password to use for authentication
+      label: Tilroy API Key
+      description: The Tilroy API key for authentication
       sensitive: true
+
+    - name: x_api_key
+      kind: password
+      label: AWS API Gateway Key
+      description: The AWS API Gateway key for authentication
+      sensitive: true
+
+    - name: api_url
+      label: API URL
+      description: The base URL for the Tilroy API
 
     - name: start_date
       kind: date_iso8601
       label: Start Date
       description: Initial date to start extracting data from
 
-    # TODO: Declare required settings here:
-    settings_group_validation:
-    - [username, password]
+    - name: shop_ids
+      label: Shop IDs
+      description: Comma-separated shop tilroyIds to filter streams
 
-    # TODO: Declare default configuration values here:
+    - name: shop_numbers
+      label: Shop Numbers
+      description: Comma-separated shop numbers to filter streams
+
+    settings_group_validation:
+    - [tilroy_api_key, x_api_key, api_url]
+
     config:
       start_date: '2010-01-01T00:00:00Z'
 
