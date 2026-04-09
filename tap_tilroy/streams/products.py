@@ -194,9 +194,25 @@ class ProductsStream(DynamicRoutingStream):
             return None
 
         row["extraction_timestamp"] = datetime.now(timezone.utc).isoformat()
+        self._normalize_sku_life_status(row)
         self._collect_ids(row)
 
         return row
+
+    @staticmethod
+    def _normalize_sku_life_status(product: dict) -> None:
+        """Ensure lifeStatus is always {"code": ...}, even if API returns a plain string."""
+        for colour in product.get("colours") or []:
+            if not isinstance(colour, dict):
+                continue
+            for sku in colour.get("skus") or []:
+                if not isinstance(sku, dict):
+                    continue
+                ls = sku.get("lifeStatus")
+                if isinstance(ls, str):
+                    sku["lifeStatus"] = {"code": ls}
+                elif ls is not None and not isinstance(ls, dict):
+                    sku["lifeStatus"] = None
 
     def _collect_ids(self, product: dict) -> None:
         """Extract and store product ID and SKU IDs from product record."""
