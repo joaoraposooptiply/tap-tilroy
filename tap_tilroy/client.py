@@ -190,6 +190,17 @@ class TilroyStream(RESTStream[int]):
         "idTilroy", "idTenant", "idSource",  # Transfer API field names
     })
 
+    # Fields where literal null-like strings are valid business values.
+    _preserve_null_like_string_fields: frozenset[str] = frozenset()
+
+    def _is_null_like_string(self, key: str, value: object) -> bool:
+        """Return whether a string value should be normalized to null."""
+        return (
+            isinstance(value, str)
+            and key not in self._preserve_null_like_string_fields
+            and value.upper() in ("NA", "N/A", "NULL", "NONE", "")
+        )
+
     def post_process(
         self,
         row: dict,
@@ -214,7 +225,7 @@ class TilroyStream(RESTStream[int]):
                 continue
 
             # Handle NA string values
-            if isinstance(value, str) and value.upper() in ("NA", "N/A", "NULL", "NONE", ""):
+            if self._is_null_like_string(key, value):
                 row[key] = None
                 continue
 

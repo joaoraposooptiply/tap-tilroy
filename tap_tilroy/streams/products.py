@@ -513,6 +513,7 @@ class SuppliersStream(TilroyStream):
     replication_method = "FULL_TABLE"
     records_jsonpath = "$[*]"
     default_count = 10000  # Suppliers are typically few, fetch all at once
+    _preserve_null_like_string_fields = frozenset({"code", "name"})
 
     schema = th.PropertiesList(
         th.Property("tilroyId", th.IntegerType),
